@@ -8,21 +8,21 @@ export function AuthPage(){
   try { user = JSON.parse(localStorage.getItem('session_user') || 'null'); } catch {}
 
   if (user) {
-    // 已登入畫面
-    el.innerHTML = `
-      <h3>帳號</h3>
-      <div class="row">
-        <img src="${user.picture || ''}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;margin-right:8px">
-        <div>
-          <div><b>${user.name || ''}</b></div>
-          <div class="small">${user.email || ''}</div>
-        </div>
+  // 已登入畫面
+  el.innerHTML = `
+    <h3>帳號</h3>
+    <div class="row">
+      <img src="${user.picture || ''}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;margin-right:8px">
+      <div>
+        <div><b>${user.name || ''}</b></div>
+        <div class="small">${user.email || ''}</div>
       </div>
-      <div class="row" style="margin-top:10px">
-        <button class="ghost" id="logout">登出</button>
-        <a class="ghost" href="#dashboard">回首頁</a>
-      </div>
-    `;
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="ghost" id="logout">登出</button>
+      <a class="ghost" href="#dashboard">回首頁</a>
+    </div>
+  `;
 
     // 登出
     el.querySelector('#logout').addEventListener('click', () => {
