@@ -23,8 +23,19 @@ export function AuthPage(){
       </div>
     `;
     el.querySelector('#logout').addEventListener('click', () => {
+      // 先重新叫出 Google One Tap
+  try { 
+    google.accounts.id.prompt();  
+  } catch(e) { 
+    console.warn("重新叫出 OneTap 失敗:", e); 
+  }
+
   // 清掉 localStorage session
   localStorage.removeItem('session_user');
+
+  // 重新整理頁面（可選，看你要不要）
+  location.reload();
+});
   
   // 重新叫出 Google OneTap 登入
   try { google.accounts.id.prompt(); } catch(e) {
