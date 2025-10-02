@@ -78,6 +78,16 @@ const payload = JSON.parse(json);
     <button data-route="backup">備份</button>
   </nav>
 </header>
+  <style>
+  #onetap-anchor{position:fixed;top:6px;left:8px;z-index:9999}
+  .welcome-chip{
+    display:inline-flex;align-items:center;gap:.4rem;
+    background:#ffffff; color:#111; border-radius:999px;
+    padding:.35rem .7rem; font-weight:700; box-shadow:0 2px 8px #0003;
+  }
+</style>
+<div id="onetap-anchor"></div>
+
 <main id="app"></main>
 
 <button id="fabExpense" class="fab">＋</button>
