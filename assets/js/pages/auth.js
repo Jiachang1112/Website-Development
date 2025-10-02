@@ -8,6 +8,7 @@ export function AuthPage(){
   try { user = JSON.parse(localStorage.getItem('session_user') || 'null'); } catch {}
 
   if (user) {
+    // 已登入畫面
     el.innerHTML = `
       <h3>帳號</h3>
       <div class="row">
@@ -22,41 +23,39 @@ export function AuthPage(){
         <a class="ghost" href="#dashboard">回首頁</a>
       </div>
     `;
+
+    // 登出
     el.querySelector('#logout').addEventListener('click', () => {
-      // 先重新叫出 Google One Tap
-  try { 
-    google.accounts.id.prompt();  
-  } catch(e) { 
-    console.warn("重新叫出 OneTap 失敗:", e); 
-  }
-
-  // 清掉 localStorage session
-  localStorage.removeItem('session_user');
-
-  // 重新整理頁面（可選，看你要不要）
-  location.reload();
-});
-  
-  // 重新叫出 Google OneTap 登入
-  try { google.accounts.id.prompt(); } catch(e) {
-    console.warn('重新叫出 OneTap 失敗:', e);
-  }
-
-  // 重新整理頁面（可選，看你要不要）
-  location.reload();
-});
+      try { google.accounts.id.prompt(); } catch(e) { console.warn('OneTap 失敗:', e); }
+      localStorage.removeItem('session_user');
+      location.reload();
+    });
 
   } else {
-    // 未登入時顯示 Google 按鈕容器（index.html 已放上 g_id_signin）
+    // 未登入畫面（動態渲染 Google 按鈕）
     el.innerHTML = `
       <h3>帳號</h3>
-      <p class="small">按下方的 Google 登入按鈕登入。</p>
-      <div id="googleBtnMount"></div>
+      <p class="small">請下方的 Google 登入按鈕登入。</p>
+      <div id="googleBtnMount" style="margin-top:8px;"></div>
       <a class="ghost" href="#dashboard">回首頁</a>
     `;
-    // 將首頁上的 Google 按鈕節點搬進來（或直接在這裡再放一個 g_id_signin div 也行）
-    const btn = document.querySelector('.g_id_signin');
-    if (btn) el.querySelector('#googleBtnMount').appendChild(btn);
+
+    function mountGoogleBtn() {
+      const mount = el.querySelector('#googleBtnMount');
+      if (!mount) return;
+
+      if (window.google && google.accounts?.id?.renderButton) {
+        google.accounts.id.renderButton(mount, {
+          theme: 'outline',
+          size: 'large',
+          shape: 'rectangular',
+          text: 'signin_with'
+        });
+      } else {
+        setTimeout(mountGoogleBtn, 100);
+      }
+    }
+    mountGoogleBtn();
   }
 
   return el;
