@@ -32,7 +32,15 @@
   window.handleCredentialResponse = (response) => {
     try {
       const token = response.credential;
-      const payload = JSON.parse(atob(token.split('.')[1])); // 解析 JWT payload
+      const base64Url = token.split('.')[1];
+const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+const json = decodeURIComponent(
+  atob(base64)
+    .split('')
+    .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+    .join('')
+);
+const payload = JSON.parse(json);
       // 存成你的 session（app.js 會讀這個）
       const user = {
         email: payload.email,
