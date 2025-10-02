@@ -1,5 +1,0 @@
-const CACHE='supertool-v2';
-const ASSETS=['/index.html','/manifest.json','/assets/css/style.css','/assets/js/app.js','/assets/js/config.js','/assets/js/db.js','/assets/js/cloud.js','/assets/js/ocr.js','/assets/js/pages/dashboard.js','/assets/js/pages/auth.js','/assets/js/pages/expense.js','/assets/js/pages/income.js','/assets/js/pages/chatbook.js','/assets/js/pages/camera-expense.js','/assets/js/pages/shop.js','/assets/js/pages/admin.js','/assets/js/pages/settings.js','/assets/js/pages/backup.js','/assets/js/pages/expense-mine.js','/assets/js/pages/expense-detail.js','/assets/js/pages/expense-analysis.js','/data/products.json','/assets/img/icon-192.png','/assets/img/icon-512.png'];
-self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))); });
-self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))); });
-self.addEventListener('fetch',e=>{ e.respondWith(caches.match(e.request).then(r=> r || fetch(e.request))); });
