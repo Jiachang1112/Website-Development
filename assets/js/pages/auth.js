@@ -1,12 +1,43 @@
-import { currentUser } from '../app.js';
+// assets/js/pages/auth.js
 export function AuthPage(){
-  const el=document.createElement('div'); el.className='container card';
-  const u=currentUser();
-  el.innerHTML=`<h3>帳號</h3>
-  <div id="info">${u?('已登入：'+(u.email||u.name)):'尚未登入'}</div>
-  <div class="row"><button class="primary" id="fake">Sign in with Google</button><button class="ghost" id="logout">登出</button></div>
-  <p class="small">（範例）按下登入會建立本地 session，正式環境請填入 GOOGLE_CLIENT_ID 並使用 Google Identity 1-tap。</p>`;
-  el.querySelector('#fake').addEventListener('click',()=>{ localStorage.setItem('session_user', JSON.stringify({email:'bruce9811123@gmail.com', name:'Bruce'})); location.reload(); });
-  el.querySelector('#logout').addEventListener('click',()=>{ localStorage.removeItem('session_user'); location.reload(); });
+  const el = document.createElement('div');
+  el.className = 'container card';
+
+  // 讀取 session
+  let user = null;
+  try { user = JSON.parse(localStorage.getItem('session_user') || 'null'); } catch {}
+
+  if (user) {
+    el.innerHTML = `
+      <h3>帳號</h3>
+      <div class="row">
+        <img src="${user.picture || ''}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;margin-right:8px">
+        <div>
+          <div><b>${user.name || ''}</b></div>
+          <div class="small">${user.email || ''}</div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="ghost" id="logout">登出</button>
+        <a class="ghost" href="#dashboard">回首頁</a>
+      </div>
+    `;
+    el.querySelector('#logout').addEventListener('click', ()=>{
+      localStorage.removeItem('session_user');
+      location.reload();
+    });
+  } else {
+    // 未登入時顯示 Google 按鈕容器（index.html 已放上 g_id_signin）
+    el.innerHTML = `
+      <h3>帳號</h3>
+      <p class="small">按下方的 Google 登入按鈕登入。</p>
+      <div id="googleBtnMount"></div>
+      <a class="ghost" href="#dashboard">回首頁</a>
+    `;
+    // 將首頁上的 Google 按鈕節點搬進來（或直接在這裡再放一個 g_id_signin div 也行）
+    const btn = document.querySelector('.g_id_signin');
+    if (btn) el.querySelector('#googleBtnMount').appendChild(btn);
+  }
+
   return el;
 }
