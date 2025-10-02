@@ -26,20 +26,19 @@ export function AuthPage(){
 
     // 登出
     el.querySelector('#logout').addEventListener('click', () => {
-  // 1) 清掉登入狀態
+  // 清掉 localStorage session
   localStorage.removeItem('session_user');
 
-  // 2) 確保 One-Tap 可再次出現
-  try { google.accounts.id.cancel(); } catch(e) {}
-  try { google.accounts.id.disableAutoSelect(); } catch(e) {}
-  // 立刻要求顯示（不等重新整理）
-  setTimeout(() => { try { google.accounts.id.prompt(); } catch(e) {} }, 0);
+  // 嘗試重新叫出 Google One-Tap
+  try {
+    google.accounts.id.prompt();
+  } catch (e) {
+    console.warn("重新叫出 One-Tap 失敗：", e);
+  }
 
-  // 3) 直接導向帳號頁，讓按鈕立刻渲染
-  location.hash = '#auth';        // 或你路由上的「帳號」路徑
-  // 不 reload：SPA 會馬上換到帳號頁並渲染按鈕
+  // （可選）如果你希望頁面重整，讓狀態乾淨
+  // location.reload();
 });
-
 
   } else {
     // 未登入畫面（動態渲染 Google 按鈕）
