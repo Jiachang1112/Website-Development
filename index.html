@@ -31,35 +31,68 @@
      data-logo_alignment="left"></div>
 
 <script>
-  // Google 回傳 credential（JWT）後會呼叫這個函式
-  window.handleCredentialResponse = (response) => {
-    try {
+  // 讀取/寫入使用者
+  function getUser(){ try{ return JSON.parse(localStorage.getItem('session_user')||'null'); }catch{return null;} }
+  function showWelcomeChip(name){
+    const anchor = document.getElementById('onetap-anchor');
+    anchor.innerHTML = `<div class="welcome-chip">👋 歡迎 ${name}</div>`;
+  }
+
+  // Google 回傳 credential 後執行（含正確的中文解碼）
+  function handleCredentialResponse(response){
+    try{
       const token = response.credential;
       const base64Url = token.split('.')[1];
-const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-const json = decodeURIComponent(
-  atob(base64)
-    .split('')
-    .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-    .join('')
-);
-const payload = JSON.parse(json);
-      // 存成你的 session（app.js 會讀這個）
+      const base64    = base64Url.replace(/-/g,'+').replace(/_/g,'/');
+      const json = decodeURIComponent(
+        atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+      );
+      const payload = JSON.parse(json);
+
       const user = {
-        email: payload.email,
-        name: payload.name,
+        email:   payload.email,
+        name:    payload.name,
         picture: payload.picture,
-        sub: payload.sub
+        sub:     payload.sub
       };
       localStorage.setItem('session_user', JSON.stringify(user));
-      // 登入完成 → 回首頁或直接跳後台
+
+      // 登入後：關閉 One-Tap 並顯示歡迎
+      try{ google.accounts.id.cancel(); }catch(e){}
+      showWelcomeChip(user.name);
+
+      // 讓你的 app 讀到新 session（若不需要可移除）
       location.hash = '#dashboard';
       location.reload();
-    } catch (e) {
-      alert('Google 登入解析失敗：' + e);
+    }catch(e){
+      console.error('解析 Google Token 錯誤：', e);
     }
-  };
+  }
+
+  // ===== 初始化（關鍵）=====
+  window.addEventListener('load', () => {
+    // 先清除自動選取狀態，避免殘留
+    try{ google.accounts.id.disableAutoSelect(); }catch(e){}
+
+    // 初始化：不要 auto_select，callback 指向上面那個函式
+    google.accounts.id.initialize({
+      client_id: "225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com",
+      callback: handleCredentialResponse,
+      auto_select: false,
+      cancel_on_tap_outside: true
+    });
+
+    const user = getUser();
+    if (user && user.name){
+      // 已登入：不顯示 One-Tap，直接顯示歡迎徽章
+      showWelcomeChip(user.name);
+    }else{
+      // 未登入：叫出 One-Tap 小膠囊
+      google.accounts.id.prompt();
+    }
+  });
 </script>
+
 
 <header class="top">
   <div class="brand">SuperTool</div>
