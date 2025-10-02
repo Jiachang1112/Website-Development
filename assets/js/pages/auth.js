@@ -22,10 +22,19 @@ export function AuthPage(){
         <a class="ghost" href="#dashboard">回首頁</a>
       </div>
     `;
-    el.querySelector('#logout').addEventListener('click', ()=>{
-      localStorage.removeItem('session_user');
-      location.reload();
-    });
+    el.querySelector('#logout').addEventListener('click', () => {
+  // 清掉 localStorage session
+  localStorage.removeItem('session_user');
+  
+  // 重新叫出 Google OneTap 登入
+  try { google.accounts.id.prompt(); } catch(e) {
+    console.warn('重新叫出 OneTap 失敗:', e);
+  }
+
+  // 重新整理頁面（可選，看你要不要）
+  location.reload();
+});
+
   } else {
     // 未登入時顯示 Google 按鈕容器（index.html 已放上 g_id_signin）
     el.innerHTML = `
