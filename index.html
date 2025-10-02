@@ -1,4 +1,5 @@
-<!doctype html><html lang="zh-Hant">
+<!doctype html>
+<html lang="zh-Hant">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -7,40 +8,67 @@
 <link rel="icon" href="assets/img/icon-192.png"/>
 <link rel="stylesheet" href="assets/css/style.css"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  /* 小貼片樣式 */
+  #onetap-anchor {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 9999;
+  }
+  .welcome-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4em;
+    background: #fff;
+    color: #111;
+    border-radius: 999px;
+    padding: .35rem .7rem;
+    font-weight: 700;
+    box-shadow: 0 2px 8px #0003;
+  }
+</style>
 </head>
 <body>
-  <!-- 放在 <head> 結束前或 <body> 開頭都可以 -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- 顯示「歡迎 {name}」的小貼片位置 -->
+  <div id="onetap-anchor"></div>
 
-<!-- 初始化：只要填 Client ID，不要 data-login_uri -->
-<div id="g_id_onload"
-     data-client_id="225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com"
-     data-auto_prompt="false"
-     data-callback="handleCredentialResponse"></div>
+  <!-- Google One Tap 初始化 -->
+  <div id="g_id_onload"
+       data-client_id="225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com"
+       data-auto_prompt="false"
+       data-callback="handleCredentialResponse"></div>
 
-<!-- 顯示 Google 登入按鈕 -->
-<div class="g_id_signin"
-     data-type="standard"
-     data-shape="rectangular"
-     data-theme="outline"
-     data-text="sign_in_with"
-     data-size="large"
-     data-logo_alignment="left"></div>
+  <!-- 顯示 Google 登入按鈕 -->
+  <div class="g_id_signin"
+       data-type="standard"
+       data-shape="rectangular"
+       data-theme="outline"
+       data-text="sign_in_with"
+       data-size="large"
+       data-logo_alignment="left"></div>
 
 <script>
+  // 顯示右上角/左上角小貼片
+  function showWelcomeChip(name){
+    const anchor = document.getElementById('onetap-anchor');
+    if(!anchor) return;
+    anchor.innerHTML = `<div class="welcome-chip">👋 歡迎 ${name}</div>`;
+  }
+
   // Google 回傳 credential（JWT）後會呼叫這個函式
   window.handleCredentialResponse = (response) => {
     try {
       const token = response.credential;
       const base64Url = token.split('.')[1];
-const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-const json = decodeURIComponent(
-  atob(base64)
-    .split('')
-    .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-    .join('')
-);
-const payload = JSON.parse(json);
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const json = decodeURIComponent(
+        atob(base64).split('').map(c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join('')
+      );
+      const payload = JSON.parse(json);
+
       // 存成你的 session（app.js 會讀這個）
       const user = {
         email: payload.email,
@@ -49,6 +77,10 @@ const payload = JSON.parse(json);
         sub: payload.sub
       };
       localStorage.setItem('session_user', JSON.stringify(user));
+
+      // 顯示歡迎文字 👋
+      showWelcomeChip(user.name);
+
       // 登入完成 → 回首頁或直接跳後台
       location.hash = '#dashboard';
       location.reload();
@@ -84,4 +116,5 @@ const payload = JSON.parse(json);
 <script>
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
 </script>
-</body></html>
+</body>
+</html>
