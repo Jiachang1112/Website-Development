@@ -1,120 +1,28 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>SuperTool Site</title>
-<link rel="manifest" href="manifest.json"/>
-<link rel="icon" href="assets/img/icon-192.png"/>
-<link rel="stylesheet" href="assets/css/style.css"/>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<style>
-  /* 小貼片樣式 */
-  #onetap-anchor {
-    position: fixed;
-    top: 8px;
-    left: 8px;
-    z-index: 9999;
-  }
-  .welcome-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: .4em;
-    background: #fff;
-    color: #111;
-    border-radius: 999px;
-    padding: .35rem .7rem;
-    font-weight: 700;
-    box-shadow: 0 2px 8px #0003;
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SuperTool Site</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="assets/img/icon-192.png" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+
+  <!-- Google Identity Services：只載一次 -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <style>
+    /* 小貼片樣式（顯示在帳號卡片標題下、回首頁按鈕上） */
+    .welcome-chip{
+      display:inline-flex;align-items:center;gap:.4rem;
+      background:#ffffff; color:#111; border-radius:999px;
+      padding:.35rem .7rem; font-weight:700; box-shadow:0 2px 8px #0003;
+      margin: .5rem 0 1rem 0;
+    }
+  </style>
 </head>
 <body>
-  <!-- 顯示「歡迎 {name}」的小貼片位置 -->
-  <div id="onetap-anchor"></div>
-
-  <!-- Google One Tap 初始化 -->
-  <div id="g_id_onload"
-       data-client_id="225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com"
-       data-auto_prompt="false"
-       data-callback="handleCredentialResponse"></div>
-
-  <!-- 顯示 Google 登入按鈕 -->
-  <div class="g_id_signin"
-       data-type="standard"
-       data-shape="rectangular"
-       data-theme="outline"
-       data-text="sign_in_with"
-       data-size="large"
-       data-logo_alignment="left"></div>
-
-<script>
-  // 顯示小貼片
-  function showWelcomeChip(name){
-    const anchor = document.getElementById('onetap-anchor');
-    if(!anchor) return;
-    anchor.innerHTML = `<div class="welcome-chip">👋 歡迎 ${name}</div>`;
-  }
-
-  // 清掉小貼片
-  function clearWelcomeChip(){
-    const anchor = document.getElementById('onetap-anchor');
-    if(anchor) anchor.innerHTML = '';
-  }
-
-  // Google 回傳 credential（JWT）後會呼叫這個函式
-  window.handleCredentialResponse = (response) => {
-    try {
-      const token = response.credential;
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const json = decodeURIComponent(
-        atob(base64).split('').map(c =>
-          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-        ).join('')
-      );
-      const payload = JSON.parse(json);
-
-      // 存成 session
-      const user = {
-        email: payload.email,
-        name: payload.name,
-        picture: payload.picture,
-        sub: payload.sub
-      };
-      localStorage.setItem('session_user', JSON.stringify(user));
-
-      // 顯示 👋 歡迎
-      showWelcomeChip(user.name);
-
-      // 登入完成 → 回首頁或直接跳後台
-      location.hash = '#dashboard';
-      location.reload();
-    } catch (e) {
-      alert('Google 登入解析失敗：' + e);
-    }
-  };
-
-  // 登出功能
-  function logout(){
-    try{ google.accounts.id.disableAutoSelect(); }catch(e){}
-    localStorage.removeItem('session_user'); // 清掉 session
-    clearWelcomeChip(); // 清掉貼片
-    location.hash = '#auth'; // 回帳號頁
-    location.reload();
-  }
-
-  // 讓你可以在 HTML 加一個登出按鈕用
-  window.addEventListener('DOMContentLoaded', () => {
-    const nav = document.querySelector('.nav');
-    if(nav){
-      const btn = document.createElement('button');
-      btn.textContent = '登出';
-      btn.onclick = logout;
-      nav.appendChild(btn);
-    }
-  });
-</script>
 
 <header class="top">
   <div class="brand">SuperTool</div>
@@ -133,14 +41,130 @@
     <button data-route="backup">備份</button>
   </nav>
 </header>
+
 <main id="app"></main>
 
 <button id="fabExpense" class="fab">＋</button>
 <button id="fabShop" class="fab-square">🛒</button>
 
 <script type="module" src="assets/js/app.js"></script>
+
 <script>
-if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
+/* ------------------ 共用：JWT 解析（避免中文亂碼） ------------------ */
+function parseGoogleJWT(credential){
+  const base64Url = credential.split('.')[1];
+  const base64 = base64Url.replace(/-/g,'+').replace(/_/g,'/');
+  const json = decodeURIComponent(
+    atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+  );
+  return JSON.parse(json);
+}
+
+/* ------------------ 共用：在帳號卡片顯示歡迎 ------------------ */
+window.__showWelcomeInAuth = function(name){
+  // 優先找 #welcome-slot，找不到就自動建立到帳號卡片頂端
+  let slot = document.getElementById('welcome-slot');
+  if(!slot){
+    const card = document.querySelector('#auth-card');
+    if(card){
+      slot = document.createElement('div');
+      slot.id = 'welcome-slot';
+      card.insertBefore(slot, card.firstChild ? card.firstChild.nextSibling : null);
+    }
+  }
+  if(slot){
+    slot.innerHTML = `<div class="welcome-chip">👋 歡迎 ${name}</div>`;
+  }
+};
+
+/* ------------------ Google 初始化 & 登入回呼 ------------------ */
+function handleCredentialResponse(res){
+  try{
+    const payload = parseGoogleJWT(res.credential);
+    const user = {
+      email:   payload.email,
+      name:    payload.name,
+      picture: payload.picture,
+      sub:     payload.sub
+    };
+    localStorage.setItem('session_user', JSON.stringify(user));
+    try{ google.accounts.id.cancel(); }catch(e){}
+
+    // 若目前在帳號頁，直接顯示歡迎
+    window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name);
+
+    // 通知頁面（若你有路由或需要刷新）
+    if(location.hash === '#auth'){
+      // 不重整也可，只要你的 SPA 會讀 localStorage 就好
+    }else{
+      // 登入完直接回首頁（選用）
+      location.hash = '#dashboard';
+    }
+  }catch(e){
+    console.error('解析 Google Token 失敗：', e);
+  }
+}
+
+function initGoogle(){
+  if(!window.google || !google.accounts || !google.accounts.id) return;
+
+  google.accounts.id.initialize({
+    client_id: "225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com",
+    callback: handleCredentialResponse,
+    auto_select: false,           // ❌ 不自動 One-Tap
+    cancel_on_tap_outside: true   // ❌ 不顯示左上角膠囊
+  });
+
+  // 把 renderButton 變成全域可呼叫（在 auth.js 會使用）
+  window.__renderGoogleBtn = function(){
+    const mount = document.getElementById('googleBtnMount') || document.querySelector('.g_id_signin');
+    if(mount){
+      google.accounts.id.renderButton(mount, { theme: "outline", size: "large" });
+    }
+  };
+
+  // 若已登入，切到帳號頁時顯示歡迎；未登入則渲染按鈕
+  function refreshAuthUI(){
+    let user = null;
+    try{ user = JSON.parse(localStorage.getItem('session_user') || 'null'); }catch{}
+    if(location.hash === '#auth'){
+      if(user && user.name){
+        window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name);
+      }else{
+        window.__renderGoogleBtn && window.__renderGoogleBtn();
+      }
+    }
+  }
+
+  // 首次載入
+  refreshAuthUI();
+
+  // hash 變化時再檢查一次
+  window.addEventListener('hashchange', refreshAuthUI);
+}
+
+window.addEventListener('load', () => {
+  // 初始化 GSI
+  const ready = () => initGoogle();
+  if(window.google && google.accounts && google.accounts.id){ ready(); }
+  else {
+    // 等 script 載入完成
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries++;
+      if(window.google && google.accounts && google.accounts.id){
+        clearInterval(timer);
+        ready();
+      }else if(tries > 50){ // 最多等 5 秒
+        clearInterval(timer);
+      }
+    }, 100);
+  }
+});
+</script>
+
+<script>
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
 </script>
 </body>
 </html>
