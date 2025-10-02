@@ -1,0 +1,1 @@
+import { isAdmin } from '../app.js'; export function AdminPage(){ const el=document.createElement('div'); el.className='container card'; if(!isAdmin()){ el.innerHTML='<h3>後台</h3><p>請先登入，且需在管理員白名單。</p>'; return el;} el.innerHTML='<h3>後台儀表板</h3><p class="small">示範：只有白名單可見。</p>'; return el;}

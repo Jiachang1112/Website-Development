@@ -1,0 +1,702 @@
+[
+  {
+    "id": 1,
+    "name": "商品 001",
+    "brand": "Super",
+    "category": "運動",
+    "price": 4008
+  },
+  {
+    "id": 2,
+    "name": "商品 002",
+    "brand": "Super",
+    "category": "家電",
+    "price": 1133
+  },
+  {
+    "id": 3,
+    "name": "商品 003",
+    "brand": "Super",
+    "category": "文具",
+    "price": 3041
+  },
+  {
+    "id": 4,
+    "name": "商品 004",
+    "brand": "Super",
+    "category": "運動",
+    "price": 4901
+  },
+  {
+    "id": 5,
+    "name": "商品 005",
+    "brand": "Super",
+    "category": "文具",
+    "price": 4372
+  },
+  {
+    "id": 6,
+    "name": "商品 006",
+    "brand": "Super",
+    "category": "家電",
+    "price": 4336
+  },
+  {
+    "id": 7,
+    "name": "商品 007",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 4206
+  },
+  {
+    "id": 8,
+    "name": "商品 008",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 3756
+  },
+  {
+    "id": 9,
+    "name": "商品 009",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 4723
+  },
+  {
+    "id": 10,
+    "name": "商品 010",
+    "brand": "Super",
+    "category": "生活",
+    "price": 3495
+  },
+  {
+    "id": 11,
+    "name": "商品 011",
+    "brand": "Super",
+    "category": "運動",
+    "price": 2991
+  },
+  {
+    "id": 12,
+    "name": "商品 012",
+    "brand": "Super",
+    "category": "居家",
+    "price": 1991
+  },
+  {
+    "id": 13,
+    "name": "商品 013",
+    "brand": "Super",
+    "category": "3C",
+    "price": 3371
+  },
+  {
+    "id": 14,
+    "name": "商品 014",
+    "brand": "Super",
+    "category": "文具",
+    "price": 801
+  },
+  {
+    "id": 15,
+    "name": "商品 015",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 3313
+  },
+  {
+    "id": 16,
+    "name": "商品 016",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 3701
+  },
+  {
+    "id": 17,
+    "name": "商品 017",
+    "brand": "Super",
+    "category": "文具",
+    "price": 1612
+  },
+  {
+    "id": 18,
+    "name": "商品 018",
+    "brand": "Super",
+    "category": "3C",
+    "price": 1681
+  },
+  {
+    "id": 19,
+    "name": "商品 019",
+    "brand": "Super",
+    "category": "3C",
+    "price": 3782
+  },
+  {
+    "id": 20,
+    "name": "商品 020",
+    "brand": "Super",
+    "category": "文具",
+    "price": 681
+  },
+  {
+    "id": 21,
+    "name": "商品 021",
+    "brand": "Super",
+    "category": "家電",
+    "price": 1055
+  },
+  {
+    "id": 22,
+    "name": "商品 022",
+    "brand": "Super",
+    "category": "運動",
+    "price": 859
+  },
+  {
+    "id": 23,
+    "name": "商品 023",
+    "brand": "Super",
+    "category": "食品",
+    "price": 3617
+  },
+  {
+    "id": 24,
+    "name": "商品 024",
+    "brand": "Super",
+    "category": "家電",
+    "price": 2607
+  },
+  {
+    "id": 25,
+    "name": "商品 025",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 4245
+  },
+  {
+    "id": 26,
+    "name": "商品 026",
+    "brand": "Super",
+    "category": "文具",
+    "price": 1934
+  },
+  {
+    "id": 27,
+    "name": "商品 027",
+    "brand": "Super",
+    "category": "家電",
+    "price": 2966
+  },
+  {
+    "id": 28,
+    "name": "商品 028",
+    "brand": "Super",
+    "category": "生活",
+    "price": 1461
+  },
+  {
+    "id": 29,
+    "name": "商品 029",
+    "brand": "Super",
+    "category": "運動",
+    "price": 1008
+  },
+  {
+    "id": 30,
+    "name": "商品 030",
+    "brand": "Super",
+    "category": "文具",
+    "price": 3560
+  },
+  {
+    "id": 31,
+    "name": "商品 031",
+    "brand": "Super",
+    "category": "居家",
+    "price": 240
+  },
+  {
+    "id": 32,
+    "name": "商品 032",
+    "brand": "Super",
+    "category": "運動",
+    "price": 3589
+  },
+  {
+    "id": 33,
+    "name": "商品 033",
+    "brand": "Super",
+    "category": "家電",
+    "price": 3068
+  },
+  {
+    "id": 34,
+    "name": "商品 034",
+    "brand": "Super",
+    "category": "3C",
+    "price": 1333
+  },
+  {
+    "id": 35,
+    "name": "商品 035",
+    "brand": "Super",
+    "category": "居家",
+    "price": 1407
+  },
+  {
+    "id": 36,
+    "name": "商品 036",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 2893
+  },
+  {
+    "id": 37,
+    "name": "商品 037",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 3189
+  },
+  {
+    "id": 38,
+    "name": "商品 038",
+    "brand": "Super",
+    "category": "家電",
+    "price": 644
+  },
+  {
+    "id": 39,
+    "name": "商品 039",
+    "brand": "Super",
+    "category": "文具",
+    "price": 344
+  },
+  {
+    "id": 40,
+    "name": "商品 040",
+    "brand": "Super",
+    "category": "3C",
+    "price": 4966
+  },
+  {
+    "id": 41,
+    "name": "商品 041",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 4170
+  },
+  {
+    "id": 42,
+    "name": "商品 042",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 2206
+  },
+  {
+    "id": 43,
+    "name": "商品 043",
+    "brand": "Super",
+    "category": "家電",
+    "price": 3402
+  },
+  {
+    "id": 44,
+    "name": "商品 044",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 181
+  },
+  {
+    "id": 45,
+    "name": "商品 045",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 2314
+  },
+  {
+    "id": 46,
+    "name": "商品 046",
+    "brand": "Super",
+    "category": "文具",
+    "price": 966
+  },
+  {
+    "id": 47,
+    "name": "商品 047",
+    "brand": "Super",
+    "category": "食品",
+    "price": 2642
+  },
+  {
+    "id": 48,
+    "name": "商品 048",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 2805
+  },
+  {
+    "id": 49,
+    "name": "商品 049",
+    "brand": "Super",
+    "category": "運動",
+    "price": 4237
+  },
+  {
+    "id": 50,
+    "name": "商品 050",
+    "brand": "Super",
+    "category": "文具",
+    "price": 748
+  },
+  {
+    "id": 51,
+    "name": "商品 051",
+    "brand": "Super",
+    "category": "食品",
+    "price": 1332
+  },
+  {
+    "id": 52,
+    "name": "商品 052",
+    "brand": "Super",
+    "category": "運動",
+    "price": 1260
+  },
+  {
+    "id": 53,
+    "name": "商品 053",
+    "brand": "Super",
+    "category": "生活",
+    "price": 4165
+  },
+  {
+    "id": 54,
+    "name": "商品 054",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 2348
+  },
+  {
+    "id": 55,
+    "name": "商品 055",
+    "brand": "Super",
+    "category": "3C",
+    "price": 2596
+  },
+  {
+    "id": 56,
+    "name": "商品 056",
+    "brand": "Super",
+    "category": "居家",
+    "price": 2445
+  },
+  {
+    "id": 57,
+    "name": "商品 057",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 1057
+  },
+  {
+    "id": 58,
+    "name": "商品 058",
+    "brand": "Super",
+    "category": "食品",
+    "price": 3238
+  },
+  {
+    "id": 59,
+    "name": "商品 059",
+    "brand": "Super",
+    "category": "居家",
+    "price": 4937
+  },
+  {
+    "id": 60,
+    "name": "商品 060",
+    "brand": "Super",
+    "category": "食品",
+    "price": 2298
+  },
+  {
+    "id": 61,
+    "name": "商品 061",
+    "brand": "Super",
+    "category": "食品",
+    "price": 4633
+  },
+  {
+    "id": 62,
+    "name": "商品 062",
+    "brand": "Super",
+    "category": "生活",
+    "price": 508
+  },
+  {
+    "id": 63,
+    "name": "商品 063",
+    "brand": "Super",
+    "category": "文具",
+    "price": 4195
+  },
+  {
+    "id": 64,
+    "name": "商品 064",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 1702
+  },
+  {
+    "id": 65,
+    "name": "商品 065",
+    "brand": "Super",
+    "category": "3C",
+    "price": 1286
+  },
+  {
+    "id": 66,
+    "name": "商品 066",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 3019
+  },
+  {
+    "id": 67,
+    "name": "商品 067",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 4072
+  },
+  {
+    "id": 68,
+    "name": "商品 068",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 2818
+  },
+  {
+    "id": 69,
+    "name": "商品 069",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 1125
+  },
+  {
+    "id": 70,
+    "name": "商品 070",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 1226
+  },
+  {
+    "id": 71,
+    "name": "商品 071",
+    "brand": "Super",
+    "category": "食品",
+    "price": 1541
+  },
+  {
+    "id": 72,
+    "name": "商品 072",
+    "brand": "Super",
+    "category": "3C",
+    "price": 4676
+  },
+  {
+    "id": 73,
+    "name": "商品 073",
+    "brand": "Super",
+    "category": "食品",
+    "price": 2460
+  },
+  {
+    "id": 74,
+    "name": "商品 074",
+    "brand": "Super",
+    "category": "3C",
+    "price": 4844
+  },
+  {
+    "id": 75,
+    "name": "商品 075",
+    "brand": "Super",
+    "category": "居家",
+    "price": 1651
+  },
+  {
+    "id": 76,
+    "name": "商品 076",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 3714
+  },
+  {
+    "id": 77,
+    "name": "商品 077",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 1776
+  },
+  {
+    "id": 78,
+    "name": "商品 078",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 1306
+  },
+  {
+    "id": 79,
+    "name": "商品 079",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 195
+  },
+  {
+    "id": 80,
+    "name": "商品 080",
+    "brand": "Super",
+    "category": "家電",
+    "price": 1173
+  },
+  {
+    "id": 81,
+    "name": "商品 081",
+    "brand": "Super",
+    "category": "食品",
+    "price": 2999
+  },
+  {
+    "id": 82,
+    "name": "商品 082",
+    "brand": "Super",
+    "category": "居家",
+    "price": 650
+  },
+  {
+    "id": 83,
+    "name": "商品 083",
+    "brand": "Super",
+    "category": "3C",
+    "price": 783
+  },
+  {
+    "id": 84,
+    "name": "商品 084",
+    "brand": "Super",
+    "category": "3C",
+    "price": 2590
+  },
+  {
+    "id": 85,
+    "name": "商品 085",
+    "brand": "Super",
+    "category": "3C",
+    "price": 4359
+  },
+  {
+    "id": 86,
+    "name": "商品 086",
+    "brand": "Super",
+    "category": "3C",
+    "price": 2368
+  },
+  {
+    "id": 87,
+    "name": "商品 087",
+    "brand": "Super",
+    "category": "家電",
+    "price": 3725
+  },
+  {
+    "id": 88,
+    "name": "商品 088",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 1527
+  },
+  {
+    "id": 89,
+    "name": "商品 089",
+    "brand": "Super",
+    "category": "家電",
+    "price": 2852
+  },
+  {
+    "id": 90,
+    "name": "商品 090",
+    "brand": "Super",
+    "category": "運動",
+    "price": 4231
+  },
+  {
+    "id": 91,
+    "name": "商品 091",
+    "brand": "Super",
+    "category": "居家",
+    "price": 2431
+  },
+  {
+    "id": 92,
+    "name": "商品 092",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 1700
+  },
+  {
+    "id": 93,
+    "name": "商品 093",
+    "brand": "Super",
+    "category": "食品",
+    "price": 1416
+  },
+  {
+    "id": 94,
+    "name": "商品 094",
+    "brand": "Super",
+    "category": "居家",
+    "price": 3868
+  },
+  {
+    "id": 95,
+    "name": "商品 095",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 1310
+  },
+  {
+    "id": 96,
+    "name": "商品 096",
+    "brand": "Super",
+    "category": "文具",
+    "price": 4751
+  },
+  {
+    "id": 97,
+    "name": "商品 097",
+    "brand": "Super",
+    "category": "生活",
+    "price": 823
+  },
+  {
+    "id": 98,
+    "name": "商品 098",
+    "brand": "Super",
+    "category": "3C",
+    "price": 3420
+  },
+  {
+    "id": 99,
+    "name": "商品 099",
+    "brand": "Super",
+    "category": "居家",
+    "price": 1656
+  },
+  {
+    "id": 100,
+    "name": "商品 100",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 4188
+  }
+]

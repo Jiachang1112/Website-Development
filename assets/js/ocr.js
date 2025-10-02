@@ -1,0 +1,3 @@
+export async function ensureTesseract(){ if(window.Tesseract) return window.Tesseract;
+  await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://unpkg.com/tesseract.js@v5.0.3/dist/tesseract.min.js'; s.onload=res; s.onerror=()=>rej(new Error('Tesseract 載入失敗')); document.head.appendChild(s);}); return window.Tesseract;}
+export async function ocrImage(dataUrl, lang='eng'){ const T=await ensureTesseract(); const worker=await T.createWorker(lang); const ret=await worker.recognize(dataUrl); await worker.terminate(); return ret.data.text||''; }

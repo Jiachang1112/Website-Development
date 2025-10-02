@@ -1,0 +1,21 @@
+:root{--bg:#0b0f14;--fg:#e8eef6;--accent:#5b8cff;--card:#131a22;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui, -apple-system, Segoe UI, Roboto}
+.top{position:sticky;top:0;background:#0d1320cc;backdrop-filter:saturate(1.2) blur(6px);display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #ffffff1a}
+.brand{font-weight:800;letter-spacing:0.5px}
+.nav button{margin:0 4px;background:#ffffff12;color:var(--fg);border:1px solid #ffffff1a;border-radius:10px;padding:6px 10px;cursor:pointer}
+.nav button:hover{background:#ffffff1f}
+#app{padding:16px}
+.container{max-width:1024px;margin:0 auto}
+.grid{display:grid;gap:12px}
+.card{background:var(--card);border:1px solid #ffffff12;border-radius:16px;padding:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ghost{background:#ffffff12;border:1px solid #ffffff22;color:var(--fg);padding:6px 10px;border-radius:12px;cursor:pointer;text-decoration:none}
+.primary{background:var(--accent);border:0;color:#fff;padding:8px 12px;border-radius:12px;cursor:pointer}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid #ffffff22;background:#ffffff12;border-radius:999px}
+.small{font-size:12px;opacity:.85}
+.order-row{display:flex;justify-content:space-between;gap:10px;padding:10px;border-bottom:1px dashed #ffffff22}
+.fab{position:fixed;right:18px;bottom:18px;background:var(--accent);color:#fff;border:0;border-radius:999px;width:56px;height:56px;font-size:28px;cursor:pointer;box-shadow:0 10px 30px #0006}
+.fab-square{position:fixed;right:88px;bottom:18px;background:#ffffff12;border:1px solid #ffffff22;color:#fff;border-radius:16px;width:56px;height:56px;font-size:22px;cursor:pointer;box-shadow:0 10px 30px #0006}
+input,select,textarea{background:#0f1520;border:1px solid #ffffff22;color:var(--fg);padding:8px;border-radius:10px}
+table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #ffffff22;padding:8px}
+.status-bar{display:flex;gap:10px}.status-tile{position:relative;border:1px solid #ffffff22;background:#ffffff12;border-radius:14px;padding:10px 12px;min-width:88px;cursor:pointer;text-align:center}.red-badge{position:absolute;top:-8px;right:-8px;background:#ff4d4d;border-radius:999px;padding:4px 8px;font-weight:700}

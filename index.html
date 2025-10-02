@@ -1,0 +1,38 @@
+<!doctype html><html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>SuperTool Site</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" href="assets/img/icon-192.png"/>
+<link rel="stylesheet" href="assets/css/style.css"/>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand">SuperTool</div>
+  <nav class="nav">
+    <button data-route="dashboard">首頁</button>
+    <button data-route="auth">帳號</button>
+    <button data-route="expense">支出</button>
+    <button data-route="acct_mine">我的</button>
+    <button data-route="acct_detail">明細</button>
+    <button data-route="acct_analysis">分析</button>
+    <button data-route="chatbook">聊天記帳</button>
+    <button data-route="camera">拍照記帳</button>
+    <button data-route="shop">購物</button>
+    <button data-route="admin">後台</button>
+    <button data-route="settings">設定</button>
+    <button data-route="backup">備份</button>
+  </nav>
+</header>
+<main id="app"></main>
+
+<button id="fabExpense" class="fab">＋</button>
+<button id="fabShop" class="fab-square">🛒</button>
+
+<script type="module" src="assets/js/app.js"></script>
+<script>
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
+</script>
+</body></html>

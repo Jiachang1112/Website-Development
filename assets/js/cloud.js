@@ -1,0 +1,3 @@
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+export function cloudReady(){ return !!(SUPABASE_URL && SUPABASE_ANON_KEY); }
+export async function cloudOCR(dataUrl, lang='auto'){ const url = `${SUPABASE_URL}/functions/v1/ocr-receipt`; const body={ imageBase64:(dataUrl||'').replace(/^data:image\/\w+;base64,/,''), lang }; const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`,'apikey':SUPABASE_ANON_KEY}, body:JSON.stringify(body)}); if(!res.ok){ throw new Error('Cloud OCR failed'); } return await res.json(); }
