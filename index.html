@@ -8,15 +8,18 @@
 <link rel="stylesheet" href="assets/css/style.css"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
+  <style>
+  #onetap-anchor{position:fixed;top:6px;left:8px;z-index:9999}
+  .welcome-chip{
+    display:inline-flex;align-items:center;gap:.4rem;
+    background:#ffffff; color:#111; border-radius:999px;
+    padding:.35rem .7rem; font-weight:700; box-shadow:0 2px 8px #0003;
+  }
+</style>
+<div id="onetap-anchor"></div>
 <body>
   <!-- 放在 <head> 結束前或 <body> 開頭都可以 -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-<!-- 初始化：只要填 Client ID，不要 data-login_uri -->
-<div id="g_id_onload"
-     data-client_id="225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com"
-     data-auto_prompt="false"
-     data-callback="handleCredentialResponse"></div>
 
 <!-- 顯示 Google 登入按鈕 -->
 <div class="g_id_signin"
