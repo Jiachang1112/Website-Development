@@ -91,6 +91,15 @@
       google.accounts.id.prompt();
     }
   });
+
+  <script>
+  // 只要 hash 換頁且未登入，就再嘗試叫出 One-Tap
+  window.addEventListener('hashchange', () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('session_user') || 'null');
+      if (!user) { google.accounts.id.prompt(); }
+    } catch {}
+  });
 </script>
 
 
