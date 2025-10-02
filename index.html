@@ -49,11 +49,17 @@
        data-logo_alignment="left"></div>
 
 <script>
-  // 顯示右上角/左上角小貼片
+  // 顯示小貼片
   function showWelcomeChip(name){
     const anchor = document.getElementById('onetap-anchor');
     if(!anchor) return;
     anchor.innerHTML = `<div class="welcome-chip">👋 歡迎 ${name}</div>`;
+  }
+
+  // 清掉小貼片
+  function clearWelcomeChip(){
+    const anchor = document.getElementById('onetap-anchor');
+    if(anchor) anchor.innerHTML = '';
   }
 
   // Google 回傳 credential（JWT）後會呼叫這個函式
@@ -69,7 +75,7 @@
       );
       const payload = JSON.parse(json);
 
-      // 存成你的 session（app.js 會讀這個）
+      // 存成 session
       const user = {
         email: payload.email,
         name: payload.name,
@@ -78,7 +84,7 @@
       };
       localStorage.setItem('session_user', JSON.stringify(user));
 
-      // 顯示歡迎文字 👋
+      // 顯示 👋 歡迎
       showWelcomeChip(user.name);
 
       // 登入完成 → 回首頁或直接跳後台
@@ -88,6 +94,26 @@
       alert('Google 登入解析失敗：' + e);
     }
   };
+
+  // 登出功能
+  function logout(){
+    try{ google.accounts.id.disableAutoSelect(); }catch(e){}
+    localStorage.removeItem('session_user'); // 清掉 session
+    clearWelcomeChip(); // 清掉貼片
+    location.hash = '#auth'; // 回帳號頁
+    location.reload();
+  }
+
+  // 讓你可以在 HTML 加一個登出按鈕用
+  window.addEventListener('DOMContentLoaded', () => {
+    const nav = document.querySelector('.nav');
+    if(nav){
+      const btn = document.createElement('button');
+      btn.textContent = '登出';
+      btn.onclick = logout;
+      nav.appendChild(btn);
+    }
+  });
 </script>
 
 <header class="top">
