@@ -9,6 +9,47 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+  <!-- 放在 <head> 結束前或 <body> 開頭都可以 -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<!-- 初始化：只要填 Client ID，不要 data-login_uri -->
+<div id="g_id_onload"
+     data-client_id="225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com"
+     data-auto_prompt="false"
+     data-callback="handleCredentialResponse"></div>
+
+<!-- 顯示 Google 登入按鈕 -->
+<div class="g_id_signin"
+     data-type="standard"
+     data-shape="rectangular"
+     data-theme="outline"
+     data-text="sign_in_with"
+     data-size="large"
+     data-logo_alignment="left"></div>
+
+<script>
+  // Google 回傳 credential（JWT）後會呼叫這個函式
+  window.handleCredentialResponse = (response) => {
+    try {
+      const token = response.credential;
+      const payload = JSON.parse(atob(token.split('.')[1])); // 解析 JWT payload
+      // 存成你的 session（app.js 會讀這個）
+      const user = {
+        email: payload.email,
+        name: payload.name,
+        picture: payload.picture,
+        sub: payload.sub
+      };
+      localStorage.setItem('session_user', JSON.stringify(user));
+      // 登入完成 → 回首頁或直接跳後台
+      location.hash = '#dashboard';
+      location.reload();
+    } catch (e) {
+      alert('Google 登入解析失敗：' + e);
+    }
+  };
+</script>
+
 <header class="top">
   <div class="brand">SuperTool</div>
   <nav class="nav">
