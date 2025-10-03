@@ -1,5 +1,21 @@
 // assets/js/pages/auth.js
 
+// 1. 匯入 Firebase 相關功能
+import { db } from '../firebase.js';
+import {
+  doc, setDoc, serverTimestamp,
+  collection, addDoc
+} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+
+// 2. 這裡放你的 session 工具（readSession、writeSession、clearSession...）
+
+// 3. 這裡放 handleCredentialResponse（Google 登入回傳的地方）
+//    在裡面呼叫 upsertUser(user)
+
+// 4. export function AuthPage() { ... }   ← UI 畫面
+
+// 5. window.addEventListener('load', ...) ← 初始化 Google Identity
+
 // 小工具：安全讀取/寫入 session_user
 function readSession() {
   try { return JSON.parse(localStorage.getItem('session_user') || 'null'); }
