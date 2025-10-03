@@ -27,20 +27,7 @@ function writeSession(user) {
 function clearSession() {
   localStorage.removeItem('session_user');
 }
-async function upsertUser(user) {
-  try {
-    await setDoc(doc(db, "users", user.sub), {
-      uid: user.sub,
-      name: user.name,
-      email: user.email,
-      picture: user.picture,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-    console.log("✅ 使用者已寫入 Firestore:", user.email);
-  } catch (e) {
-    console.error("❌ Firestore 寫入失敗:", e);
-  }
-}
+
 // 產生歡迎小膠囊（頁面左上角）
 function showWelcomeChip(name) {
   const anchor = document.getElementById('onetap-anchor');
@@ -82,7 +69,6 @@ function handleCredentialResponse(response) {
     console.error('解析 Google Token 失敗：', e);
     alert('Google 登入解析失敗，請再試一次。');
   }
-  export function AuthPage() {
 }
 
 // ✅ 主畫面：帳號頁
