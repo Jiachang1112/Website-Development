@@ -20,6 +20,44 @@
       padding:.35rem .7rem; font-weight:700; box-shadow:0 2px 8px #0003;
       margin: .5rem 0 1rem 0;
     }
+    /* ---- 右側購物車面板 ---- */
+.cart-mask{
+  position:fixed; inset:0; background:#0007; 
+  opacity:0; pointer-events:none; transition:.25s;
+  z-index: 8888;
+}
+.cart-mask.open{ opacity:1; pointer-events:auto; }
+
+.cart-panel{
+  position:fixed; top:0; right:0; height:100vh; width:360px;
+  background:#111; color:#eee; box-shadow:-8px 0 24px #0008;
+  transform: translateX(100%); transition:.25s;
+  display:flex; flex-direction:column; z-index:8890;
+  border-left:1px solid #333;
+}
+.cart-panel.open{ transform: translateX(0); }
+
+.cart-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px; border-bottom:1px solid #2a2a2a; font-weight:700;
+}
+.cart-body{ padding:12px 16px; gap:8px; overflow:auto; flex:1; }
+.cart-item{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; border-bottom:1px solid #1e1e1e; }
+.cart-qty button{ background:#222; border:1px solid #333; color:#eee; width:28px; height:28px; border-radius:6px; }
+.cart-qty span{ min-width:28px; text-align:center; display:inline-block; }
+.cart-foot{ padding:14px 16px; border-top:1px solid #2a2a2a; }
+.cart-row{ display:flex; justify-content:space-between; margin:6px 0; }
+.cart-total{ font-size:18px; font-weight:800; }
+.cart-actions{ display:flex; gap:8px; margin-top:10px; }
+.cart-actions button, .cart-actions a{
+  flex:1; padding:10px; border-radius:10px; border:1px solid #3a3a3a; background:#222; color:#eee; text-align:center; text-decoration:none;
+}
+.cart-actions a.btn-primary{ background:#4a6cff; border-color:#4a6cff; }
+.badge-dot{
+  position:absolute; right:-6px; top:-6px; background:#ff5b5b; color:#fff; font-size:12px;
+  border-radius:999px; padding:2px 6px; line-height:1; border:2px solid #111;
+}
+
   </style>
 </head>
 <body>
@@ -48,6 +86,27 @@
 <button id="fabShop" class="fab-square">🛒</button>
 
 <script type="module" src="assets/js/app.js"></script>
+  <!-- 購物車：遮罩 + 右側面板 -->
+<div id="cartMask" class="cart-mask"></div>
+<div id="cartPanel" class="cart-panel" aria-hidden="true">
+  <div class="cart-head">
+    <div>購物車</div>
+    <button id="cartClose" class="btn" style="background:#222;border:1px solid #333;color:#eee;padding:.4rem .7rem;border-radius:8px">關閉</button>
+  </div>
+
+  <div id="cartItems" class="cart-body"><div class="text-muted">尚無商品</div></div>
+
+  <div class="cart-foot">
+    <div class="cart-row"><span class="text-muted">小計</span><span id="cartSubtotal">NT$ 0</span></div>
+    <div class="cart-row"><span class="text-muted">運費</span><span id="cartShipping">NT$ 0</span></div>
+    <div class="cart-row cart-total"><span>合計</span><span id="cartTotal">NT$ 0</span></div>
+    <div class="cart-actions">
+      <button id="cartClear">清空</button>
+      <a href="#shop" class="btn-primary">前往結帳</a> <!-- 或改成你的結帳頁 -->
+    </div>
+  </div>
+</div>
+
 
 <script>
 /* ------------------ 共用：JWT 解析（避免中文亂碼） ------------------ */
@@ -168,3 +227,4 @@ window.addEventListener('load', () => {
 </script>
 </body>
 </html>
+
