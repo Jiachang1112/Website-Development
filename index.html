@@ -22,7 +22,182 @@
     }
   </style>
 </head>
+  <!-- Google Identity Services：你已經有 -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<!-- Firebase SDK (v12 模組版) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+  import {
+    getAuth, GoogleAuthProvider, signInWithCredential,
+    onAuthStateChanged, signOut
+  } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+  import {
+    getFirestore, doc, setDoc, getDoc,
+    collection, addDoc, serverTimestamp,
+    query, where, orderBy, onSnapshot
+  } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+  // === 1) Firebase 專案設定（換成你的） ===
+  const firebaseConfig = {
+    apiKey: "AIzaSyCjrjZOyMrzlbG2VOoRqd9o3q3X5HYv2WY",
+    authDomain: "supertool-dee80.firebaseapp.com",
+    projectId: "supertool-dee80",
+    storageBucket: "supertool-dee80.firebasestorage.app",
+    messagingSenderId: "577771534429",
+    appId: "1:577771534429:web:7dc10a6082e9ab1cfd35b4"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+
+  // === 2) GSI callback：把 Google 的 JWT 交給 Firebase Auth ===
+  window.handleCredentialResponse = async (res) => {
+    try {
+      const credential = GoogleAuthProvider.credential(res.credential);
+      await signInWithCredential(auth, credential);
+      // 會觸發 onAuthStateChanged
+    } catch (err) {
+      console.error('登入失敗：', err);
+      alert('登入失敗，請稍後再試');
+    }
+  };
+
+  // === 3) 監聽登入狀態 ===
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      // 未登入 → 顯示登入按鈕
+      document.getElementById('loginBox').style.display = 'block';
+      document.getElementById('appBox').style.display   = 'none';
+      return;
+    }
+
+    // 已登入 → 隱藏登入，顯示 app
+    document.getElementById('loginBox').style.display = 'none';
+    document.getElementById('appBox').style.display   = 'block';
+    document.getElementById('hello').textContent = `嗨，${user.displayName || user.email}`;
+
+    // 確保 users 文件存在（merge=true 可重複呼叫）
+    const userRef = doc(db, 'users', user.uid);
+    await setDoc(userRef, {
+      uid: user.uid,
+      name: user.displayName || '',
+      email: user.email || '',
+      picture: user.photoURL || '',
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    // 啟動監聽目前使用者的記帳清單
+    startListenMyExpenses(user.uid);
+  });
+
+  // === 4) 新增記帳 ===
+  async function addExpense(evt) {
+    evt.preventDefault();
+    const user = auth.currentUser;
+    if (!user) return alert('尚未登入');
+
+    const amount   = Number(document.getElementById('fAmount').value || 0);
+    const category = document.getElementById('fCategory').value.trim();
+    const note     = document.getElementById('fNote').value.trim();
+
+    if (!amount || !category) return alert('金額與分類必填');
+
+    await addDoc(collection(db, 'expenses'), {
+      uid: user.uid,
+      amount,
+      category,
+      note,
+      createdAt: serverTimestamp()
+    });
+
+    // 清空表單
+    document.getElementById('expenseForm').reset();
+  }
+
+  document.getElementById('expenseForm').addEventListener('submit', addExpense);
+
+  // === 5) 監聽自己的記帳 ===
+  let unSub = null;
+  function startListenMyExpenses(uid) {
+    if (unSub) unSub(); // 先取消舊的監聽
+    const q = query(
+      collection(db, 'expenses'),
+      where('uid', '==', uid),
+      orderBy('createdAt', 'desc')
+    );
+    unSub = onSnapshot(q, (snap) => {
+      const list = [];
+      snap.forEach(doc => {
+        const d = doc.data();
+        list.push({
+          id: doc.id,
+          amount: d.amount,
+          category: d.category,
+          note: d.note || '',
+          createdAt: d.createdAt?.toDate?.() || null
+        });
+      });
+      renderExpenses(list);
+    });
+  }
+
+  function renderExpenses(items) {
+    const ul = document.getElementById('myList');
+    ul.innerHTML = '';
+    items.forEach(it => {
+      const li = document.createElement('li');
+      const d  = it.createdAt ? it.createdAt.toLocaleString() : '';
+      li.textContent = `${d}｜${it.category}｜$${it.amount}｜${it.note}`;
+      ul.appendChild(li);
+    });
+  }
+
+  // === 6) 登出 ===
+  document.getElementById('btnLogout').addEventListener('click', async () => {
+    await signOut(auth);
+  });
+</script>
+
 <body>
+  <!-- 登入區塊 -->
+<div id="loginBox" style="display:none; margin: 24px;">
+  <h3>請用 Google 登入</h3>
+  <!-- GSI：指定 callback -->
+  <div id="g_id_onload"
+       data-client_id="225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com"
+       data-callback="handleCredentialResponse"
+       data-auto_prompt="false"></div>
+
+  <div class="g_id_signin"
+       data-type="standard"
+       data-size="large"
+       data-theme="outline"
+       data-text="signin_with"
+       data-shape="rectangular"
+       data-logo_alignment="left"></div>
+</div>
+
+<!-- App 區塊 -->
+<div id="appBox" style="display:none; margin: 24px;">
+  <div style="display:flex; justify-content:space-between;">
+    <h3 id="hello"></h3>
+    <button id="btnLogout">登出</button>
+  </div>
+
+  <!-- 新增記帳 -->
+  <form id="expenseForm" style="margin:12px 0;">
+    <input id="fAmount" type="number" placeholder="金額" min="1" required />
+    <input id="fCategory" type="text" placeholder="分類（如：餐飲）" required />
+    <input id="fNote" type="text" placeholder="備註（可空白）" />
+    <button type="submit">新增記帳</button>
+  </form>
+
+  <!-- 我的記帳清單 -->
+  <ul id="myList"></ul>
+</div>
+
 
 <header class="top">
   <div class="brand">SuperTool</div>
