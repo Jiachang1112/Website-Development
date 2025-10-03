@@ -1,263 +1,218 @@
-// assets/js/pages/shop.js
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>立國實業｜線上商店</title>
 
-// ----------------------------
-// 產品資料（你可再擴充/改價）
-// ----------------------------
-const PRODUCTS = [
-  {
-    sku: 'LG-001',
-    name: '立國工業手套 M',
-    price: 120,
-    img: 'assets/img/glove-m.jpg', // 可換你自己的圖片路徑，或留空
-  },
-  {
-    sku: 'LG-002',
-    name: '立國工業手套 L',
-    price: 120,
-    img: 'assets/img/glove-l.jpg',
-  },
-  {
-    sku: 'LT-010',
-    name: '立國安全帽',
-    price: 980,
-    img: 'assets/img/helmet.jpg',
-  }
-];
-
-// ----------------------------
-// money 格式工具（專案有 fmt.money 就用，否則 fallback）
-// ----------------------------
-function money(n) {
-  if (window.fmt && typeof window.fmt.money === 'function') {
-    return window.fmt.money(n);
-  }
-  try {
-    return new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD'}).format(+n || 0);
-  } catch {
-    return `NT$ ${(+n || 0).toLocaleString()}`;
-  }
-}
-
-// ----------------------------
-// 購物車 persistence（localStorage）
-// ----------------------------
-const CART_KEY = 'shop_cart_v1';
-
-function readCart() {
-  try { return JSON.parse(localStorage.getItem(CART_KEY) || '{"items":[]}'); }
-  catch { return { items: [] }; }
-}
-function writeCart(cart) {
-  localStorage.setItem(CART_KEY, JSON.stringify(cart));
-}
-
-// 以 sku 找 item
-function findItem(cart, sku) {
-  return cart.items.find(i => i.sku === sku);
-}
-
-// 操作：新增 / 增量 / 減量 / 刪除 / 清空
-function addToCart(sku) {
-  const prod = PRODUCTS.find(p => p.sku === sku);
-  if (!prod) return;
-  const cart = readCart();
-  const item = findItem(cart, sku);
-  if (item) item.qty += 1;
-  else cart.items.push({ sku: prod.sku, name: prod.name, price: prod.price, qty: 1 });
-  writeCart(cart);
-}
-function decrease(sku) {
-  const cart = readCart();
-  const item = findItem(cart, sku);
-  if (!item) return;
-  item.qty -= 1;
-  if (item.qty <= 0) {
-    cart.items = cart.items.filter(i => i.sku !== sku);
-  }
-  writeCart(cart);
-}
-function removeItem(sku) {
-  const cart = readCart();
-  cart.items = cart.items.filter(i => i.sku !== sku);
-  writeCart(cart);
-}
-function clearCart() {
-  writeCart({ items: [] });
-}
-
-// 金額：小計 / 運費 / 合計（可自行調整運費規則）
-function calcSubtotal(cart) {
-  return cart.items.reduce((s, i) => s + (i.price * i.qty), 0);
-}
-function calcShipping(cart) {
-  const sub = calcSubtotal(cart);
-  // 範例：滿 1000 免運，否則 80
-  return sub > 0 && sub < 1000 ? 80 : 0;
-}
-function calcTotal(cart) {
-  const sub = calcSubtotal(cart);
-  return sub + calcShipping(cart);
-}
-
-// ----------------------------
-// UI：商品卡 + 購物車側欄
-// ----------------------------
-export default function ShopPage() {
-  const root = document.createElement('div');
-  root.className = 'container';
-  root.style.display = 'grid';
-  root.style.gridTemplateColumns = '1fr 360px';
-  root.style.gap = '24px';
-
-  // 左：商品區
-  const left = document.createElement('div');
-  left.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0 16px">
-      <h2 style="margin:0">立國實業｜線上下單</h2>
-      <button class="ghost" id="goCheckoutTop">前往結帳</button>
-    </div>
-    <div id="prodGrid" class="prod-grid"></div>
-  `;
-
-  // 右：購物車
-  const right = document.createElement('div');
-  right.innerHTML = `
-    <div class="card">
-      <h3 style="margin-top:0">購物車</h3>
-      <div id="cartItems"></div>
-      <div style="border-top:1px solid #ffffff22;margin-top:12px;padding-top:12px">
-        <div class="row" style="justify-content:space-between"><div>小計</div><div id="sub"></div></div>
-        <div class="row" style="justify-content:space-between"><div>運費</div><div id="ship"></div></div>
-        <div class="row" style="justify-content:space-between;font-weight:700"><div>合計</div><div id="total"></div></div>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body{font-family:system-ui}
+    .hero{background:#f8fafc;border-radius:16px;padding:24px;margin:16px 0}
+    .product-card img{height:180px;object-fit:cover;border-top-left-radius:.5rem;border-top-right-radius:.5rem}
+    .product-card .card-body{display:flex;flex-direction:column}
+    .offcanvas{--bs-offcanvas-width:380px}
+    .price{font-weight:700}
+  </style>
+</head>
+<body class="bg-light">
+  <!-- NAV -->
+  <nav class="navbar navbar-expand-lg bg-white border-bottom">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="/">立國實業</a>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="/admin.html">後台</a>
+        <button class="btn btn-dark" data-bs-toggle="offcanvas" data-bs-target="#cartPanel">
+          購物車 <span id="cartCount" class="badge bg-secondary">0</span>
+        </button>
       </div>
-
-      <div class="row" style="margin-top:12px;justify-content:space-between">
-        <button class="ghost" id="btnClear">清空</button>
-        <button class="primary" id="btnCheckout">結帳</button>
-      </div>
-
-      <p class="small" style="opacity:.7;margin-top:12px">
-        付款：轉帳 / 貨到（可日後開啟信用卡/LINE Pay）
-      </p>
     </div>
-  `;
+  </nav>
 
-  root.appendChild(left);
-  root.appendChild(right);
+  <!-- HERO -->
+  <main class="container">
+    <section class="hero">
+      <h1 class="h3 mb-2">線上快速下單</h1>
+      <div class="text-muted">工業安全用品／公司採購與聯絡：02-0000-0000｜service@liguo.com.tw</div>
+    </section>
 
-  // --- 渲染商品卡片 ---
-  const grid = left.querySelector('#prodGrid');
-  grid.style.display = 'grid';
-  grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(260px, 1fr))';
-  grid.style.gap = '16px';
+    <!-- PRODUCTS -->
+    <div id="products" class="row g-3"></div>
+  </main>
 
-  grid.innerHTML = PRODUCTS.map(p => `
-    <div class="card prod-card" data-sku="${p.sku}">
-      <div style="height:140px;background:#ffffff08;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;overflow:hidden">
-        ${p.img ? `<img src="${p.img}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover">` : `<div style="opacity:.5">No Image</div>`}
-      </div>
-      <div style="font-weight:700">${p.name}</div>
-      <div class="small" style="opacity:.8">SKU：${p.sku}</div>
-      <div style="margin:8px 0 10px;font-weight:700">${money(p.price)}</div>
-      <button class="ghost addBtn">加入購物車</button>
+  <!-- CART OFFCANVAS -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="cartPanel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">購物車</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
     </div>
-  `).join('');
+    <div class="offcanvas-body d-flex flex-column">
+      <div id="cartItems" class="flex-grow-1"></div>
+      <div class="border-top pt-2 small text-muted">滿 2,000 免運；未滿酌收運費 NT$100</div>
+      <div class="d-flex justify-content-between mt-2">
+        <div class="text-muted">小計</div><div id="subtotal" class="fw-bold">NT$ 0</div>
+      </div>
+      <div class="d-flex justify-content-between">
+        <div class="text-muted">運費</div><div id="shipping" class="fw-bold">NT$ 0</div>
+      </div>
+      <div class="d-flex justify-content-between fs-5">
+        <div>合計</div><div id="total" class="fw-bold">NT$ 0</div>
+      </div>
+      <div class="d-grid gap-2 mt-2">
+        <button id="clearCart" class="btn btn-outline-secondary">清空</button>
+        <button id="checkout" class="btn btn-dark">結帳</button>
+      </div>
+    </div>
+  </div>
 
-  // 點擊加入購物車
-  grid.addEventListener('click', (e) => {
-    const btn = e.target.closest('.addBtn');
-    if (!btn) return;
-    const card = btn.closest('.prod-card');
-    const sku = card?.dataset?.sku;
-    if (!sku) return;
-    addToCart(sku);
-    renderCart(); // 更新右側購物車
-  });
+  <!-- CHECKOUT MODAL -->
+  <div class="modal" id="checkoutDlg" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <form id="orderForm" class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">訂購資料</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">姓名</label>
+              <input name="name" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">電話</label>
+              <input name="phone" class="form-control" required>
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">Email（收訂單）</label>
+            <input name="email" type="email" class="form-control" required>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">配送方式</label>
+            <select name="shipping" class="form-select" required>
+              <option value="宅配">宅配（黑貓/新竹）</option>
+              <option value="超商取貨（先匯款）">超商取貨（先匯款）</option>
+            </select>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">地址/門市</label>
+            <input name="address" class="form-control" required>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">付款方式</label>
+            <select name="payment" class="form-select" required>
+              <option value="銀行轉帳">銀行轉帳</option>
+              <option value="貨到付款">貨到付款</option>
+              <option value="信用卡（綠界/藍新）">信用卡（綠界/藍新）</option>
+            </select>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">備註</label>
+            <textarea name="note" rows="3" class="form-control" placeholder="尺寸、發票抬頭/統編等"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">取消</button>
+          <button class="btn btn-dark" type="submit">送出訂單</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-  // --- 購物車畫面 ---
-  const dom = {
-    items: right.querySelector('#cartItems'),
-    sub: right.querySelector('#sub'),
-    ship: right.querySelector('#ship'),
-    total: right.querySelector('#total'),
-    clear: right.querySelector('#btnClear'),
-    pay: right.querySelector('#btnCheckout'),
-    goTop: left.querySelector('#goCheckoutTop'),
-  };
+  <!-- TOAST -->
+  <div class="position-fixed bottom-0 end-0 p-3" style="z-index:11">
+    <div id="toast" class="toast" role="alert"><div class="toast-body"></div></div>
+  </div>
 
-  dom.clear.addEventListener('click', () => {
-    if (!confirm('確定要清空購物車？')) return;
-    clearCart();
-    renderCart();
-  });
-  dom.pay.addEventListener('click', () => goCheckout());
-  dom.goTop.addEventListener('click', () => goCheckout());
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    /*** 購物車邏輯 ***/
+    const cart = JSON.parse(localStorage.getItem('cart')||'[]');
+    const saveCart = ()=>localStorage.setItem('cart', JSON.stringify(cart));
+    const fmt = n => 'NT$ ' + n.toLocaleString();
+    const toastEl = document.getElementById('toast');
+    const toast = new bootstrap.Toast(toastEl,{delay:1600});
+    const show = (msg)=>{ toastEl.querySelector('.toast-body').textContent = msg; toast.show(); };
 
-  function goCheckout() {
-    const cart = readCart();
-    if (!cart.items.length) {
-      alert('購物車是空的喔！');
-      return;
+    function add(p){
+      const found = cart.find(i=>i.sku===p.sku);
+      if(found) found.qty++; else cart.push({sku:p.sku,name:p.name,price:p.price,qty:1});
+      saveCart(); renderCart(); show('已加入購物車');
     }
-    // 這裡可以導向你的「結帳頁」或開啟付款流程
-    // 目前先做示意
-    alert(`已前往結帳。\n合計：${money(calcTotal(cart))}\n(你可以在這裡串接金流或建立訂單)`);
-  }
+    function changeQty(sku,delta){
+      const i = cart.find(x=>x.sku===sku);
+      if(!i) return;
+      i.qty += delta;
+      if(i.qty<=0) cart.splice(cart.indexOf(i),1);
+      saveCart(); renderCart();
+    }
+    function renderCart(){
+      document.getElementById('cartCount').textContent = cart.reduce((s,i)=>s+i.qty,0);
+      const wrap = document.getElementById('cartItems');
+      wrap.innerHTML = cart.length ? cart.map(i=>`
+        <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+          <div>${i.name} <span class="text-muted">× ${i.qty}</span></div>
+          <div>${fmt(i.price*i.qty)}</div>
+        </div>
+        <div class="d-flex gap-2 my-2">
+          <button class="btn btn-outline-secondary btn-sm" onclick="changeQty('${i.sku}',-1)">－</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="changeQty('${i.sku}',+1)">＋</button>
+        </div>
+      `).join('') : '<div class="text-muted">尚無商品</div>';
+      const subtotal = cart.reduce((s,i)=>s+i.price*i.qty,0);
+      const shipping = (subtotal>2000||subtotal===0)?0:100;
+      document.getElementById('subtotal').textContent = fmt(subtotal);
+      document.getElementById('shipping').textContent = fmt(shipping);
+      document.getElementById('total').textContent = fmt(subtotal+shipping);
+    }
+    document.getElementById('clearCart').onclick = ()=>{ cart.length=0; saveCart(); renderCart(); };
+    document.getElementById('checkout').onclick = ()=>{ if(!cart.length) return show('購物車是空的'); new bootstrap.Modal('#checkoutDlg').show(); };
+    document.getElementById('orderForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const customer = Object.fromEntries(new FormData(e.target).entries());
+      const res = await fetch('/api/orders',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ customer, items:cart })});
+      const r = await res.json();
+      if(r.next){ window.location.href = r.next; return; }
+      show('訂單成立：'+r.orderNo);
+      cart.length=0; saveCart(); renderCart();
+      bootstrap.Modal.getInstance(document.getElementById('checkoutDlg')).hide();
+    });
 
-  // 購物車渲染
-  function renderCart() {
-    const cart = readCart();
-    if (!cart.items.length) {
-      dom.items.innerHTML = `
-        <div class="small" style="opacity:.7">尚無商品</div>
-      `;
-    } else {
-      dom.items.innerHTML = cart.items.map(i => `
-        <div class="row" data-sku="${i.sku}" style="justify-content:space-between;gap:8px;margin-bottom:8px;align-items:center">
-          <div style="flex:1 1 50%">
-            <div style="font-weight:700">${i.name}</div>
-            <div class="small" style="opacity:.7"> ${i.sku} </div>
+    /*** 50 個商品（前端靜態清單；之後可改名/價/圖/sku） ***/
+    const PRODUCTS = Array.from({length:50},(_,i)=>{
+      const n2 = (i+1).toString().padStart(2,'0');
+      const n3 = (i+1).toString().padStart(3,'0');
+      return {
+        sku: `P-${n3}`,
+        name: `商品 ${n2}`,
+        price: (i+1)*100,                   // 自行調整
+        image: `/assets/product-${n2}.jpg`  // 把圖片丟到 public/assets/，沒圖會顯示 placeholder.jpg
+      };
+    });
+
+    function renderProducts(){
+      const box = document.getElementById('products');
+      box.innerHTML = PRODUCTS.map(p=>`
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+          <div class="card product-card h-100 shadow-sm">
+            <img src="${p.image}" alt="${p.name}" onerror="this.src='/assets/placeholder.jpg'">
+            <div class="card-body">
+              <h5 class="card-title">${p.name}</h5>
+              <div class="text-muted small mb-2">SKU：${p.sku}</div>
+              <div class="mt-auto d-flex justify-content-between align-items-center">
+                <div class="price">NT$ ${p.price.toLocaleString()}</div>
+                <button class="btn btn-outline-dark btn-sm" onclick='add(${JSON.stringify(p)})'>加入購物車</button>
+              </div>
+            </div>
           </div>
-          <div style="min-width:68px;text-align:right">${money(i.price)}</div>
-          <div class="row" style="gap:6px">
-            <button class="ghost sm decBtn">－</button>
-            <div style="min-width:24px;text-align:center">${i.qty}</div>
-            <button class="ghost sm incBtn">＋</button>
-          </div>
-          <button class="ghost sm rmBtn" title="移除">✕</button>
         </div>
       `).join('');
     }
 
-    dom.items.querySelectorAll('.incBtn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const sku = btn.closest('[data-sku]')?.dataset?.sku;
-        addToCart(sku);
-        renderCart();
-      });
-    });
-    dom.items.querySelectorAll('.decBtn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const sku = btn.closest('[data-sku]')?.dataset?.sku;
-        decrease(sku);
-        renderCart();
-      });
-    });
-    dom.items.querySelectorAll('.rmBtn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const sku = btn.closest('[data-sku]')?.dataset?.sku;
-        removeItem(sku);
-        renderCart();
-      });
-    });
-
-    dom.sub.textContent = money(calcSubtotal(cart));
-    dom.ship.textContent = money(calcShipping(cart));
-    dom.total.textContent = money(calcTotal(cart));
-  }
-
-  // 首次載入
-  renderCart();
-
-  return root;
-}
+    // 初始化
+    renderProducts();
+    renderCart();
+  </script>
+</body>
+</html>
