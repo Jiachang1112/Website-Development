@@ -27,24 +27,12 @@ const routes={
   acct_mine:ExpenseMinePage, acct_detail:ExpenseDetailPage, acct_analysis:ExpenseAnalysisPage
 };
 
-function render() {
-  const root = document.getElementById('app');
-  try {
-    const hash = (location.hash || '#dashboard').replace('#', '');
-    const Page = routes[hash] || DashboardPage;
-    root.innerHTML = '';
-    const el = Page();
-    if (el?.then) {
-      el.then(n => root.appendChild(n));
-    } else {
-      root.appendChild(el);
-    }
-  } catch (e) {
-    console.error(e);
-    root.innerHTML = `<pre style="color:#f88;white-space:pre-wrap">Render error:\n${e.stack || e}</pre>`;
-  }
+function render(){
+  const hash=location.hash.replace('#','')||'dashboard';
+  const Page = routes[hash]||DashboardPage;
+  const app=document.getElementById('app'); app.innerHTML='';
+  const el = Page(); if(el.then){ el.then(node=>app.appendChild(node)); } else { app.appendChild(el); }
 }
-
 window.addEventListener('hashchange', render);
 document.addEventListener('click', (e)=>{
   const r=e.target && e.target.getAttribute && e.target.getAttribute('data-route'); if(r){ location.hash='#'+r; }
