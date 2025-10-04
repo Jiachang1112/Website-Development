@@ -2,12 +2,15 @@
 // 後台：歡迎/統計 + 進階訂單管理（搜尋／篩選／匯出 CSV），並將狀態改為彩色 Chips
 // 依賴：assets/js/firebase.js
 
-import { db } from '../firebase.js';
+import { db, auth } from '../firebase.js'; // ← 加上 auth
 import {
   collection, query, orderBy, limit, onSnapshot,
   doc, getDoc, updateDoc, serverTimestamp,
   where, getDocs, Timestamp, startAt, endAt
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+import {
+  signOut // ← 匯入登出
+} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
 /* ───────── 小工具 ───────── */
 const $  = (sel, root=document) => root.querySelector(sel);
@@ -138,6 +141,28 @@ function initThemeToggle(root){
   });
 }
 
+/* 登出（Google/Firebase） */
+function initLogout(root){
+  const btn = $('#btnLogout', root);
+  if (!btn) return;
+  btn.addEventListener('click', async ()=>{
+    if (!confirm('確定要登出管理員帳號嗎？')) return;
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>登出中…';
+    try{
+      await signOut(auth);
+      alert('已成功登出');
+      location.hash = '#dashboard';
+      location.reload();
+    }catch(err){
+      alert('登出失敗：' + err.message);
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  });
+}
+
 /* 今日統計 */
 async function computeTodayStats(setters){
   const start = Timestamp.fromDate(startOfToday());
@@ -219,7 +244,8 @@ export function AdminPage(){
       </div>
       <div class="act">
         <button class="btn btn-outline-light me-2" id="themeToggle"><i class="bi bi-brightness-high me-1"></i>切換亮/暗</button>
-        <button class="btn btn-outline-light" data-go="#dashboard"><i class="bi bi-grid me-1"></i> 回首頁</button>
+        <button class="btn btn-outline-light me-2" data-go="#dashboard"><i class="bi bi-grid me-1"></i> 回首頁</button>
+        <button class="btn btn-outline-danger" id="btnLogout"><i class="bi bi-box-arrow-right me-1"></i> 登出</button>
       </div>
     </div>
 
@@ -291,6 +317,7 @@ export function AdminPage(){
   });
 
   initThemeToggle(el);
+  initLogout(el); // ← 綁定登出
   $('#dashTime', el).textContent = new Date().toLocaleString('zh-TW',{hour12:false});
 
   // 今日統計
@@ -324,16 +351,13 @@ export function AdminPage(){
   }
 
   function bindOrders(){
-    // 解析條件
     const status = refs.fStatus.value || '';
     const from   = refs.from.value ? new Date(refs.from.value + 'T00:00:00') : null;
     const toDate = refs.to.value   ? new Date(refs.to.value   + 'T23:59:59') : null;
 
-    // 若上一個監聽存在，先關閉
     if (unsub){ unsub(); unsub = null; }
     listEl.innerHTML = '<div class="o-sub">載入中…</div>';
 
-    // 嘗試用 Firestore 查詢（狀態/日期）
     try{
       let qBase = collection(db,'orders');
 
@@ -352,12 +376,10 @@ export function AdminPage(){
       currentQueryKey = qKey;
 
       unsub = onSnapshot(qBase, snap=>{
-        if (currentQueryKey !== qKey) return; // 避免舊的事件回來覆蓋
-
+        if (currentQueryKey !== qKey) return;
         ordersCache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
         renderList();
       }, err=>{
-        // 例如需要 composite index 時，退回用前端過濾
         console.warn('Query failed, fallback to client filter', err);
         fallbackClient();
       });
@@ -367,7 +389,6 @@ export function AdminPage(){
     }
   }
 
-  // 前端過濾 fallback（抓近期 300 筆）
   function fallbackClient(){
     (unsub && unsub()); unsub = null;
     const baseQ = query(collection(db,'orders'), orderBy('createdAt','desc'), limit(300));
@@ -387,7 +408,6 @@ export function AdminPage(){
   }
 
   function renderList(){
-    // 關鍵字過濾（ID/客戶/Email）
     const kw = refs.kw.value.trim().toLowerCase();
     let arr = ordersCache;
     if (kw){
@@ -425,11 +445,9 @@ export function AdminPage(){
       r.addEventListener('click', ()=> showDetail(r.dataset.id));
     });
 
-    // 匯出當前結果
     refs.btnCSV.onclick = ()=> exportCSV(arr);
   }
 
-  // 詳細
   async function showDetail(id){
     detailEl.innerHTML = '載入中…';
     try{
@@ -493,7 +511,6 @@ export function AdminPage(){
         </div>
       `;
 
-      // 狀態 Chips：互斥選擇
       let chosen = state;
       $$('#stateChips .chip', detailEl).forEach(c=>{
         c.addEventListener('click', ()=>{
@@ -503,11 +520,9 @@ export function AdminPage(){
         });
       });
 
-      // 儲存狀態
       $('#saveState', detailEl).addEventListener('click', async ()=>{
         try{
           await updateDoc(ref, { status:chosen, updatedAt: serverTimestamp() });
-          // 左邊對應列更新徽章
           const row = $(`.orow[data-id="${id}"]`, listEl);
           if (row){
             const badge = row.querySelector('.o-badge');
@@ -525,7 +540,6 @@ export function AdminPage(){
     }
   }
 
-  // 綁定工具列
   refs.btnApply.addEventListener('click', bindOrders);
   refs.btnReset.addEventListener('click', ()=>{
     refs.kw.value = '';
@@ -534,10 +548,8 @@ export function AdminPage(){
     refs.to.value = '';
     bindOrders();
   });
-  refs.kw.addEventListener('input', ()=> renderList()); // 即時關鍵字
+  refs.kw.addEventListener('input', ()=> renderList());
 
-  // 初始載入
   bindOrders();
-
   return el;
 }
