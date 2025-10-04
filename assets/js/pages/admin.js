@@ -2,12 +2,13 @@
 // 後台：歡迎/統計 + 進階訂單管理（搜尋／篩選／匯出 CSV），並將狀態改為彩色 Chips
 // 依賴：assets/js/firebase.js
 
-import { db } from '../firebase.js';
+import { db, auth } from '../firebase.js'; // ← 加入 auth
 import {
   collection, query, orderBy, limit, onSnapshot,
   doc, getDoc, updateDoc, serverTimestamp,
   where, getDocs, Timestamp, startAt, endAt
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+import { signOut } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js'; // ← 匯入 signOut
 
 /* ───────── 小工具 ───────── */
 const $  = (sel, root=document) => root.querySelector(sel);
@@ -219,7 +220,8 @@ export function AdminPage(){
       </div>
       <div class="act">
         <button class="btn btn-outline-light me-2" id="themeToggle"><i class="bi bi-brightness-high me-1"></i>切換亮/暗</button>
-        <button class="btn btn-outline-light" data-go="#dashboard"><i class="bi bi-grid me-1"></i> 回首頁</button>
+        <button class="btn btn-outline-light me-2" data-go="#dashboard"><i class="bi bi-grid me-1"></i> 回首頁</button>
+        <button class="btn btn-outline-light" id="btnLogout"><i class="bi bi-box-arrow-right me-1"></i> 登出</button> <!-- ← 新增登出 -->
       </div>
     </div>
 
@@ -288,6 +290,17 @@ export function AdminPage(){
   el.addEventListener('click', e=>{
     const go = e.target.closest('[data-go]');
     if (go) location.hash = go.getAttribute('data-go');
+  });
+
+  // 登出
+  $('#btnLogout', el)?.addEventListener('click', async ()=>{
+    try{
+      await signOut(auth);
+      alert('已登出');
+      location.hash = '#dashboard';
+    }catch(err){
+      alert('登出失敗：' + err.message);
+    }
   });
 
   initThemeToggle(el);
