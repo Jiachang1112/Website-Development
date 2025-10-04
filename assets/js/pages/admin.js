@@ -1,348 +1,275 @@
 // assets/js/pages/admin.js
-// 後台：總覽（把首頁的卡片搬來）+ 訂單管理（可改中文狀態）
-// 依賴：assets/js/firebase.js、assets/js/auth-utils.js、Bootstrap 樣式（你的頁面已載）
+// 後台（AdminPage）：使用與 dashboard.js 相同風格的 UI（kcard/rowi/hero）
+// 不動首頁，亦不需要 import { DashboardPage } ...。
+// Firestore：orders/ 狀態以英文存（pending/paid/shipped/canceled），UI 顯示中文。
 
 import { db } from '../firebase.js';
 import {
-  collection, collectionGroup, doc,
-  query, orderBy, where, limit,
-  onSnapshot, getDoc, updateDoc, serverTimestamp
+  collection, query, where, orderBy, limit, onSnapshot,
+  doc, getDoc, updateDoc, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-import { isAdmin } from '../auth-utils.js';
-
-// ---------- 小工具 ----------
+// ---------- 工具 ----------
 const $  = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-const money = n => 'NT$ ' + (n || 0).toLocaleString();
-const dt = ts => {
+const money = n => 'NT$ ' + (n||0).toLocaleString();
+const shortId = id => (id||'').slice(0,10);
+const toTW = ts => {
   try {
-    if (!ts) return '-';
-    const d = ts.toDate ? ts.toDate() : new Date(ts);
-    return d.toLocaleString('zh-TW', { hour12:false });
+    const d = ts?.toDate ? ts.toDate() : (ts instanceof Date ? ts : null);
+    return d ? d.toLocaleString('zh-TW', { hour12:false }) : '-';
   } catch { return '-'; }
 };
 
-// 依你目前寫單的 createdAt=serverTimestamp()，這裡用本地時段計算今日
-function getTodayRange(){
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0,0);
-  const end   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23,59,59,999);
-  return { start, end };
-}
-
-// 中文/英文狀態互轉（Firestore 存英文、UI 顯示中文）
+// 狀態：中文 <-> 英文
 const STATE_ZH = ['待付款','已付款','已出貨','已取消'];
 const STATE_EN = ['pending','paid','shipped','canceled'];
 const en2zh = en => STATE_ZH[STATE_EN.indexOf(en)] || '待付款';
 const zh2en = zh => STATE_EN[STATE_ZH.indexOf(zh)] || 'pending';
 
-export function AdminPage(){
-  const el = document.createElement('div');
-  el.className = 'container';
-  
-  // 權限檢查
-  if (!isAdmin()){
-    el.innerHTML = `
-      <div class="card p-4 my-4">
-        <h3 class="mb-2">⛔ 無權限</h3>
-        <p class="text-muted mb-3">只有管理員可以進入後台。</p>
-        <a class="btn btn-secondary" href="#auth">前往登入</a>
-      </div>`;
-    return el;
+// ---------- 樣式注入：沿用 dashboard.js 的 CSS ----------
+// 若 dashboard 已注入 id="dash-css"，則不會重覆注入
+function ensureStyles() {
+  if ($('#dash-css')) return;
+  const css = document.createElement('style');
+  css.id = 'dash-css';
+  css.textContent = `
+  :root{
+    --bg:#0f1318; --fg:#e6e6e6; --muted:#9aa3af;
+    --card:#151a21; --border:#2a2f37; --primary:#3b82f6; 
+    --shadow:0 6px 24px rgba(0,0,0,.25), 0 2px 8px rgba(0,0,0,.2);
   }
+  body.light{
+    --bg:#f6f8fc; --fg:#111; --muted:#6b7280;
+    --card:#ffffff; --border:#e5e7eb; 
+    --shadow:0 12px 24px rgba(17,24,39,.06);
+  }
+  body{background:var(--bg);color:var(--fg)}
+  .shell{max-width:1200px;margin-inline:auto;padding:20px}
+  .kcard{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+  .kcard-hover{transition:transform .16s ease, box-shadow .2s ease}
+  .kcard-hover:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.3)}
+  .hero{background:linear-gradient(135deg, rgba(59,130,246,.15), rgba(168,85,247,.10)); border:1px solid var(--border);
+        border-radius:18px;padding:18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .hero h4{margin:0;font-weight:800}
+  .hero .sub{color:var(--muted)}
+  .hero .act .btn{border-radius:12px}
 
-  // ---------- 版面 ----------
+  .admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:900px){ .admin-grid{grid-template-columns:1fr} }
+
+  .rowi{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:12px;border:1px solid var(--border)}
+  .rowi .meta{color:var(--muted);font-size:13px}
+  .chip{padding:.25rem .6rem;border-radius:999px;border:1px solid var(--border);color:var(--muted);font-size:12px}
+
+  .pill {display:inline-flex;gap:8px;flex-wrap:wrap}
+  .pill .p {padding:.35rem .7rem;border:1px solid var(--border);border-radius:999px;cursor:pointer;color:var(--muted)}
+  .pill .p.active {background:rgba(59,130,246,.15); border-color:rgba(59,130,246,.35); color:#93c5fd}
+  `;
+  document.head.appendChild(css);
+}
+
+// ---------- 後台頁面 ----------
+export function AdminPage(){
+  ensureStyles();
+
+  const el = document.createElement('div');
+  el.className = 'shell';
   el.innerHTML = `
-    <h3 class="my-3">後台管理</h3>
+    <!-- 頂部 hero -->
+    <div class="hero kcard kcard-hover">
+      <div>
+        <h4>後台管理</h4>
+        <div class="sub">管理你的訂單與狀態 — 支援即時更新</div>
+      </div>
+      <div class="act">
+        <button class="btn btn-outline-light me-2" data-go="#index"><i class="bi bi-house me-1"></i>回首頁</button>
+        <button class="btn btn-primary" data-go="#shop"><i class="bi bi-cart me-1"></i>線上下單</button>
+      </div>
+    </div>
 
-    <ul class="nav nav-pills mb-3" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#paneOverview" type="button" role="tab">
-          總覽
-        </button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#paneOrders" type="button" role="tab">
-          訂單管理
-        </button>
-      </li>
-    </ul>
-
-    <div class="tab-content">
-
-      <!-- 總覽 -->
-      <div class="tab-pane fade show active" id="paneOverview" role="tabpanel">
-        
-        <!-- 今日摘要 -->
-        <div class="row g-3">
-          <div class="col-md-3">
-            <div class="card p-3 h-100">
-              <div class="text-muted">今日訂單</div>
-              <div id="ovTodayOrders" class="display-6">0 筆</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card p-3 h-100">
-              <div class="text-muted">今日營收</div>
-              <div id="ovTodayRevenue" class="display-6">NT$ 0</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card p-3 h-100">
-              <div class="text-muted">待出貨</div>
-              <div id="ovToShip" class="display-6">0 筆</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card p-3 h-100">
-              <div class="text-muted">常用客戶</div>
-              <div id="ovUsers" class="display-6">0 位</div>
-            </div>
-          </div>
+    <!-- 篩選 pills -->
+    <div class="kcard p-3 mb-3">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="pill" id="statePills">
+          <button class="p active" data-state="">全部</button>
+          <button class="p" data-state="pending">待付款</button>
+          <button class="p" data-state="paid">已付款</button>
+          <button class="p" data-state="shipped">已出貨</button>
+          <button class="p" data-state="canceled">已取消</button>
         </div>
+        <small class="text-muted">最多顯示 100 筆（依建立時間新到舊）</small>
+      </div>
+    </div>
 
-        <!-- 快速功能 -->
-        <div class="card p-3 my-3">
-          <div class="text-muted mb-2">快速功能</div>
-          <div class="row g-2">
-            <div class="col-6 col-md-3">
-              <a href="#shop" class="btn btn-outline-secondary w-100">線上下單</a>
-            </div>
-            <div class="col-6 col-md-3">
-              <a href="#admin" class="btn btn-outline-secondary w-100">後台（此頁）</a>
-            </div>
-            <div class="col-6 col-md-3">
-              <a href="#expense" class="btn btn-outline-secondary w-100">支出記帳</a>
-            </div>
-            <div class="col-6 col-md-3">
-              <a href="#settings" class="btn btn-outline-secondary w-100">設定</a>
-            </div>
-          </div>
-        </div>
-
-        <!-- 最近活動（最新訂單） -->
-        <div class="card p-3">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="text-muted">最近活動</div>
-            <a href="#admin" class="small text-decoration-none">查看更多</a>
-          </div>
-          <div id="ovRecent" class="mt-2 small text-muted">載入中…</div>
-        </div>
+    <!-- 兩欄：左清單、右詳情 -->
+    <div class="admin-grid">
+      <div class="kcard p-3">
+        <h5 class="mb-2">訂單列表</h5>
+        <div id="orderList" class="list">載入中…</div>
       </div>
 
-      <!-- 訂單管理 -->
-      <div class="tab-pane fade" id="paneOrders" role="tabpanel">
-        <div class="row g-3">
-          <div class="col-lg-6">
-            <div class="card p-3 h-100">
-              <div class="d-flex justify-content-between align-items-center">
-                <h5 class="m-0">訂單列表</h5>
-                <select id="orderFilter" class="form-select form-select-sm" style="width:auto">
-                  <option value="">全部狀態</option>
-                  <option value="pending">待付款</option>
-                  <option value="paid">已付款</option>
-                  <option value="shipped">已出貨</option>
-                  <option value="canceled">已取消</option>
-                </select>
-              </div>
-              <div id="orderList" class="mt-2 small">載入中…</div>
-            </div>
-          </div>
-          <div class="col-lg-6">
-            <div class="card p-3 h-100">
-              <h5 class="m-0">訂單詳細</h5>
-              <div id="orderDetail" class="mt-2 small text-muted">左側點一筆查看</div>
-            </div>
-          </div>
-        </div>
+      <div class="kcard p-3">
+        <h5 class="mb-2">訂單詳細</h5>
+        <div id="orderDetail" class="small text-muted">左側點一筆查看</div>
       </div>
-
     </div>
   `;
 
-  // ---------- 總覽：資料綁定 ----------
-  const $ovTodayOrders  = $('#ovTodayOrders', el);
-  const $ovTodayRevenue = $('#ovTodayRevenue', el);
-  const $ovToShip       = $('#ovToShip', el);
-  const $ovUsers        = $('#ovUsers', el);
-  const $ovRecent       = $('#ovRecent', el);
+  // 簡單路由跳轉（與你的 dashboard 相同寫法）
+  el.addEventListener('click', e=>{
+    const go = e.target.closest('[data-go]');
+    if (go) location.hash = go.getAttribute('data-go');
+  });
 
-  // 今日訂單、今日營收（client 端統計）
-  {
-    const { start, end } = getTodayRange();
-    const qToday = query(
-      collection(db, 'orders'),
-      where('createdAt','>=', start),
-      where('createdAt','<=', end),
-      orderBy('createdAt','desc')
-    );
-    onSnapshot(qToday, snap=>{
-      let count = 0, revenue = 0;
-      const emails = new Set();
-      const rows = [];
-
-      snap.forEach(d=>{
-        const v = d.data();
-        count += 1;
-        revenue += (v?.amounts?.total) || 0;
-        if (v?.customer?.email) emails.add(v.customer.email);
-        rows.push([
-          `<b>#${d.id.slice(0,10)}</b>`,
-          en2zh(v?.status||'pending'),
-          money(v?.amounts?.total||0),
-          dt(v.createdAt)
-        ]);
-      });
-
-      $ovTodayOrders.textContent  = `${count} 筆`;
-      $ovTodayRevenue.textContent = money(revenue);
-      $ovUsers.textContent        = `${emails.size} 位`;
-
-      $ovRecent.innerHTML = rows.length
-        ? rows.map(r => `
-          <div class="py-2 border-bottom border-secondary text-reset">
-            <div>${r[0]}｜${r[1]}｜${r[2]}</div>
-            <div class="text-muted">${r[3]}</div>
-          </div>`).join('')
-        : '<div class="text-muted">尚無資料</div>';
-    });
-  }
-
-  // 待出貨（狀態=shipped 之前的交付項，這裡以 shipped 當出貨完成）
-  {
-    const qShip = query(
-      collection(db,'orders'),
-      where('status','==','paid')
-    );
-    onSnapshot(qShip, snap=>{
-      $ovToShip.textContent = `${snap.size} 筆`;
-    });
-  }
-
-  // ---------- 訂單管理：列表 + 詳細 + 狀態更新（中文介面） ----------
+  // ---------- 訂單列表 + 篩選 ----------
   let ordersUnsub = null;
-  const orderListEl = $('#orderList', el);
-  const orderDetailEl = $('#orderDetail', el);
+  let currentState = '';
 
   function bindOrders(){
     if (ordersUnsub) { ordersUnsub(); ordersUnsub = null; }
-    const state = $('#orderFilter', el).value;   // 英文值
 
+    // 依狀態建構 query
     let qO = query(collection(db,'orders'), orderBy('createdAt','desc'), limit(100));
-    if (state) {
-      qO = query(collection(db,'orders'), where('status','==',state), orderBy('createdAt','desc'), limit(100));
+    if (currentState) {
+      qO = query(collection(db,'orders'), where('status','==', currentState), orderBy('createdAt','desc'), limit(100));
     }
+
+    const orderListEl = $('#orderList', el);
     ordersUnsub = onSnapshot(qO, snap=>{
-      if (snap.empty){ orderListEl.innerHTML = '<div class="text-muted">沒有資料</div>'; return; }
+      if (snap.empty){ orderListEl.innerHTML = '<div class="meta">沒有資料</div>'; return; }
+
       orderListEl.innerHTML = snap.docs.map(d=>{
-        const v = d.data();
-        const count = (v.items||[]).reduce((s,i)=>s+i.qty,0);
-        const id = d.id.slice(0,10);
+        const v = d.data()||{};
+        const items = (v.items||[]).reduce((s,i)=> s + (i.qty||0), 0);
         return `
-          <button class="w-100 text-start py-3 px-2 border-0 border-bottom border-secondary bg-transparent list-item" data-id="${d.id}">
-            <div class="d-flex justify-content-between align-items-center">
-              <div class="fw-semibold">#${id}</div>
-              <span class="badge bg-secondary">${en2zh(v?.status||'pending')}</span>
+          <button class="w-100 text-start bg-transparent border-0 rowi list-item" data-id="${d.id}">
+            <div>
+              <div class="fw-semibold">#${shortId(d.id)}｜${en2zh(v.status||'pending')}｜${money(v?.amounts?.total)}</div>
+              <div class="meta">${(v?.customer?.name||'-')} ｜ ${items} 件</div>
             </div>
-            <div class="small text-muted">${dt(v.createdAt)}</div>
-            <div class="mt-1">
-              客戶：${(v?.customer?.name||'-')} ｜ ${count} 件 ｜ ${money(v?.amounts?.total||0)}
-            </div>
+            <span class="chip">${toTW(v.createdAt)}</span>
           </button>`;
       }).join('');
 
-      $$('.list-item', orderListEl).forEach(li=>{
-        li.addEventListener('click', ()=>showOrderDetail(li.dataset.id));
+      $$('.list-item', orderListEl).forEach(btn=>{
+        btn.addEventListener('click', ()=>showOrderDetail(btn.dataset.id));
       });
     }, err=>{
       orderListEl.innerHTML = `<div class="text-danger">讀取失敗：${err.message}</div>`;
     });
   }
 
+  // 點篩選 pill
+  $('#statePills', el).addEventListener('click', e=>{
+    const p = e.target.closest('.p');
+    if (!p) return;
+    $$('.p', $('#statePills', el)).forEach(x=>x.classList.remove('active'));
+    p.classList.add('active');
+    currentState = p.dataset.state || '';
+    bindOrders();
+  });
+
+  // ---------- 訂單詳細 ----------
   async function showOrderDetail(id){
-    orderDetailEl.innerHTML = '載入中…';
+    const wrap = $('#orderDetail', el);
+    wrap.innerHTML = '載入中…';
+
     try{
       const ref = doc(db,'orders',id);
       const d = await getDoc(ref);
-      if (!d.exists()) { orderDetailEl.innerHTML = '查無資料'; return; }
+      if (!d.exists()) { wrap.innerHTML = '查無資料'; return; }
       const v = d.data();
 
-      const items = (v.items||[]).map(i=>`
-        <tr>
-          <td>${i.name}</td><td>${i.sku||''}</td>
-          <td class="text-end">${i.qty}</td>
-          <td class="text-end">${money(i.price)}</td>
-          <td class="text-end">${money(i.price*i.qty)}</td>
-        </tr>`).join('');
-
-      // 狀態選擇（中文）
-      const optZh = STATE_ZH.map(zh => {
+      // 狀態選單（中文）
+      const optZh = STATE_ZH.map(zh=>{
         const selected = (en2zh(v?.status||'pending')===zh) ? 'selected' : '';
         return `<option ${selected}>${zh}</option>`;
       }).join('');
 
-      orderDetailEl.innerHTML = `
+      const itemsHtml = (v.items||[]).map(i=>`
+        <div class="rowi mb-2">
+          <div>
+            <div class="fw-semibold">${i.name}</div>
+            <div class="meta">${i.sku||''}</div>
+          </div>
+          <div class="text-end">
+            <div>${i.qty} × ${money(i.price)}</div>
+            <div class="meta">${money((i.qty||0)*(i.price||0))}</div>
+          </div>
+        </div>
+      `).join('') || '<div class="meta">無品項</div>';
+
+      wrap.innerHTML = `
         <div class="mb-2"><small class="text-muted">訂單編號</small><div><code>${d.id}</code></div></div>
 
         <div class="row g-2">
           <div class="col-md-6">
             <div><small class="text-muted">建立時間</small></div>
-            <div>${dt(v.createdAt)}</div>
+            <div>${toTW(v.createdAt)}</div>
           </div>
           <div class="col-md-6">
             <div><small class="text-muted">狀態</small></div>
             <div class="d-flex gap-2 align-items-center">
-              <select id="orderStateZh" class="form-select form-select-sm" style="max-width:160px">${optZh}</select>
-              <button id="btnSaveState" class="btn btn-sm btn-primary">儲存</button>
+              <select id="stateSelZh" class="form-select form-select-sm" style="max-width:160px">${optZh}</select>
+              <button id="btnSave" class="btn btn-sm btn-primary">儲存</button>
             </div>
           </div>
         </div>
 
         <hr class="my-2">
-        <div><small class="text-muted">客戶資料</small></div>
+
         <div class="mb-2">
-          <div>${v?.customer?.name || '-'}</div>
-          <div>${v?.customer?.phone || '-'}</div>
-          <div>${v?.customer?.email || '-'}</div>
-          <div>${v?.customer?.shipping || '-'} ｜ ${v?.customer?.address || '-'}</div>
-          <div>付款：${v?.customer?.payment || '-'}</div>
-          <div>備註：${v?.customer?.note || ''}</div>
+          <div><small class="text-muted">客戶資料</small></div>
+          <div class="rowi">
+            <div>
+              <div class="fw-semibold">${v?.customer?.name || '-'}</div>
+              <div class="meta">${v?.customer?.email || '-'}</div>
+            </div>
+            <div class="text-end">
+              <div>${v?.customer?.phone || '-'}</div>
+              <div class="meta">${v?.customer?.shipping || '-'}｜${v?.customer?.address || '-'}</div>
+            </div>
+          </div>
+          <div class="mt-2 meta">付款方式：${v?.customer?.payment || '-'}</div>
+          <div class="meta">備註：${v?.customer?.note || ''}</div>
         </div>
 
-        <div><small class="text-muted">品項</small></div>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead>
-              <tr><th>名稱</th><th>SKU</th><th class="text-end">數量</th><th class="text-end">單價</th><th class="text-end">小計</th></tr>
-            </thead>
-            <tbody>${items}</tbody>
-            <tfoot>
-              <tr><th colspan="4" class="text-end">小計</th><th class="text-end">${money(v?.amounts?.subtotal)}</th></tr>
-              <tr><th colspan="4" class="text-end">運費</th><th class="text-end">${money(v?.amounts?.shipping)}</th></tr>
-              <tr><th colspan="4" class="text-end">合計</th><th class="text-end">${money(v?.amounts?.total)}</th></tr>
-            </tfoot>
-          </table>
+        <div class="mt-2"><small class="text-muted">品項</small></div>
+        <div>${itemsHtml}</div>
+
+        <div class="rowi mt-2">
+          <div class="fw-semibold">小計</div>
+          <div>${money(v?.amounts?.subtotal)}</div>
+        </div>
+        <div class="rowi mt-2">
+          <div class="fw-semibold">運費</div>
+          <div>${money(v?.amounts?.shipping)}</div>
+        </div>
+        <div class="rowi mt-2">
+          <div class="fw-semibold">合計</div>
+          <div>${money(v?.amounts?.total)}</div>
         </div>
       `;
 
-      $('#btnSaveState', orderDetailEl).addEventListener('click', async ()=>{
-        const zh = $('#orderStateZh', orderDetailEl).value;
+      // 儲存狀態
+      $('#btnSave', wrap).addEventListener('click', async ()=>{
+        const zh = $('#stateSelZh', wrap).value;
         const en = zh2en(zh);
         try{
-          await updateDoc(doc(db,'orders',id), { status: en, updatedAt: serverTimestamp() });
+          await updateDoc(ref, { status: en, updatedAt: serverTimestamp() });
           alert('狀態已更新');
         }catch(err){
           alert('更新失敗：' + err.message);
         }
       });
+
     }catch(err){
-      orderDetailEl.innerHTML = `<div class="text-danger">讀取失敗：${err.message}</div>`;
+      wrap.innerHTML = `<div class="text-danger">讀取失敗：${err.message}</div>`;
     }
   }
 
-  $('#orderFilter', el).addEventListener('change', bindOrders);
+  // 初次載入
   bindOrders();
-
   return el;
 }
