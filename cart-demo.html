@@ -40,46 +40,52 @@
       color: var(--text-light);
     }
     html.light { background: var(--bg-light); }
-    body.light .card { background: var(--card-light); border:1px solid var(--border-light); }
-    body.light .btn { background:#f0f0f0; color:#111; border:1px solid #ccc; }
+    body.light .card {
+      background: var(--card-light);
+      border:1px solid var(--border-light);
+    }
+    body.light .btn {
+      background:#f0f0f0;
+      color:#111;
+      border:1px solid #ccc;
+    }
 
     /* ==== 購物車字色 & 對比優化 ==== */
     .cart-box { color: #e9edf3; }
     body .text-muted,
     body .text-secondary,
-    body .text-body-secondary { color: #c6d0dc !important; }
-    #subtotal, #shipping, #total { color: #f8fafc !important; font-weight: 800; }
+    body .text-body-secondary {
+      color: #c6d0dc !important;
+    }
+    #subtotal, #shipping, #total {
+      color: #f8fafc !important;
+      font-weight: 800;
+    }
     .cart-item { border-bottom: 1px solid #475366; }
-    .cart-box hr { border-color: #3f4b5b; opacity: 1; }
-    .btn-darkish{ border:1px solid #556073; background:#1d2433; color:#eef2f7; }
-    .btn-darkish:hover{ background:#243047; border-color:#64718a; color:#fff; }
+    .cart-box hr {
+      border-color: #3f4b5b;
+      opacity: 1;
+    }
+    .btn-darkish{
+      border:1px solid #556073;
+      background:#1d2433;
+      color:#eef2f7;
+    }
+    .btn-darkish:hover{
+      background:#243047;
+      border-color:#64718a;
+      color:#fff;
+    }
 
     /* 亮色模式保持正常 */
     body.light .text-muted,
     body.light .text-secondary,
     body.light .text-body-secondary { color: #6b7280 !important; }
-    body.light #subtotal, body.light #shipping, body.light #total { color:#111 !important; }
+    body.light #subtotal, 
+    body.light #shipping, 
+    body.light #total { color:#111 !important; }
     body.light .cart-item{ border-bottom:1px solid #e7e7e7; }
     body.light .cart-box hr{ border-color:#e7e7e7; }
-
-    /* =========================
-       只在「暗色模式」下強化商品卡片字色/字重
-       ========================= */
-    body:not(.light) #products .card .fw-semibold{
-      font-weight: 800;           /* 商品名稱更粗 */
-      letter-spacing: .2px;
-    }
-    body:not(.light) #products .card .text-muted{
-      color: #d1d8e2 !important;  /* SKU 提亮 */
-      font-weight: 600;           /* 字重略加 */
-    }
-    body:not(.light) #products .card .price{
-      color: #f3f6fb;             /* 價格更亮 */
-      font-weight: 800;           /* 價格更粗 */
-    }
-    body:not(.light) #products .card .btn{
-      font-weight: 700;           /* 「加入購物車」字重 */
-    }
   </style>
 </head>
 <body>
