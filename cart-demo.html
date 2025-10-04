@@ -1,317 +1,68 @@
-<!doctype html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>立國實業｜線上下單 Demo</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-  <style>
-    :root {
-      --bg-dark: #0f1318;
-      --text-dark: #e6e6e6;
-      --card-dark: #151a21;
-      --border-dark: #2a2f37;
+/* ==== 結帳 Modal（暗色樣式）==== */
+.modal-backdrop.show{           /* 背景遮罩不要太刺眼 */
+  opacity: .6;
+}
 
-      --bg-light: #f5f7fb;
-      --text-light: #111;
-      --card-light: #fff;
-      --border-light: #ddd;
-    }
+/* 外框/文字 */
+#checkoutDlg .modal-content{
+  background: var(--card-dark);
+  border: 1px solid var(--border-dark);
+  color: var(--text-dark);
+}
+#checkoutDlg .modal-header,
+#checkoutDlg .modal-footer{
+  border-color: var(--border-dark);
+}
 
-    /* 預設深色 */
-    body {
-      background: var(--bg-dark);
-      color: var(--text-dark);
-      min-height: 100vh;
-    }
-    html { background: var(--bg-dark); height: 100%; }
+/* 關閉鈕（白色） */
+#checkoutDlg .btn-close{
+  filter: invert(90%);
+  opacity: .9;
+}
 
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-    .card{background:var(--card-dark);border:1px solid var(--border-dark);border-radius:12px}
-    .price{font-weight:700}
-    .btn{border:1px solid #444;background:#1b1f26;color:#e6e6e6}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-    .aside{position:sticky;top:16px}
-    @media (max-width: 991px){.aside{position:static}}
+/* 表單欄位（暗色） */
+#checkoutDlg .form-label{ color: var(--text-dark); }
 
-    /* 亮色模式 */
-    body.light {
-      background: var(--bg-light);
-      color: var(--text-light);
-    }
-    html.light { background: var(--bg-light); }
-    body.light .card {
-      background: var(--card-light);
-      border:1px solid var(--border-light);
-    }
-    body.light .btn {
-      background:#f0f0f0;
-      color:#111;
-      border:1px solid #ccc;
-    }
+#checkoutDlg .form-control,
+#checkoutDlg .form-select{
+  background: var(--bg-dark);
+  color: var(--text-dark);
+  border: 1px solid var(--border-dark);
+  box-shadow: none;
+}
+#checkoutDlg .form-control::placeholder{
+  color: #c6d0dc;  /* 比較清楚的灰 */
+}
+#checkoutDlg .form-control:focus,
+#checkoutDlg .form-select:focus{
+  border-color: #3d4656;    /* 聚焦時略亮 */
+  box-shadow: none;
+}
+#checkoutDlg .form-select option{
+  background: var(--card-dark);
+  color: var(--text-dark);
+}
 
-    /* ==== 購物車字色 & 對比優化 ==== */
-    .cart-box { color: #e9edf3; }
-    body .text-muted,
-    body .text-secondary,
-    body .text-body-secondary {
-      color: #c6d0dc !important;
-    }
-    #subtotal, #shipping, #total {
-      color: #f8fafc !important;
-      font-weight: 800;
-    }
-    .cart-item { border-bottom: 1px solid #475366; }
-    .cart-box hr {
-      border-color: #3f4b5b;
-      opacity: 1;
-    }
-    .btn-darkish{
-      border:1px solid #556073;
-      background:#1d2433;
-      color:#eef2f7;
-    }
-    .btn-darkish:hover{
-      background:#243047;
-      border-color:#64718a;
-      color:#fff;
-    }
-
-    /* 亮色模式保持正常 */
-    body.light .text-muted,
-    body.light .text-secondary,
-    body.light .text-body-secondary { color: #6b7280 !important; }
-    body.light #subtotal, 
-    body.light #shipping, 
-    body.light #total { color:#111 !important; }
-    body.light .cart-item{ border-bottom:1px solid #e7e7e7; }
-    body.light .cart-box hr{ border-color:#e7e7e7; }
-  </style>
-</head>
-<body>
-  <nav class="navbar bg-dark border-bottom border-secondary">
-    <div class="container d-flex justify-content-between">
-      <a class="navbar-brand text-white fw-bold" href="#">立國實業</a>
-      <div class="d-flex gap-2">
-        <button id="toggleTheme" class="btn btn-outline-light btn-sm">切換亮/暗</button>
-        <a class="btn btn-outline-light" href="./index.html">回首頁</a>
-      </div>
-    </div>
-  </nav>
-
-  <main class="container py-3">
-    <div class="row g-3">
-      <div class="col-lg-8">
-        <h4 class="mb-3">商品列表</h4>
-        <div id="products" class="grid"></div>
-      </div>
-
-      <div class="col-lg-4">
-        <div class="card aside p-3 cart-box">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 class="m-0">購物車</h5>
-            <button id="btnClear" class="btn btn-sm">清空</button>
-          </div>
-          <div id="cartItems" class="small text-muted">尚無商品</div>
-          <hr>
-          <div class="d-flex justify-content-between">
-            <div class="text-muted">小計</div><div id="subtotal" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-flex justify-content-between">
-            <div class="text-muted">運費</div><div id="shipping" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-flex justify-content-between fs-5">
-            <div>合計</div><div id="total" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-grid mt-2">
-            <button id="btnCheckout" class="btn btn-primary">結帳</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- 結帳 Modal -->
-  <div class="modal fade" id="checkoutDlg" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <form id="checkoutForm" class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">訂購資料</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="row g-2">
-            <div class="col-md-6">
-              <label class="form-label">姓名</label>
-              <input name="name" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">電話</label>
-              <input name="phone" class="form-control" required>
-            </div>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">Email（收訂單）</label>
-            <input name="email" type="email" class="form-control" required>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">配送方式</label>
-            <select name="shipping" class="form-select" required>
-              <option value="宅配">宅配（黑貓/新竹）</option>
-              <option value="超商取貨（先匯款）">超商取貨（先匯款）</option>
-            </select>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">地址/門市</label>
-            <input name="address" class="form-control" required>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">付款方式</label>
-            <select name="payment" class="form-select" required>
-              <option value="銀行轉帳">銀行轉帳</option>
-              <option value="貨到付款">貨到付款</option>
-              <option value="信用卡">信用卡（綠界/藍新）</option>
-            </select>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">備註</label>
-            <textarea name="note" rows="3" class="form-control" placeholder="尺寸、發票抬頭/統編等"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">取消</button>
-          <button class="btn btn-primary" type="submit">送出訂單</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-  <!-- 購物邏輯 + Firestore 寫入 -->
-  <script type="module">
-    import { db } from './assets/js/firebase.js';
-    import { collection, addDoc, serverTimestamp } 
-      from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
-
-    const PRODUCTS = [
-      { sku:'LG-001', name:'立國工業手套 M', price:120 },
-      { sku:'LG-002', name:'立國工業手套 L', price:120 },
-      { sku:'LT-010', name:'立國安全帽',    price:980 },
-      { sku:'P-004',  name:'工地雨鞋',      price:560 },
-      { sku:'P-005',  name:'商品 05',       price:500 },
-      { sku:'P-008',  name:'護目鏡',        price:199 },
-    ];
-
-    const CART_KEY = 'cart';
-    const $ = sel => document.querySelector(sel);
-    const fmt = n => 'NT$ ' + (n||0).toLocaleString();
-
-    const loadCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY)||'[]'); } catch { return []; } };
-    const saveCart = (c) => localStorage.setItem(CART_KEY, JSON.stringify(c));
-    const clearCart = () => localStorage.removeItem(CART_KEY);
-
-    function addToCart(p){
-      const cart = loadCart();
-      const f = cart.find(i=>i.sku===p.sku);
-      if (f) f.qty++;
-      else cart.push({ sku:p.sku, name:p.name, price:p.price, qty:1 });
-      saveCart(cart);
-      renderCart();
-    }
-    function changeQty(sku, delta){
-      const cart = loadCart();
-      const i = cart.find(x=>x.sku===sku);
-      if (!i) return;
-      i.qty += delta;
-      if (i.qty <= 0) cart.splice(cart.indexOf(i),1);
-      saveCart(cart);
-      renderCart();
-    }
-
-    function renderProducts(){
-      $('#products').innerHTML = PRODUCTS.map(p=>`
-        <div class="card p-3">
-          <div class="fw-semibold">${p.name}</div>
-          <div class="text-muted small">SKU：${p.sku}</div>
-          <div class="price mt-1">NT$ ${p.price.toLocaleString()}</div>
-          <button class="btn btn-sm mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
-        </div>
-      `).join('');
-      window.addToCart = addToCart;
-    }
-
-    function renderCart(){
-      const cart = loadCart();
-      const wrap = $('#cartItems');
-      wrap.innerHTML = cart.length
-        ? cart.map(i=>`
-          <div class="d-flex justify-content-between align-items-center py-1 cart-item">
-            <div>
-              <div>${i.name}</div>
-              <div class="text-muted small">SKU：${i.sku}</div>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <button class="btn btn-sm btn-darkish" onclick="changeQty('${i.sku}',-1)">－</button>
-              <span>${i.qty}</span>
-              <button class="btn btn-sm btn-darkish" onclick="changeQty('${i.sku}',+1)">＋</button>
-              <div class="ms-2">${fmt(i.price*i.qty)}</div>
-            </div>
-          </div>
-        `).join('')
-        : '<div class="text-muted">尚無商品</div>';
-
-      const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
-      const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
-      $('#subtotal').textContent = fmt(subtotal);
-      $('#shipping').textContent = fmt(shipping);
-      $('#total').textContent = fmt(subtotal+shipping);
-    }
-
-    $('#btnClear').addEventListener('click', ()=>{ clearCart(); renderCart(); });
-    $('#btnCheckout').addEventListener('click', ()=>{
-      if (!loadCart().length) { alert('購物車是空的'); return; }
-      new bootstrap.Modal('#checkoutDlg').show();
-    });
-
-    $('#checkoutForm').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const cart = loadCart();
-      if (!cart.length){ alert('購物車是空的'); return; }
-
-      const data = Object.fromEntries(new FormData(e.target).entries());
-      const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
-      const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
-      const total = subtotal + shipping;
-
-      const order = {
-        customer: data,
-        items: cart,
-        amounts: { subtotal, shipping, total },
-        status: 'pending',
-        createdAt: serverTimestamp()
-      };
-
-      try{
-        const ref = await addDoc(collection(db,'orders'), order);
-        alert(`訂單已送出：${ref.id}`);
-        clearCart();
-        renderCart();
-        bootstrap.Modal.getInstance(document.getElementById('checkoutDlg')).hide();
-      }catch(err){
-        console.error(err);
-        alert('寫入訂單失敗：' + err.message);
-      }
-    });
-
-    // 切換主題
-    $('#toggleTheme').addEventListener('click', ()=>{
-      document.body.classList.toggle('light');
-      document.documentElement.classList.toggle('light');
-    });
-
-    renderProducts();
-    renderCart();
-  </script>
-</body>
-</html>
+/* ==== 亮色模式保持既有風格（不影響你原本的亮色頁面）==== */
+body.light #checkoutDlg .modal-content{
+  background: var(--card-light);
+  border: 1px solid var(--border-light);
+  color: var(--text-light);
+}
+body.light #checkoutDlg .modal-header,
+body.light #checkoutDlg .modal-footer{
+  border-color: var(--border-light);
+}
+body.light #checkoutDlg .btn-close{ filter: none; opacity: .6; }
+body.light #checkoutDlg .form-label{ color: var(--text-light); }
+body.light #checkoutDlg .form-control,
+body.light #checkoutDlg .form-select{
+  background: #fff;
+  color: var(--text-light);
+  border: 1px solid var(--border-light);
+}
+body.light #checkoutDlg .form-control::placeholder{ color: #8a8f99; }
+body.light #checkoutDlg .form-select option{
+  background: #fff;
+  color: var(--text-light);
+}
