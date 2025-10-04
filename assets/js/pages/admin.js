@@ -164,7 +164,6 @@ export function AdminPage(){
       </div>
       <div class="act">
         <button class="btn btn-outline-light me-2" id="themeToggle"><i class="bi bi-brightness-high me-1"></i>切換亮/暗</button>
-        <button class="btn btn-primary me-2" data-go="#shop"><i class="bi bi-cart me-1"></i> 立即購物</button>
         <button class="btn btn-outline-light" data-go="#dashboard"><i class="bi bi-grid me-1"></i> 回首頁</button>
       </div>
     </div>
