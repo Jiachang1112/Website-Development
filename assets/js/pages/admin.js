@@ -1,5 +1,5 @@
 // assets/js/pages/admin.js
-// 後台：登入門檻（內嵌表單） + 上方概況 + 卡片風格訂單管理
+// 後台：Google 登入白名單 + 上方概況 + 卡片風格訂單管理
 // 依賴：assets/js/firebase.js（初始化 app / db）
 
 import { db } from '../firebase.js';
@@ -9,7 +9,7 @@ import {
   where, getDocs, Timestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+  getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
 /* ───────── 小工具 ───────── */
@@ -84,7 +84,7 @@ function ensureAdminStyles(){
   .o-sub{color:var(--muted);font-size:13px}
   .o-time{font-size:12px;border:1px solid var(--border);background:var(--chip);color:var(--muted); padding:.25rem .6rem; border-radius:999px}
 
-  /* 登入表單 */
+  /* 登入卡片 */
   .auth-wrap{display:flex; flex-direction:column; gap:10px; max-width:360px}
   `;
   document.head.appendChild(css);
@@ -144,7 +144,7 @@ async function computeTodayStats(setters){
   setters.users(uniq.size);
 }
 
-/* ───────── 主頁面（含登入表單門檻） ───────── */
+/* ───────── 主頁面（Google 登入白名單） ───────── */
 export function AdminPage(){
   ensureAdminStyles();
 
@@ -157,68 +157,58 @@ export function AdminPage(){
     </div>
   `;
 
-  const ADMIN_EMAIL = 'bruce9811123@gmail.com';
-  const ADMIN_PASS  = '0900564233';
-  const auth = getAuth();
+  // 白名單（可放多位）
+  const ADMIN_EMAILS = ['bruce9811123@gmail.com'].map(e=>e.trim().toLowerCase());
 
-  const showLogin = (msg='請先登入才能進入後台')=>{
+  const auth = getAuth();
+  const provider = new GoogleAuthProvider();
+
+  // 顯示 Google 登入畫面
+  const showLogin = (msg='請先使用 Google 登入才能進入後台')=>{
     el.innerHTML = `
       <div class="kcard kpad" style="max-width:520px">
         <div class="hd-title mb-2">${msg}</div>
-        <form id="adminLogin" class="auth-wrap">
-          <div>
-            <label class="form-label">帳號（Email）</label>
-            <input id="loginEmail" type="email" class="form-control" placeholder="bruce9811123@gmail.com" required>
-          </div>
-          <div>
-            <label class="form-label">密碼</label>
-            <input id="loginPass" type="password" class="form-control" placeholder="******" required>
-          </div>
-          <div class="d-flex gap-2">
-            <button class="btn btn-primary btn-pill" type="submit">登入</button>
-            <a class="btn btn-outline-light btn-pill" href="#dashboard">回首頁</a>
-          </div>
+        <div class="auth-wrap">
+          <button id="googleLogin" class="btn btn-primary btn-pill">
+            <i class="bi bi-google me-1"></i> 使用 Google 登入
+          </button>
+          <a class="btn btn-outline-light btn-pill" href="#dashboard">回首頁</a>
           <div id="loginErr" class="text-danger small"></div>
-        </form>
+        </div>
       </div>
     `;
 
-    $('#loginEmail', el).value = ADMIN_EMAIL;
-    $('#loginPass', el).value  = '';
-
-    $('#adminLogin', el).addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const email = $('#loginEmail', el).value.trim();
-      const pass  = $('#loginPass',  el).value.trim();
+    $('#googleLogin', el).addEventListener('click', async ()=>{
+      $('#loginErr', el).textContent = '';
       try{
-        const cred = await signInWithEmailAndPassword(auth, email, pass);
-        const ok = (cred.user?.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
-        if (!ok) throw new Error('not-admin');
-        // 通過 → 渲染後台
-        renderAdminUI(el);
+        const cred = await signInWithPopup(auth, provider);
+        const email = (cred.user?.email || '').trim().toLowerCase();
+        if (!ADMIN_EMAILS.includes(email)) throw new Error('not-admin');
+        renderAdminUI(el, auth); // 進入後台
       }catch(err){
-        $('#loginErr', el).textContent = '管理員帳號錯誤，將自動返回首頁…';
-        setTimeout(()=>{ location.hash = '#dashboard'; }, 2000);
+        $('#loginErr', el).textContent = '你不符合管理員帳號，將自動返回首頁…';
         try{ await signOut(auth); }catch{}
+        setTimeout(()=>{ location.hash = '#dashboard'; }, 2000);
       }
     });
   };
 
+  // 監聽登入狀態
   onAuthStateChanged(auth, (user)=>{
     if (!user) { showLogin(); return; }
-    const ok = (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
-    if (!ok) {
+    const email = (user.email || '').trim().toLowerCase();
+    if (!ADMIN_EMAILS.includes(email)) {
       showLogin('你不符合管理員帳號，請使用管理員帳號登入');
       return;
     }
-    renderAdminUI(el);
+    renderAdminUI(el, auth);
   });
 
   return el;
 }
 
 /* 渲染真正後台 UI，並綁定行為 */
-function renderAdminUI(el){
+function renderAdminUI(el, auth){
   el.innerHTML = `
     <div class="hero">
       <div>
@@ -229,8 +219,11 @@ function renderAdminUI(el){
         <button class="btn btn-outline-light me-2 btn-pill" id="themeToggle">
           <i class="bi bi-brightness-high me-1"></i>切換亮/暗
         </button>
-        <button class="btn btn-outline-light btn-pill" data-go="#dashboard">
+        <button class="btn btn-outline-light me-2 btn-pill" data-go="#dashboard">
           <i class="bi bi-grid me-1"></i> 回首頁
+        </button>
+        <button class="btn btn-outline-light btn-pill" id="btnLogout">
+          <i class="bi bi-box-arrow-right me-1"></i> 登出
         </button>
       </div>
     </div>
@@ -272,9 +265,16 @@ function renderAdminUI(el){
     </div>
   `;
 
+  // 導航按鈕
   el.addEventListener('click', e=>{
     const go = e.target.closest('[data-go]');
     if (go) location.hash = go.getAttribute('data-go');
+  });
+
+  // 登出
+  $('#btnLogout', el)?.addEventListener('click', async ()=>{
+    try{ await signOut(auth); }catch{}
+    location.hash = '#dashboard';
   });
 
   initThemeToggle(el);
