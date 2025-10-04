@@ -7,92 +7,128 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 
   <style>
-    :root {
-      --bg-dark: #0f1318;
-      --text-dark: #f5f7fa;   /* 調亮文字顏色 */
-      --card-dark: #151a21;
-      --border-dark: #2a2f37;
+    /* ───────── Design Tokens ───────── */
+    :root{
+      /* Dark (default) */
+      --bg:#0f1318;
+      --fg:#e9eef7;             /* 主要文字（比之前更亮） */
+      --muted:#b8c0cc;          /* 次要文字（仍然清楚） */
+      --card:#151a21;
+      --card-2:#11161d;
+      --border:#2a2f37;
+      --chip:#0b1220;
 
-      --bg-light: #f5f7fb;
-      --text-light: #111;
-      --card-light: #fff;
-      --border-light: #ddd;
-    }
+      --btn:#1b2130;
+      --btn-border:#3a4252;
+      --btn-hover:#223046;
 
-    /* 深色模式 */
-    body {
-      background: var(--bg-dark);
-      color: var(--text-dark);
-      min-height: 100vh;
-    }
-    html { background: var(--bg-dark); height: 100%; }
+      --primary:#1f6fff;        /* 主色（按鈕/強調） */
+      --primary-press:#1a5fe0;
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 12px;
-    }
-    .card {
-      background: var(--card-dark);
-      border: 1px solid var(--border-dark);
-      border-radius: 12px;
-      color: var(--text-dark);
-    }
-    .price {
-      font-weight: 700;
-      color: var(--text-dark);
-    }
-    .btn {
-      border: 1px solid #555;
-      background: #1b1f26;
-      color: var(--text-dark);
-    }
-    .btn:hover {
-      background: #2b323d;
-      color: #fff;
-    }
-    .btn:disabled {
-      opacity: .6;
-      cursor: not-allowed;
+      --shadow:0 10px 28px rgba(0,0,0,.35);
+
+      /* Light */
+      --bg-light:#f4f7fb;
+      --fg-light:#101418;
+      --muted-light:#596273;
+      --card-light:#ffffff;
+      --card-2-light:#ffffff;
+      --border-light:#d7dde7;
+
+      --btn-light:#f2f4f8;
+      --btn-border-light:#cfd6e2;
+      --btn-hover-light:#e8edf5;
     }
 
-    .aside {
-      position: sticky;
-      top: 16px;
-      background: var(--card-dark);
-      color: var(--text-dark);
+    /* ───────── Base ───────── */
+    html,body{height:100%}
+    html{background:var(--bg)}
+    body{
+      background:var(--bg);
+      color:var(--fg);
+      min-height:100vh;
     }
-    @media (max-width: 991px){ .aside{ position: static } }
+    .container{color:var(--fg)}
 
-    /* 統一標題與文字亮度 */
-    h4, h5, label, .form-label, .navbar-brand, .text-muted, .fw-semibold, .price, .small, .fw-bold {
-      color: var(--text-dark) !important;
+    /* 卡片/按鈕 */
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
+      box-shadow:var(--shadow);
+    }
+    .btn{
+      background:var(--btn);
+      color:var(--fg);
+      border:1px solid var(--btn-border);
+    }
+    .btn:hover{background:var(--btn-hover);color:var(--fg)}
+    .btn-primary{
+      background:var(--primary);
+      border-color:transparent;
+      color:#fff;
+    }
+    .btn-primary:hover{background:var(--primary-press)}
+    .btn-outline-light{border-color:var(--btn-border);color:var(--fg)}
+    .btn-outline-light:hover{background:var(--btn-hover);color:var(--fg)}
+    .text-muted{color:var(--muted)!important}
+    hr{border-color:var(--border);opacity:1}
+
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+    .price{font-weight:700}
+
+    /* 購物車側欄 */
+    .aside{position:sticky;top:16px}
+    @media (max-width: 991px){.aside{position:static}}
+
+    /* ───────── Checkout Modal（暗色調整） ───────── */
+    .modal-backdrop.show{opacity:.6}
+    .modal-content{
+      background:var(--card-2);
+      border:1px solid var(--border);
+      color:var(--fg);
+    }
+    .modal-header,
+    .modal-footer{border-color:var(--border)}
+    .modal-title{color:var(--fg)}
+    .btn-close{
+      filter: invert(90%);
+      opacity:.9;
     }
 
-    hr {
-      border-color: var(--border-dark);
+    /* 表單欄位（暗色） */
+    .form-label{color:var(--fg)}
+    .form-control,
+    .form-select,
+    .form-control:focus,
+    .form-select:focus{
+      background:var(--bg);
+      color:var(--fg);
+      border:1px solid var(--border);
+      box-shadow:none;
     }
+    .form-control::placeholder{color:var(--muted)}
+    .form-select option{background:var(--card-2);color:var(--fg)}
+    .form-check-label{color:var(--fg)}
 
-    /* 淺色模式 */
-    body.light {
-      background: var(--bg-light);
-      color: var(--text-light);
-    }
-    html.light { background: var(--bg-light); }
-    body.light .card {
-      background: var(--card-light);
-      border: 1px solid var(--border-light);
-      color: var(--text-light);
-    }
-    body.light .btn {
-      background: #f0f0f0;
-      color: #111;
-      border: 1px solid #ccc;
-    }
-    body.light .aside {
-      background: var(--card-light);
-      color: var(--text-light);
-    }
+    /* ───────── Light mode ───────── */
+    body.light{background:var(--bg-light);color:var(--fg-light)}
+    html.light{background:var(--bg-light)}
+    body.light .card{background:var(--card-light);border-color:var(--border-light)}
+    body.light .btn{background:var(--btn-light);border-color:var(--btn-border-light);color:var(--fg-light)}
+    body.light .btn:hover{background:var(--btn-hover-light)}
+    body.light .btn-outline-light{border-color:var(--btn-border-light);color:var(--fg-light)}
+    body.light .text-muted{color:var(--muted-light)!important}
+    body.light hr{border-color:var(--border-light)}
+    /* Modal + 表單（亮色） */
+    body.light .modal-content{background:var(--card-2-light);border-color:var(--border-light);color:var(--fg-light)}
+    body.light .modal-header,
+    body.light .modal-footer{border-color:var(--border-light)}
+    body.light .btn-close{filter:none;opacity:.6}
+    body.light .form-label{color:var(--fg-light)}
+    body.light .form-control,
+    body.light .form-select{background:#fff;color:var(--fg-light);border:1px solid var(--border-light)}
+    body.light .form-control::placeholder{color:#8b93a3}
   </style>
 </head>
 
@@ -109,27 +145,30 @@
 
   <main class="container py-3">
     <div class="row g-3">
+      <!-- 產品區 -->
       <div class="col-lg-8">
         <h4 class="mb-3">商品列表</h4>
         <div id="products" class="grid"></div>
       </div>
 
+      <!-- 購物車 -->
       <div class="col-lg-4">
         <div class="card aside p-3">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h5 class="m-0">購物車</h5>
             <button id="btnClear" class="btn btn-sm">清空</button>
           </div>
+
           <div id="cartItems" class="small text-muted">尚無商品</div>
           <hr>
           <div class="d-flex justify-content-between">
-            <div>小計</div><div id="subtotal" class="fw-bold">NT$ 0</div>
+            <div class="">小計</div><div id="subtotal" class="fw-bold">NT$ 0</div>
           </div>
           <div class="d-flex justify-content-between">
-            <div>運費</div><div id="shipping" class="fw-bold">NT$ 0</div>
+            <div class="">運費</div><div id="shipping" class="fw-bold">NT$ 0</div>
           </div>
           <div class="d-flex justify-content-between fs-5">
-            <div class="fw-bold">合計</div><div id="total" class="fw-bold">NT$ 0</div>
+            <div class="">合計</div><div id="total" class="fw-bold">NT$ 0</div>
           </div>
           <div class="d-grid mt-2">
             <button id="btnCheckout" class="btn btn-primary">結帳</button>
@@ -140,54 +179,56 @@
   </main>
 
   <!-- 結帳 Modal -->
-  <div class="modal fade" id="checkoutDlg" tabindex="-1">
+  <div class="modal fade" id="checkoutDlg" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <form id="checkoutForm" class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">訂購資料</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
+
         <div class="modal-body">
-          <div class="row g-2">
+          <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">姓名</label>
-              <input name="name" class="form-control" required>
+              <input name="name" class="form-control" placeholder="請輸入姓名" required>
             </div>
             <div class="col-md-6">
               <label class="form-label">電話</label>
-              <input name="phone" class="form-control" required>
+              <input name="phone" class="form-control" placeholder="聯絡電話" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Email（收訂單）</label>
+              <input name="email" type="email" class="form-control" placeholder="example@mail.com" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">配送方式</label>
+              <select name="shipping" class="form-select" required>
+                <option value="宅配">宅配（黑貓/新竹）</option>
+                <option value="超商取貨（先匯款）">超商取貨（先匯款）</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">地址/門市</label>
+              <input name="address" class="form-control" placeholder="配送地址/門市" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">付款方式</label>
+              <select name="payment" class="form-select" required>
+                <option value="銀行轉帳">銀行轉帳</option>
+                <option value="貨到付款">貨到付款</option>
+                <option value="信用卡">信用卡（綠界/藍新）</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">備註</label>
+              <textarea name="note" rows="3" class="form-control" placeholder="尺寸、發票抬頭/統編等"></textarea>
             </div>
           </div>
-          <div class="mt-2">
-            <label class="form-label">Email（收訂單）</label>
-            <input name="email" type="email" class="form-control" required>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">配送方式</label>
-            <select name="shipping" class="form-select" required>
-              <option value="宅配">宅配（黑貓/新竹）</option>
-              <option value="超商取貨（先匯款）">超商取貨（先匯款）</option>
-            </select>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">地址/門市</label>
-            <input name="address" class="form-control" required>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">付款方式</label>
-            <select name="payment" class="form-select" required>
-              <option value="銀行轉帳">銀行轉帳</option>
-              <option value="貨到付款">貨到付款</option>
-              <option value="信用卡">信用卡（綠界/藍新）</option>
-            </select>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">備註</label>
-            <textarea name="note" rows="3" class="form-control" placeholder="尺寸、發票抬頭/統編等"></textarea>
-          </div>
         </div>
+
         <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">取消</button>
+          <button class="btn btn-outline-light" data-bs-dismiss="modal" type="button">取消</button>
           <button class="btn btn-primary" type="submit">送出訂單</button>
         </div>
       </form>
@@ -196,27 +237,31 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- 購物邏輯 -->
   <script type="module">
     import { db } from './assets/js/firebase.js';
-    import { collection, addDoc, serverTimestamp } 
+    import { collection, addDoc, serverTimestamp }
       from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
+    /* ───────── Data ───────── */
     const PRODUCTS = [
       { sku:'LG-001', name:'立國工業手套 M', price:120 },
       { sku:'LG-002', name:'立國工業手套 L', price:120 },
-      { sku:'LT-010', name:'立國安全帽', price:980 },
-      { sku:'P-004',  name:'工地雨鞋', price:560 },
-      { sku:'P-005',  name:'商品 05', price:500 },
-      { sku:'P-008',  name:'護目鏡', price:199 },
+      { sku:'LT-010', name:'立國安全帽',    price:980 },
+      { sku:'P-004',  name:'工地雨鞋',      price:560 },
+      { sku:'P-005',  name:'商品 05',       price:500 },
+      { sku:'P-008',  name:'護目鏡',        price:199 },
     ];
 
+    /* ───────── Helpers ───────── */
     const CART_KEY = 'cart';
     const $ = sel => document.querySelector(sel);
     const fmt = n => 'NT$ ' + (n||0).toLocaleString();
 
-    const loadCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY)||'[]'); } catch { return []; } };
-    const saveCart = (c) => localStorage.setItem(CART_KEY, JSON.stringify(c));
+    const loadCart = () => {
+      try { return JSON.parse(localStorage.getItem(CART_KEY)||'[]'); }
+      catch { return []; }
+    };
+    const saveCart = c => localStorage.setItem(CART_KEY, JSON.stringify(c));
     const clearCart = () => localStorage.removeItem(CART_KEY);
 
     function addToCart(p){
@@ -237,6 +282,7 @@
       renderCart();
     }
 
+    /* ───────── UI Render ───────── */
     function renderProducts(){
       $('#products').innerHTML = PRODUCTS.map(p=>`
         <div class="card p-3">
@@ -246,6 +292,7 @@
           <button class="btn btn-sm mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
         </div>
       `).join('');
+      // 暴露給 inline onclick
       window.addToCart = addToCart;
     }
 
@@ -254,10 +301,10 @@
       const wrap = $('#cartItems');
       wrap.innerHTML = cart.length
         ? cart.map(i=>`
-          <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-secondary">
+          <div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="border-color:var(--border)">
             <div>
               <div>${i.name}</div>
-              <div class="small">SKU：${i.sku}</div>
+              <div class="text-muted small">SKU：${i.sku}</div>
             </div>
             <div class="d-flex align-items-center gap-2">
               <button class="btn btn-sm" onclick="changeQty('${i.sku}',-1)">－</button>
@@ -273,9 +320,10 @@
       const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
       $('#subtotal').textContent = fmt(subtotal);
       $('#shipping').textContent = fmt(shipping);
-      $('#total').textContent = fmt(subtotal+shipping);
+      $('#total').textContent    = fmt(subtotal+shipping);
     }
 
+    /* 事件 */
     $('#btnClear').addEventListener('click', ()=>{ clearCart(); renderCart(); });
     $('#btnCheckout').addEventListener('click', ()=>{
       if (!loadCart().length) { alert('購物車是空的'); return; }
@@ -312,12 +360,13 @@
       }
     });
 
-    // 切換主題
+    // 主題切換
     $('#toggleTheme').addEventListener('click', ()=>{
       document.body.classList.toggle('light');
       document.documentElement.classList.toggle('light');
     });
 
+    // 初始
     renderProducts();
     renderCart();
   </script>
