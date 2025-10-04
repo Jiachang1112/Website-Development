@@ -1,317 +1,575 @@
-<!doctype html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>立國實業｜線上下單 Demo</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-  <style>
-    :root {
-      --bg-dark: #0f1318;
-      --text-dark: #e6e6e6;
-      --card-dark: #151a21;
-      --border-dark: #2a2f37;
+// assets/js/pages/admin.js
+// 後台：上方加入「歡迎 / 今日概況 + 4 張統計卡」，下方為卡片風格訂單管理（含搜尋/篩選/日期/匯出CSV）
+// 依賴：assets/js/firebase.js（同一個 app 實例輸出 auth / db）
 
-      --bg-light: #f5f7fb;
-      --text-light: #111;
-      --card-light: #fff;
-      --border-light: #ddd;
-    }
+import { auth, db } from '../firebase.js';
+import {
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signOut,
+} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
-    /* 預設深色 */
-    body {
-      background: var(--bg-dark);
-      color: var(--text-dark);
-      min-height: 100vh;
-    }
-    html { background: var(--bg-dark); height: 100%; }
+import {
+  collection, query, orderBy, limit, onSnapshot,
+  doc, getDoc, updateDoc, serverTimestamp,
+  where, getDocs, Timestamp,
+} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-    .card{background:var(--card-dark);border:1px solid var(--border-dark);border-radius:12px}
-    .price{font-weight:700}
-    .btn{border:1px solid #444;background:#1b1f26;color:#e6e6e6}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-    .aside{position:sticky;top:16px}
-    @media (max-width: 991px){.aside{position:static}}
+/* ───────── 小工具 ───────── */
+const $  = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+const money = n => 'NT$ ' + (n || 0).toLocaleString();
+const zh = { pending:'待付款', paid:'已付款', shipped:'已出貨', canceled:'已取消' };
+const en = { '待付款':'pending', '已付款':'paid', '已出貨':'shipped', '已取消':'canceled' };
+const shortId = id => (id||'').slice(0,10);
+const toTW = ts => {
+  try {
+    const d = ts?.toDate ? ts.toDate() : (ts instanceof Date ? ts : null);
+    return d ? d.toLocaleString('zh-TW',{hour12:false}) : '-';
+  } catch { return '-'; }
+};
+const startOfToday = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+const endOfToday   = () => { const d = new Date(); d.setHours(23,59,59,999); return d; };
 
-    /* 亮色模式 */
-    body.light {
-      background: var(--bg-light);
-      color: var(--text-light);
-    }
-    html.light { background: var(--bg-light); }
-    body.light .card {
-      background: var(--card-light);
-      border:1px solid var(--border-light);
-    }
-    body.light .btn {
-      background:#f0f0f0;
-      color:#111;
-      border:1px solid #ccc;
-    }
+/* ───────── 白名單 ───────── */
+const ADMIN_EMAILS = ['bruce9811123@gmail.com'].map(s => s.trim().toLowerCase());
+const ADMIN_UIDS = []; // 需要的話把 uid 填進來
 
-    /* ==== 購物車字色 & 對比優化 ==== */
-    .cart-box { color: #e9edf3; }
-    body .text-muted,
-    body .text-secondary,
-    body .text-body-secondary {
-      color: #c6d0dc !important;
-    }
-    #subtotal, #shipping, #total {
-      color: #f8fafc !important;
-      font-weight: 800;
-    }
-    .cart-item { border-bottom: 1px solid #475366; }
-    .cart-box hr {
-      border-color: #3f4b5b;
-      opacity: 1;
-    }
-    .btn-darkish{
-      border:1px solid #556073;
-      background:#1d2433;
-      color:#eef2f7;
-    }
-    .btn-darkish:hover{
-      background:#243047;
-      border-color:#64718a;
-      color:#fff;
-    }
+function isAdminUser(user) {
+  if (!user) return false;
+  const email = (user.email || '').trim().toLowerCase();
+  const uid = user.uid || '';
+  return ADMIN_UIDS.includes(uid) || ADMIN_EMAILS.includes(email);
+}
 
-    /* 亮色模式保持正常 */
-    body.light .text-muted,
-    body.light .text-secondary,
-    body.light .text-body-secondary { color: #6b7280 !important; }
-    body.light #subtotal, 
-    body.light #shipping, 
-    body.light #total { color:#111 !important; }
-    body.light .cart-item{ border-bottom:1px solid #e7e7e7; }
-    body.light .cart-box hr{ border-color:#e7e7e7; }
-  </style>
-</head>
-<body>
-  <nav class="navbar bg-dark border-bottom border-secondary">
-    <div class="container d-flex justify-content-between">
-      <a class="navbar-brand text-white fw-bold" href="#">立國實業</a>
-      <div class="d-flex gap-2">
-        <button id="toggleTheme" class="btn btn-outline-light btn-sm">切換亮/暗</button>
-        <a class="btn btn-outline-light" href="./index.html">回首頁</a>
-      </div>
-    </div>
-  </nav>
+/* ───────── 樣式（一次） ───────── */
+function ensureAdminStyles(){
+  if ($('#admin-css')) return;
+  const css = document.createElement('style');
+  css.id = 'admin-css';
+  css.textContent = `
+  :root{
+    --bg:#0f1318; --fg:#e6e6e6; --muted:#9aa3af;
+    --card:#151a21; --border:#2a2f37; --shadow:0 6px 24px rgba(0,0,0,.25), 0 2px 8px rgba(0,0,0,.2);
+    --chip:#0b1220;
+  }
+  body.light{
+    --bg:#f6f8fc; --fg:#111; --muted:#6b7280;
+    --card:#ffffff; --border:#e5e7eb; --shadow:0 12px 24px rgba(17,24,39,.06);
+    --chip:#eef2ff;
+  }
+  .admin-shell{max-width:1200px;margin-inline:auto;padding:20px}
 
-  <main class="container py-3">
-    <div class="row g-3">
-      <div class="col-lg-8">
-        <h4 class="mb-3">商品列表</h4>
-        <div id="products" class="grid"></div>
-      </div>
+  .hero{background:linear-gradient(135deg, rgba(59,130,246,.15), rgba(168,85,247,.10));
+        border:1px solid var(--border); border-radius:18px; padding:18px;
+        display:flex; justify-content:space-between; align-items:center; margin-bottom:14px}
+  .hero h5{margin:0; font-weight:800}
+  .hero .sub{color:var(--muted)}
+  .hero .act .btn{border-radius:12px}
 
-      <div class="col-lg-4">
-        <div class="card aside p-3 cart-box">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 class="m-0">購物車</h5>
-            <button id="btnClear" class="btn btn-sm">清空</button>
-          </div>
-          <div id="cartItems" class="small text-muted">尚無商品</div>
-          <hr>
-          <div class="d-flex justify-content-between">
-            <div class="text-muted">小計</div><div id="subtotal" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-flex justify-content-between">
-            <div class="text-muted">運費</div><div id="shipping" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-flex justify-content-between fs-5">
-            <div>合計</div><div id="total" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-grid mt-2">
-            <button id="btnCheckout" class="btn btn-primary">結帳</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
+  .page-title{display:flex;align-items:center;gap:12px;margin:12px 0 12px}
+  .page-title .badge{background:transparent;border:1px dashed var(--border);color:var(--muted)}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+  @media (max-width:1200px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+  @media (max-width:640px){.stat-grid{grid-template-columns:1fr}}
+  .kcard{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+  .stat{padding:16px;border-radius:14px;display:flex;gap:14px;align-items:center}
+  .ico{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;font-size:20px}
+  .ico-blue{background:rgba(59,130,246,.15);color:#93c5fd;border:1px solid rgba(59,130,246,.25)}
+  .ico-green{background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.25)}
+  .ico-amber{background:rgba(245,158,11,.15);color:#fcd34d;border:1px solid rgba(245,158,11,.25)}
+  .ico-purple{background:rgba(168,85,247,.15);color:#e9d5ff;border:1px solid rgba(168,85,247,.25)}
+  .meta{color:var(--muted);font-size:14px}
+  .val{font-weight:800;font-size:20px;color:var(--fg)}
 
-  <!-- 結帳 Modal -->
-  <div class="modal fade" id="checkoutDlg" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <form id="checkoutForm" class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">訂購資料</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="row g-2">
-            <div class="col-md-6">
-              <label class="form-label">姓名</label>
-              <input name="name" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">電話</label>
-              <input name="phone" class="form-control" required>
-            </div>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">Email（收訂單）</label>
-            <input name="email" type="email" class="form-control" required>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">配送方式</label>
-            <select name="shipping" class="form-select" required>
-              <option value="宅配">宅配（黑貓/新竹）</option>
-              <option value="超商取貨（先匯款）">超商取貨（先匯款）</option>
-            </select>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">地址/門市</label>
-            <input name="address" class="form-control" required>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">付款方式</label>
-            <select name="payment" class="form-select" required>
-              <option value="銀行轉帳">銀行轉帳</option>
-              <option value="貨到付款">貨到付款</option>
-              <option value="信用卡">信用卡（綠界/藍新）</option>
-            </select>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">備註</label>
-            <textarea name="note" rows="3" class="form-control" placeholder="尺寸、發票抬頭/統編等"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">取消</button>
-          <button class="btn btn-primary" type="submit">送出訂單</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  .admin-grid{display:grid;grid-template-columns:1fr 1fr; gap:18px}
+  @media(max-width: 992px){ .admin-grid{grid-template-columns:1fr} }
+  .kpad{padding:16px}
+  .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .hd-title{font-weight:800}
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  /* 工具列 */
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .toolbar .form-control, .toolbar .form-select{min-width:160px}
+  .toolbar .btn{white-space:nowrap}
 
-  <!-- 購物邏輯 + Firestore 寫入 -->
-  <script type="module">
-    import { db } from './assets/js/firebase.js';
-    import { collection, addDoc, serverTimestamp } 
-      from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+  .olist{display:flex;flex-direction:column;gap:12px}
+  .orow{display:flex;align-items:center;justify-content:space-between; padding:16px;border:1px solid var(--border);border-radius:14px;cursor:pointer; transition:transform .15s ease, box-shadow .2s ease}
+  .orow:hover{transform:translateY(-1px); box-shadow:0 10px 28px rgba(0,0,0,.3)}
+  .o-left{display:flex;flex-direction:column;gap:4px}
+  .o-line{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .o-id{font-weight:700}
+  .o-badge{font-size:12px;border:1px solid var(--border);padding:.2rem .55rem;border-radius:999px;color:var(--muted)}
+  .o-sub{color:var(--muted);font-size:13px}
+  .o-time{font-size:12px;border:1px solid var(--border);background:var(--chip);color:var(--muted); padding:.25rem .6rem; border-radius:999px}
+  .detail-title{font-weight:800;margin-bottom:6px}
+  .kv{display:grid;grid-template-columns:120px 1fr; gap:6px 12px; margin-bottom:8px}
+  .kv .k{color:var(--muted)}
+  .table{margin-top:8px}
+  `;
+  document.head.appendChild(css);
+}
 
-    const PRODUCTS = [
-      { sku:'LG-001', name:'立國工業手套 M', price:120 },
-      { sku:'LG-002', name:'立國工業手套 L', price:120 },
-      { sku:'LT-010', name:'立國安全帽',    price:980 },
-      { sku:'P-004',  name:'工地雨鞋',      price:560 },
-      { sku:'P-005',  name:'商品 05',       price:500 },
-      { sku:'P-008',  name:'護目鏡',        price:199 },
+/* 亮/暗切換 */
+function initThemeToggle(root){
+  const btn = $('#themeToggle', root);
+  const apply = mode => {
+    document.body.classList.toggle('light', mode==='light');
+    document.documentElement.classList.toggle('light', mode==='light');
+  };
+  const saved = localStorage.getItem('theme') || 'dark';
+  apply(saved);
+  btn?.addEventListener('click', ()=>{
+    const now = document.body.classList.contains('light') ? 'dark' : 'light';
+    apply(now);
+    localStorage.setItem('theme', now);
+  });
+}
+
+/* 匯出 CSV（依目前列表結果） */
+function exportCSV(rows){
+  const header = ['訂單ID','建立時間','狀態','客戶','Email','電話','品項數','合計'];
+  const data = rows.map(({id,v})=>{
+    const items = (v.items||[]).reduce((s,i)=>s+(i.qty||0),0);
+    return [
+      id,
+      toTW(v.createdAt),
+      zh[v.status||'pending']||'-',
+      v?.customer?.name||'',
+      v?.customer?.email||'',
+      v?.customer?.phone||'',
+      items,
+      (v?.amounts?.total||0)
     ];
+  });
+  const csv = [header, ...data].map(r=>r.map(x=>{
+    const s = (x===undefined||x===null) ? '' : String(x);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  }).join(',')).join('\n');
 
-    const CART_KEY = 'cart';
-    const $ = sel => document.querySelector(sel);
-    const fmt = n => 'NT$ ' + (n||0).toLocaleString();
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  a.download = `orders-${ts}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(url);
+  a.remove();
+}
 
-    const loadCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY)||'[]'); } catch { return []; } };
-    const saveCart = (c) => localStorage.setItem(CART_KEY, JSON.stringify(c));
-    const clearCart = () => localStorage.removeItem(CART_KEY);
+/* 今日統計 */
+async function computeTodayStats(setters){
+  const start = Timestamp.fromDate(startOfToday());
+  const end   = Timestamp.fromDate(endOfToday());
 
-    function addToCart(p){
-      const cart = loadCart();
-      const f = cart.find(i=>i.sku===p.sku);
-      if (f) f.qty++;
-      else cart.push({ sku:p.sku, name:p.name, price:p.price, qty:1 });
-      saveCart(cart);
-      renderCart();
-    }
-    function changeQty(sku, delta){
-      const cart = loadCart();
-      const i = cart.find(x=>x.sku===sku);
-      if (!i) return;
-      i.qty += delta;
-      if (i.qty <= 0) cart.splice(cart.indexOf(i),1);
-      saveCart(cart);
-      renderCart();
-    }
+  const qToday = query(collection(db,'orders'),
+    where('createdAt','>=',start),
+    where('createdAt','<=',end)
+  );
+  const sToday = await getDocs(qToday);
+  let ordersCnt = 0, revenue = 0, waitShip = 0;
+  sToday.forEach(d=>{
+    const v = d.data()||{};
+    ordersCnt += 1;
+    revenue   += (v?.amounts?.total || 0);
+    if ((v.status||'')==='paid') waitShip += 1;
+  });
 
-    function renderProducts(){
-      $('#products').innerHTML = PRODUCTS.map(p=>`
-        <div class="card p-3">
-          <div class="fw-semibold">${p.name}</div>
-          <div class="text-muted small">SKU：${p.sku}</div>
-          <div class="price mt-1">NT$ ${p.price.toLocaleString()}</div>
-          <button class="btn btn-sm mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
+  const since = new Date(); since.setDate(since.getDate()-30);
+  const q30 = query(collection(db,'orders'),
+    where('createdAt','>=', Timestamp.fromDate(since)),
+    orderBy('createdAt','desc'), limit(200)
+  );
+  const s30 = await getDocs(q30);
+  const uniq = new Set();
+  s30.forEach(d=>{
+    const email = d.data()?.customer?.email || '';
+    if (email) uniq.add(email.toLowerCase());
+  });
+
+  setters.orders(ordersCnt);
+  setters.revenue(revenue);
+  setters.ship(waitShip);
+  setters.users(uniq.size);
+}
+
+/* 登入畫面（Google） */
+function showLogin(el, msg='請先使用 Google 登入才能進入後台', currentUser=null){
+  const email = (currentUser?.email || '').trim();
+  const uid = currentUser?.uid || '';
+  el.innerHTML = `
+    <div class="admin-shell">
+      <div class="kcard kpad" style="max-width:520px">
+        <div class="hd-title mb-2">${msg}</div>
+        ${email || uid ? `<div class="meta">目前登入：${email || '(無 email)'}　UID：${uid}</div>` : ''}
+        <div class="mt-3 d-flex gap-2">
+          <button id="googleLogin" class="btn btn-primary">
+            <i class="bi bi-google me-1"></i> 使用 Google 登入
+          </button>
+          <a class="btn btn-outline-light" href="#dashboard">回首頁</a>
         </div>
-      `).join('');
-      window.addToCart = addToCart;
-    }
+        <div id="loginErr" class="text-danger small mt-2"></div>
+      </div>
+    </div>
+  `;
 
-    function renderCart(){
-      const cart = loadCart();
-      const wrap = $('#cartItems');
-      wrap.innerHTML = cart.length
-        ? cart.map(i=>`
-          <div class="d-flex justify-content-between align-items-center py-1 cart-item">
-            <div>
-              <div>${i.name}</div>
-              <div class="text-muted small">SKU：${i.sku}</div>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <button class="btn btn-sm btn-darkish" onclick="changeQty('${i.sku}',-1)">－</button>
-              <span>${i.qty}</span>
-              <button class="btn btn-sm btn-darkish" onclick="changeQty('${i.sku}',+1)">＋</button>
-              <div class="ms-2">${fmt(i.price*i.qty)}</div>
-            </div>
-          </div>
-        `).join('')
-        : '<div class="text-muted">尚無商品</div>';
-
-      const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
-      const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
-      $('#subtotal').textContent = fmt(subtotal);
-      $('#shipping').textContent = fmt(shipping);
-      $('#total').textContent = fmt(subtotal+shipping);
-    }
-
-    $('#btnClear').addEventListener('click', ()=>{ clearCart(); renderCart(); });
-    $('#btnCheckout').addEventListener('click', ()=>{
-      if (!loadCart().length) { alert('購物車是空的'); return; }
-      new bootstrap.Modal('#checkoutDlg').show();
-    });
-
-    $('#checkoutForm').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const cart = loadCart();
-      if (!cart.length){ alert('購物車是空的'); return; }
-
-      const data = Object.fromEntries(new FormData(e.target).entries());
-      const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
-      const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
-      const total = subtotal + shipping;
-
-      const order = {
-        customer: data,
-        items: cart,
-        amounts: { subtotal, shipping, total },
-        status: 'pending',
-        createdAt: serverTimestamp()
-      };
-
-      try{
-        const ref = await addDoc(collection(db,'orders'), order);
-        alert(`訂單已送出：${ref.id}`);
-        clearCart();
-        renderCart();
-        bootstrap.Modal.getInstance(document.getElementById('checkoutDlg')).hide();
-      }catch(err){
-        console.error(err);
-        alert('寫入訂單失敗：' + err.message);
+  const provider = new GoogleAuthProvider();
+  $('#googleLogin', el)?.addEventListener('click', async ()=>{
+    $('#loginErr', el).textContent = '';
+    try{
+      await signInWithPopup(auth, provider);
+    }catch(err){
+      if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/cancelled-popup-request') {
+        try { await signInWithRedirect(auth, provider); }
+        catch (e2) { $('#loginErr', el).textContent = e2.message || '登入失敗'; }
+      } else {
+        $('#loginErr', el).textContent = err.message || '登入失敗';
       }
+    }
+  });
+}
+
+/* 後台主畫面（通過驗證才渲染） */
+function renderUI(){
+  ensureAdminStyles();
+
+  const el = document.createElement('div');
+  el.className = 'admin-shell';
+  el.innerHTML = `
+    <!-- Hero -->
+    <div class="hero">
+      <div>
+        <h5>歡迎回來 👋</h5>
+        <div class="sub">快速存取你的常用工具與最新狀態</div>
+      </div>
+      <div class="act">
+        <button class="btn btn-outline-light me-2" id="themeToggle"><i class="bi bi-brightness-high me-1"></i>切換亮/暗</button>
+        <button class="btn btn-outline-light me-2" data-go="#dashboard"><i class="bi bi-grid me-1"></i> 回首頁</button>
+        <button class="btn btn-outline-danger" id="btnLogout"><i class="bi bi-box-arrow-right me-1"></i> 登出</button>
+      </div>
+    </div>
+
+    <!-- 今日概況 -->
+    <div class="page-title">
+      <h6 class="m-0">今日概況</h6>
+      <span class="badge rounded-pill px-2">更新於 <span id="dashTime"></span></span>
+    </div>
+
+    <div class="stat-grid">
+      <div class="kcard stat">
+        <div class="ico ico-blue"><i class="bi bi-bag-check"></i></div>
+        <div><div class="meta">今日訂單</div><div class="val" id="statOrders">—</div></div>
+      </div>
+      <div class="kcard stat">
+        <div class="ico ico-green"><i class="bi bi-currency-dollar"></i></div>
+        <div><div class="meta">今日營收</div><div class="val" id="statRevenue">—</div></div>
+      </div>
+      <div class="kcard stat">
+        <div class="ico ico-amber"><i class="bi bi-receipt"></i></div>
+        <div><div class="meta">待出貨</div><div class="val" id="statShip">—</div></div>
+      </div>
+      <div class="kcard stat">
+        <div class="ico ico-purple"><i class="bi bi-people"></i></div>
+        <div><div class="meta">常用客戶</div><div class="val" id="statUsers">—</div></div>
+      </div>
+    </div>
+
+    <!-- 主體：左列表 + 右詳細 -->
+    <div class="admin-grid">
+      <section class="kcard kpad">
+        <div class="hd"><div class="hd-title">訂單列表</div></div>
+
+        <!-- 工具列（新增） -->
+        <div class="toolbar">
+          <input id="kw" class="form-control form-control-sm" placeholder="搜尋：訂單ID / 客戶 / Email">
+          <select id="fStatus" class="form-select form-select-sm">
+            <option value="">全部狀態</option>
+            <option value="pending">待付款</option>
+            <option value="paid">已付款</option>
+            <option value="shipped">已出貨</option>
+            <option value="canceled">已取消</option>
+          </select>
+          <input id="dateFrom" type="date" class="form-control form-control-sm" />
+          <span class="align-self-center">～</span>
+          <input id="dateTo" type="date" class="form-control form-control-sm" />
+          <button id="btnApply" class="btn btn-sm btn-primary"><i class="bi bi-funnel me-1"></i>套用</button>
+          <button id="btnReset" class="btn btn-sm btn-outline-secondary">清除</button>
+          <div class="flex-grow-1"></div>
+          <button id="btnCSV" class="btn btn-sm btn-outline-light"><i class="bi bi-download me-1"></i>匯出 CSV</button>
+        </div>
+
+        <div id="orderList" class="olist"><div class="o-sub">載入中…</div></div>
+      </section>
+
+      <section class="kcard kpad">
+        <div class="hd"><div class="hd-title">訂單詳細</div></div>
+        <div id="orderDetail" class="o-sub">左側點一筆查看</div>
+      </section>
+    </div>
+  `;
+
+  // 導航
+  el.addEventListener('click', e=>{
+    const go = e.target.closest('[data-go]');
+    if (go) location.hash = go.getAttribute('data-go');
+  });
+
+  initThemeToggle(el);
+  $('#dashTime', el).textContent = new Date().toLocaleString('zh-TW',{hour12:false});
+
+  // 登出
+  $('#btnLogout', el)?.addEventListener('click', async ()=>{
+    if (!confirm('確定要登出嗎？')) return;
+    try{
+      await signOut(auth);
+      location.hash = '#dashboard';
+      location.reload();
+    }catch(err){
+      alert('登出失敗：' + err.message);
+    }
+  });
+
+  // 今日統計
+  computeTodayStats({
+    orders: n => $('#statOrders', el).textContent  = `${n} 筆`,
+    revenue:n => $('#statRevenue', el).textContent = money(n),
+    ship:   n => $('#statShip', el).textContent    = `${n} 筆`,
+    users:  n => $('#statUsers', el).textContent   = `${n} 位`
+  }).catch(()=>{});
+
+  const listEl   = $('#orderList', el);
+  const detailEl = $('#orderDetail', el);
+
+  // ── 工具列控制 ──
+  const refs = {
+    kw: $('#kw', el),
+    fStatus: $('#fStatus', el),
+    from: $('#dateFrom', el),
+    to: $('#dateTo', el),
+    btnApply: $('#btnApply', el),
+    btnReset: $('#btnReset', el),
+    btnCSV: $('#btnCSV', el),
+  };
+
+  let unsub = null;
+  let ordersCache = []; // [{id, v}]
+  let qKey = '';
+
+  function makeKey(){ return JSON.stringify({s:refs.fStatus.value, f:refs.from.value, t:refs.to.value}); }
+
+  function bindOrders(){
+    const status = refs.fStatus.value || '';
+    const from   = refs.from.value ? new Date(refs.from.value + 'T00:00:00') : null;
+    const toDate = refs.to.value   ? new Date(refs.to.value   + 'T23:59:59') : null;
+
+    if (unsub){ unsub(); unsub = null; }
+    listEl.innerHTML = '<div class="o-sub">載入中…</div>';
+
+    try{
+      let qBase = collection(db,'orders');
+      const wheres = [];
+      if (status) wheres.push(where('status','==',status));
+      if (from)   wheres.push(where('createdAt','>=', Timestamp.fromDate(from)));
+      if (toDate) wheres.push(where('createdAt','<=', Timestamp.fromDate(toDate)));
+
+      qBase = wheres.length
+        ? query(qBase, ...wheres, orderBy('createdAt','desc'), limit(300))
+        : query(qBase, orderBy('createdAt','desc'), limit(300));
+
+      qKey = makeKey();
+      unsub = onSnapshot(qBase, snap=>{
+        if (makeKey() !== qKey) return;
+        ordersCache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
+        renderList();
+      }, err=>{
+        console.warn('Query fail, fallback to client filter', err);
+        fallbackClient();
+      });
+    }catch(err){
+      console.warn('Query build error, fallback', err);
+      fallbackClient();
+    }
+  }
+
+  function fallbackClient(){
+    (unsub && unsub()); unsub = null;
+    const baseQ = query(collection(db,'orders'), orderBy('createdAt','desc'), limit(300));
+    onSnapshot(baseQ, snap=>{
+      let arr = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
+      const status = refs.fStatus.value || '';
+      const from   = refs.from.value ? new Date(refs.from.value + 'T00:00:00') : null;
+      const toDate = refs.to.value   ? new Date(refs.to.value   + 'T23:59:59') : null;
+      if (status) arr = arr.filter(x => (x.v.status||'')===status);
+      if (from)   arr = arr.filter(x => (x.v.createdAt?.toDate?.()||new Date(0)) >= from);
+      if (toDate) arr = arr.filter(x => (x.v.createdAt?.toDate?.()||new Date(0)) <= toDate);
+      ordersCache = arr;
+      renderList();
+    });
+  }
+
+  function renderList(){
+    const kw = refs.kw.value.trim().toLowerCase();
+    let arr = ordersCache;
+    if (kw){
+      arr = arr.filter(({id,v})=>{
+        const name  = (v?.customer?.name||'').toLowerCase();
+        const email = (v?.customer?.email||'').toLowerCase();
+        return id.toLowerCase().includes(kw) || name.includes(kw) || email.includes(kw);
+      });
+    }
+
+    if (!arr.length){
+      listEl.innerHTML = '<div class="o-sub">沒有符合條件的訂單</div>';
+      refs.btnCSV.onclick = ()=> exportCSV([]);
+      return;
+    }
+
+    listEl.innerHTML = arr.map(({id,v})=>{
+      const itemsCount = (v.items||[]).reduce((s,i)=>s+(i.qty||0),0);
+      const total = money(v?.amounts?.total||0);
+      return `
+        <div class="orow" data-id="${id}">
+          <div class="o-left">
+            <div class="o-line">
+              <span class="o-id">#${shortId(id)}</span>
+              <span class="o-badge">${zh[v.status||'pending']||'-'}</span>
+              <span class="o-id">${total}</span>
+            </div>
+            <div class="o-sub">${v?.customer?.name||'-'} ｜ ${itemsCount} 件</div>
+          </div>
+          <span class="o-time">${toTW(v.createdAt)}</span>
+        </div>`;
+    }).join('');
+
+    $$('.orow', listEl).forEach(r=>{
+      r.addEventListener('click', ()=> showDetail(r.dataset.id));
     });
 
-    // 切換主題
-    $('#toggleTheme').addEventListener('click', ()=>{
-      document.body.classList.toggle('light');
-      document.documentElement.classList.toggle('light');
-    });
+    refs.btnCSV.onclick = ()=> exportCSV(arr);
+  }
 
-    renderProducts();
-    renderCart();
-  </script>
-</body>
-</html>
+  // 詳細
+  async function showDetail(id){
+    detailEl.innerHTML = '載入中…';
+    try{
+      const ref = doc(db,'orders', id);
+      const snap = await getDoc(ref);
+      if (!snap.exists()){ detailEl.innerHTML = '查無資料'; return; }
+      const v = snap.data()||{};
+
+      const itemsRows = (v.items||[]).map(i=>`
+        <tr>
+          <td>${i.name||''}</td>
+          <td>${i.sku||''}</td>
+          <td class="text-end">${i.qty||0}</td>
+          <td class="text-end">${money(i.price||0)}</td>
+          <td class="text-end">${money((i.price||0)*(i.qty||0))}</td>
+        </tr>`).join('');
+
+      detailEl.innerHTML = `
+        <div class="detail-title">#${snap.id}</div>
+
+        <div class="kv">
+          <div class="k">建立時間</div><div>${toTW(v.createdAt)}</div>
+          <div class="k">狀態</div>
+          <div>
+            <select id="stateSel" class="form-select form-select-sm" style="max-width:160px;display:inline-block">
+              ${['待付款','已付款','已出貨','已取消'].map(t=>{
+                const sel = (zh[v.status||'pending']===t) ? 'selected' : '';
+                return `<option ${sel}>${t}</option>`;
+              }).join('')}
+            </select>
+            <button id="saveState" class="btn btn-sm btn-primary ms-2">儲存</button>
+          </div>
+
+          <div class="k">客戶</div><div>${v?.customer?.name||'-'}</div>
+          <div class="k">電話</div><div>${v?.customer?.phone||'-'}</div>
+          <div class="k">Email</div><div>${v?.customer?.email||'-'}</div>
+          <div class="k">配送</div><div>${v?.customer?.shipping||'-'} ｜ ${v?.customer?.address||'-'}</div>
+          <div class="k">付款</div><div>${v?.customer?.payment||'-'}</div>
+          <div class="k">備註</div><div>${v?.customer?.note||''}</div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>名稱</th><th>SKU</th>
+                <th class="text-end">數量</th>
+                <th class="text-end">單價</th>
+                <th class="text-end">小計</th>
+              </tr>
+            </thead>
+            <tbody>${itemsRows}</tbody>
+            <tfoot>
+              <tr><th colspan="4" class="text-end">小計</th><th class="text-end">${money(v?.amounts?.subtotal||0)}</th></tr>
+              <tr><th colspan="4" class="text-end">運費</th><th class="text-end">${money(v?.amounts?.shipping||0)}</th></tr>
+              <tr><th colspan="4" class="text-end">合計</th><th class="text-end">${money(v?.amounts?.total||0)}</th></tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+
+      $('#saveState', detailEl).addEventListener('click', async ()=>{
+        const zhVal = $('#stateSel', detailEl).value;
+        const newState = en[zhVal] || 'pending';
+        try{
+          await updateDoc(ref, { status:newState, updatedAt: serverTimestamp() });
+          const row = $(`.orow[data-id="${id}"]`, listEl);
+          if (row) row.querySelector('.o-badge').textContent = zh[newState];
+          alert('狀態已更新');
+        }catch(err){
+          alert('更新失敗：'+err.message);
+        }
+      });
+
+    }catch(err){
+      detailEl.innerHTML = `<div class="text-danger">讀取失敗：${err.message}</div>`;
+    }
+  }
+
+  // 綁定工具列
+  refs.btnApply.addEventListener('click', bindOrders);
+  refs.btnReset.addEventListener('click', ()=>{
+    refs.kw.value = '';
+    refs.fStatus.value = '';
+    refs.from.value = '';
+    refs.to.value = '';
+    bindOrders();
+  });
+  refs.kw.addEventListener('input', ()=> renderList());
+
+  // 初始載入
+  bindOrders();
+
+  return el;
+}
+
+/* 導出頁面：處理 Google 登入與白名單 */
+export function AdminPage(){
+  ensureAdminStyles();
+  const root = document.createElement('div');
+  root.innerHTML = '<div class="admin-shell"><div class="kcard kpad">載入中…</div></div>';
+
+  getRedirectResult(auth).catch(()=>{});
+
+  onAuthStateChanged(auth, (user)=>{
+    if (!user) {
+      showLogin(root, '請先使用 Google 登入才能進入後台');
+      return;
+    }
+    if (!isAdminUser(user)) {
+      showLogin(root, '你不符合管理員帳號', user);
+      return;
+    }
+    const ui = renderUI();
+    root.replaceChildren(ui);
+  });
+
+  return root;
+}
