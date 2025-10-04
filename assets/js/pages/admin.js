@@ -1,10 +1,9 @@
 // assets/js/pages/admin.js
-// 後台：上方加入「歡迎 / 今日概況 + 4 張統計卡」，下方為卡片風格訂單管理
+// 後台：上方加入「歡迎 / 今日概況 + 4 張統計卡」，下方為卡片風格訂單管理（含搜尋/篩選/日期/匯出CSV）
 // 依賴：assets/js/firebase.js（同一個 app 實例輸出 auth / db）
 
 import { auth, db } from '../firebase.js';
 import {
-  // Auth
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
@@ -14,7 +13,6 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
 import {
-  // Firestore
   collection, query, orderBy, limit, onSnapshot,
   doc, getDoc, updateDoc, serverTimestamp,
   where, getDocs, Timestamp,
@@ -36,14 +34,9 @@ const toTW = ts => {
 const startOfToday = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
 const endOfToday   = () => { const d = new Date(); d.setHours(23,59,59,999); return d; };
 
-/* ───────── 白名單 ─────────
-   建議同時用 email + uid（uid 最穩，不受 gmail 別名/大小寫影響） */
+/* ───────── 白名單 ───────── */
 const ADMIN_EMAILS = ['bruce9811123@gmail.com'].map(s => s.trim().toLowerCase());
-
-// 第一次登入時，畫面會顯示目前 uid，把它貼到這裡就不會誤擋
-const ADMIN_UIDS = [
-  // 'xxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-];
+const ADMIN_UIDS = []; // 需要的話把 uid 填進來
 
 function isAdminUser(user) {
   if (!user) return false;
@@ -70,7 +63,6 @@ function ensureAdminStyles(){
   }
   .admin-shell{max-width:1200px;margin-inline:auto;padding:20px}
 
-  /* Hero */
   .hero{background:linear-gradient(135deg, rgba(59,130,246,.15), rgba(168,85,247,.10));
         border:1px solid var(--border); border-radius:18px; padding:18px;
         display:flex; justify-content:space-between; align-items:center; margin-bottom:14px}
@@ -78,7 +70,6 @@ function ensureAdminStyles(){
   .hero .sub{color:var(--muted)}
   .hero .act .btn{border-radius:12px}
 
-  /* 今日概況 */
   .page-title{display:flex;align-items:center;gap:12px;margin:12px 0 12px}
   .page-title .badge{background:transparent;border:1px dashed var(--border);color:var(--muted)}
   .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
@@ -94,14 +85,17 @@ function ensureAdminStyles(){
   .meta{color:var(--muted);font-size:14px}
   .val{font-weight:800;font-size:20px;color:var(--fg)}
 
-  /* 主體兩欄 */
   .admin-grid{display:grid;grid-template-columns:1fr 1fr; gap:18px}
   @media(max-width: 992px){ .admin-grid{grid-template-columns:1fr} }
   .kpad{padding:16px}
   .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .hd-title{font-weight:800}
 
-  /* 列表卡片（深色卡） */
+  /* 工具列 */
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .toolbar .form-control, .toolbar .form-select{min-width:160px}
+  .toolbar .btn{white-space:nowrap}
+
   .olist{display:flex;flex-direction:column;gap:12px}
   .orow{display:flex;align-items:center;justify-content:space-between; padding:16px;border:1px solid var(--border);border-radius:14px;cursor:pointer; transition:transform .15s ease, box-shadow .2s ease}
   .orow:hover{transform:translateY(-1px); box-shadow:0 10px 28px rgba(0,0,0,.3)}
@@ -111,8 +105,6 @@ function ensureAdminStyles(){
   .o-badge{font-size:12px;border:1px solid var(--border);padding:.2rem .55rem;border-radius:999px;color:var(--muted)}
   .o-sub{color:var(--muted);font-size:13px}
   .o-time{font-size:12px;border:1px solid var(--border);background:var(--chip);color:var(--muted); padding:.25rem .6rem; border-radius:999px}
-
-  /* 詳細區 */
   .detail-title{font-weight:800;margin-bottom:6px}
   .kv{display:grid;grid-template-columns:120px 1fr; gap:6px 12px; margin-bottom:8px}
   .kv .k{color:var(--muted)}
@@ -137,12 +129,44 @@ function initThemeToggle(root){
   });
 }
 
-/* 今日統計（與首頁相同口徑） */
+/* 匯出 CSV（依目前列表結果） */
+function exportCSV(rows){
+  const header = ['訂單ID','建立時間','狀態','客戶','Email','電話','品項數','合計'];
+  const data = rows.map(({id,v})=>{
+    const items = (v.items||[]).reduce((s,i)=>s+(i.qty||0),0);
+    return [
+      id,
+      toTW(v.createdAt),
+      zh[v.status||'pending']||'-',
+      v?.customer?.name||'',
+      v?.customer?.email||'',
+      v?.customer?.phone||'',
+      items,
+      (v?.amounts?.total||0)
+    ];
+  });
+  const csv = [header, ...data].map(r=>r.map(x=>{
+    const s = (x===undefined||x===null) ? '' : String(x);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  }).join(',')).join('\n');
+
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  a.download = `orders-${ts}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(url);
+  a.remove();
+}
+
+/* 今日統計 */
 async function computeTodayStats(setters){
   const start = Timestamp.fromDate(startOfToday());
   const end   = Timestamp.fromDate(endOfToday());
 
-  // 今日所有訂單
   const qToday = query(collection(db,'orders'),
     where('createdAt','>=',start),
     where('createdAt','<=',end)
@@ -153,11 +177,9 @@ async function computeTodayStats(setters){
     const v = d.data()||{};
     ordersCnt += 1;
     revenue   += (v?.amounts?.total || 0);
-    // 待出貨定義：已付款但未出貨
     if ((v.status||'')==='paid') waitShip += 1;
   });
 
-  // 最近 30 天常用客戶（去重 email）
   const since = new Date(); since.setDate(since.getDate()-30);
   const q30 = query(collection(db,'orders'),
     where('createdAt','>=', Timestamp.fromDate(since)),
@@ -176,7 +198,7 @@ async function computeTodayStats(setters){
   setters.users(uniq.size);
 }
 
-/* ───────── 登入畫面（Google） ───────── */
+/* 登入畫面（Google） */
 function showLogin(el, msg='請先使用 Google 登入才能進入後台', currentUser=null){
   const email = (currentUser?.email || '').trim();
   const uid = currentUser?.uid || '';
@@ -201,15 +223,10 @@ function showLogin(el, msg='請先使用 Google 登入才能進入後台', curre
     $('#loginErr', el).textContent = '';
     try{
       await signInWithPopup(auth, provider);
-      // 成功會觸發 onAuthStateChanged，自動進入後台
     }catch(err){
-      // 可能是 popup 被擋，改用 redirect
       if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/cancelled-popup-request') {
-        try {
-          await signInWithRedirect(auth, provider);
-        } catch (e2) {
-          $('#loginErr', el).textContent = e2.message || '登入失敗';
-        }
+        try { await signInWithRedirect(auth, provider); }
+        catch (e2) { $('#loginErr', el).textContent = e2.message || '登入失敗'; }
       } else {
         $('#loginErr', el).textContent = err.message || '登入失敗';
       }
@@ -217,14 +234,14 @@ function showLogin(el, msg='請先使用 Google 登入才能進入後台', curre
   });
 }
 
-/* ───────── 後台主畫面（通過驗證才渲染） ───────── */
+/* 後台主畫面（通過驗證才渲染） */
 function renderUI(){
   ensureAdminStyles();
 
   const el = document.createElement('div');
   el.className = 'admin-shell';
   el.innerHTML = `
-    <!-- Hero（歡迎 + 按鈕） -->
+    <!-- Hero -->
     <div class="hero">
       <div>
         <h5>歡迎回來 👋</h5>
@@ -232,7 +249,8 @@ function renderUI(){
       </div>
       <div class="act">
         <button class="btn btn-outline-light me-2" id="themeToggle"><i class="bi bi-brightness-high me-1"></i>切換亮/暗</button>
-        <button class="btn btn-outline-light" data-go="#dashboard"><i class="bi bi-grid me-1"></i> 回首頁</button>
+        <button class="btn btn-outline-light me-2" data-go="#dashboard"><i class="bi bi-grid me-1"></i> 回首頁</button>
+        <button class="btn btn-outline-danger" id="btnLogout"><i class="bi bi-box-arrow-right me-1"></i> 登出</button>
       </div>
     </div>
 
@@ -245,34 +263,19 @@ function renderUI(){
     <div class="stat-grid">
       <div class="kcard stat">
         <div class="ico ico-blue"><i class="bi bi-bag-check"></i></div>
-        <div>
-          <div class="meta">今日訂單</div>
-          <div class="val" id="statOrders">—</div>
-        </div>
+        <div><div class="meta">今日訂單</div><div class="val" id="statOrders">—</div></div>
       </div>
-
       <div class="kcard stat">
         <div class="ico ico-green"><i class="bi bi-currency-dollar"></i></div>
-        <div>
-          <div class="meta">今日營收</div>
-          <div class="val" id="statRevenue">—</div>
-        </div>
+        <div><div class="meta">今日營收</div><div class="val" id="statRevenue">—</div></div>
       </div>
-
       <div class="kcard stat">
         <div class="ico ico-amber"><i class="bi bi-receipt"></i></div>
-        <div>
-          <div class="meta">待出貨</div>
-          <div class="val" id="statShip">—</div>
-        </div>
+        <div><div class="meta">待出貨</div><div class="val" id="statShip">—</div></div>
       </div>
-
       <div class="kcard stat">
         <div class="ico ico-purple"><i class="bi bi-people"></i></div>
-        <div>
-          <div class="meta">常用客戶</div>
-          <div class="val" id="statUsers">—</div>
-        </div>
+        <div><div class="meta">常用客戶</div><div class="val" id="statUsers">—</div></div>
       </div>
     </div>
 
@@ -280,6 +283,26 @@ function renderUI(){
     <div class="admin-grid">
       <section class="kcard kpad">
         <div class="hd"><div class="hd-title">訂單列表</div></div>
+
+        <!-- 工具列（新增） -->
+        <div class="toolbar">
+          <input id="kw" class="form-control form-control-sm" placeholder="搜尋：訂單ID / 客戶 / Email">
+          <select id="fStatus" class="form-select form-select-sm">
+            <option value="">全部狀態</option>
+            <option value="pending">待付款</option>
+            <option value="paid">已付款</option>
+            <option value="shipped">已出貨</option>
+            <option value="canceled">已取消</option>
+          </select>
+          <input id="dateFrom" type="date" class="form-control form-control-sm" />
+          <span class="align-self-center">～</span>
+          <input id="dateTo" type="date" class="form-control form-control-sm" />
+          <button id="btnApply" class="btn btn-sm btn-primary"><i class="bi bi-funnel me-1"></i>套用</button>
+          <button id="btnReset" class="btn btn-sm btn-outline-secondary">清除</button>
+          <div class="flex-grow-1"></div>
+          <button id="btnCSV" class="btn btn-sm btn-outline-light"><i class="bi bi-download me-1"></i>匯出 CSV</button>
+        </div>
+
         <div id="orderList" class="olist"><div class="o-sub">載入中…</div></div>
       </section>
 
@@ -290,7 +313,7 @@ function renderUI(){
     </div>
   `;
 
-  // 導航（按鈕 data-go）
+  // 導航
   el.addEventListener('click', e=>{
     const go = e.target.closest('[data-go]');
     if (go) location.hash = go.getAttribute('data-go');
@@ -299,30 +322,121 @@ function renderUI(){
   initThemeToggle(el);
   $('#dashTime', el).textContent = new Date().toLocaleString('zh-TW',{hour12:false});
 
-  // 填入今日統計
+  // 登出
+  $('#btnLogout', el)?.addEventListener('click', async ()=>{
+    if (!confirm('確定要登出嗎？')) return;
+    try{
+      await signOut(auth);
+      location.hash = '#dashboard';
+      location.reload();
+    }catch(err){
+      alert('登出失敗：' + err.message);
+    }
+  });
+
+  // 今日統計
   computeTodayStats({
     orders: n => $('#statOrders', el).textContent  = `${n} 筆`,
     revenue:n => $('#statRevenue', el).textContent = money(n),
     ship:   n => $('#statShip', el).textContent    = `${n} 筆`,
     users:  n => $('#statUsers', el).textContent   = `${n} 位`
-  }).catch(()=>{ /* 靜默失敗即可 */ });
+  }).catch(()=>{});
 
-  const listEl = $('#orderList', el);
+  const listEl   = $('#orderList', el);
   const detailEl = $('#orderDetail', el);
 
-  // 監聽訂單（最新 50 筆）
-  const q = query(collection(db,'orders'), orderBy('createdAt','desc'), limit(50));
-  onSnapshot(q, snap=>{
-    if (snap.empty){ listEl.innerHTML = '<div class="o-sub">目前沒有訂單</div>'; return; }
-    listEl.innerHTML = snap.docs.map(d=>{
-      const v = d.data()||{};
+  // ── 工具列控制 ──
+  const refs = {
+    kw: $('#kw', el),
+    fStatus: $('#fStatus', el),
+    from: $('#dateFrom', el),
+    to: $('#dateTo', el),
+    btnApply: $('#btnApply', el),
+    btnReset: $('#btnReset', el),
+    btnCSV: $('#btnCSV', el),
+  };
+
+  let unsub = null;
+  let ordersCache = []; // [{id, v}]
+  let qKey = '';
+
+  function makeKey(){ return JSON.stringify({s:refs.fStatus.value, f:refs.from.value, t:refs.to.value}); }
+
+  function bindOrders(){
+    const status = refs.fStatus.value || '';
+    const from   = refs.from.value ? new Date(refs.from.value + 'T00:00:00') : null;
+    const toDate = refs.to.value   ? new Date(refs.to.value   + 'T23:59:59') : null;
+
+    if (unsub){ unsub(); unsub = null; }
+    listEl.innerHTML = '<div class="o-sub">載入中…</div>';
+
+    try{
+      let qBase = collection(db,'orders');
+      const wheres = [];
+      if (status) wheres.push(where('status','==',status));
+      if (from)   wheres.push(where('createdAt','>=', Timestamp.fromDate(from)));
+      if (toDate) wheres.push(where('createdAt','<=', Timestamp.fromDate(toDate)));
+
+      qBase = wheres.length
+        ? query(qBase, ...wheres, orderBy('createdAt','desc'), limit(300))
+        : query(qBase, orderBy('createdAt','desc'), limit(300));
+
+      qKey = makeKey();
+      unsub = onSnapshot(qBase, snap=>{
+        if (makeKey() !== qKey) return;
+        ordersCache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
+        renderList();
+      }, err=>{
+        console.warn('Query fail, fallback to client filter', err);
+        fallbackClient();
+      });
+    }catch(err){
+      console.warn('Query build error, fallback', err);
+      fallbackClient();
+    }
+  }
+
+  function fallbackClient(){
+    (unsub && unsub()); unsub = null;
+    const baseQ = query(collection(db,'orders'), orderBy('createdAt','desc'), limit(300));
+    onSnapshot(baseQ, snap=>{
+      let arr = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
+      const status = refs.fStatus.value || '';
+      const from   = refs.from.value ? new Date(refs.from.value + 'T00:00:00') : null;
+      const toDate = refs.to.value   ? new Date(refs.to.value   + 'T23:59:59') : null;
+      if (status) arr = arr.filter(x => (x.v.status||'')===status);
+      if (from)   arr = arr.filter(x => (x.v.createdAt?.toDate?.()||new Date(0)) >= from);
+      if (toDate) arr = arr.filter(x => (x.v.createdAt?.toDate?.()||new Date(0)) <= toDate);
+      ordersCache = arr;
+      renderList();
+    });
+  }
+
+  function renderList(){
+    const kw = refs.kw.value.trim().toLowerCase();
+    let arr = ordersCache;
+    if (kw){
+      arr = arr.filter(({id,v})=>{
+        const name  = (v?.customer?.name||'').toLowerCase();
+        const email = (v?.customer?.email||'').toLowerCase();
+        return id.toLowerCase().includes(kw) || name.includes(kw) || email.includes(kw);
+      });
+    }
+
+    if (!arr.length){
+      listEl.innerHTML = '<div class="o-sub">沒有符合條件的訂單</div>';
+      refs.btnCSV.onclick = ()=> exportCSV([]);
+      return;
+    }
+
+    listEl.innerHTML = arr.map(({id,v})=>{
       const itemsCount = (v.items||[]).reduce((s,i)=>s+(i.qty||0),0);
       const total = money(v?.amounts?.total||0);
       return `
-        <div class="orow" data-id="${d.id}">
+        <div class="orow" data-id="${id}">
           <div class="o-left">
             <div class="o-line">
-              <span class="o-id">#${shortId(d.id)}</span>
+              <span class="o-id">#${shortId(id)}</span>
               <span class="o-badge">${zh[v.status||'pending']||'-'}</span>
               <span class="o-id">${total}</span>
             </div>
@@ -335,11 +449,11 @@ function renderUI(){
     $$('.orow', listEl).forEach(r=>{
       r.addEventListener('click', ()=> showDetail(r.dataset.id));
     });
-  }, err=>{
-    listEl.innerHTML = `<div class="text-danger">讀取失敗：${err.message}</div>`;
-  });
 
-  // 顯示訂單詳細
+    refs.btnCSV.onclick = ()=> exportCSV(arr);
+  }
+
+  // 詳細
   async function showDetail(id){
     detailEl.innerHTML = '載入中…';
     try{
@@ -401,7 +515,6 @@ function renderUI(){
         </div>
       `;
 
-      // 儲存狀態
       $('#saveState', detailEl).addEventListener('click', async ()=>{
         const zhVal = $('#stateSel', detailEl).value;
         const newState = en[zhVal] || 'pending';
@@ -420,31 +533,40 @@ function renderUI(){
     }
   }
 
+  // 綁定工具列
+  refs.btnApply.addEventListener('click', bindOrders);
+  refs.btnReset.addEventListener('click', ()=>{
+    refs.kw.value = '';
+    refs.fStatus.value = '';
+    refs.from.value = '';
+    refs.to.value = '';
+    bindOrders();
+  });
+  refs.kw.addEventListener('input', ()=> renderList());
+
+  // 初始載入
+  bindOrders();
+
   return el;
 }
 
-/* ───────── 導出頁面：處理 Google 登入與白名單 ───────── */
+/* 導出頁面：處理 Google 登入與白名單 */
 export function AdminPage(){
   ensureAdminStyles();
   const root = document.createElement('div');
   root.innerHTML = '<div class="admin-shell"><div class="kcard kpad">載入中…</div></div>';
 
-  // 先處理 redirect 的結果（若上一動用的是 redirect 登入）
-  getRedirectResult(auth).catch(()=>{ /* 忽略即可 */ });
+  getRedirectResult(auth).catch(()=>{});
 
-  // 監聽登入狀態
   onAuthStateChanged(auth, (user)=>{
-    // 未登入 → 顯示登入畫面
     if (!user) {
       showLogin(root, '請先使用 Google 登入才能進入後台');
       return;
     }
-    // 非白名單 → 顯示帳號/UID，並阻擋
     if (!isAdminUser(user)) {
       showLogin(root, '你不符合管理員帳號', user);
       return;
     }
-    // 進後台
     const ui = renderUI();
     root.replaceChildren(ui);
   });
