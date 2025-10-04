@@ -1,9 +1,10 @@
 // assets/js/pages/admin.js
-// 後台：歡迎 / 今日概況 + 訂單管理（搜尋/篩選/日期/匯出CSV），右側狀態改為彩色 Chips
+// 後台首頁：分三個分頁 → 用戶記帳 / 用戶登入 / 訂單管理（保留原功能）
 // 依賴：assets/js/firebase.js（同一個 app 實例輸出 auth / db）
 
 import { auth, db } from '../firebase.js';
 import {
+  // Auth
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
@@ -13,9 +14,10 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
 import {
+  // Firestore
   collection, query, orderBy, limit, onSnapshot,
   doc, getDoc, updateDoc, serverTimestamp,
-  where, getDocs, Timestamp,
+  where, getDocs, Timestamp, addDoc,
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
 /* ───────── 小工具 ───────── */
@@ -60,12 +62,14 @@ function ensureAdminStyles(){
     --chip-shipped:   rgba(59,130,246,.20);
     --chip-canceled:  rgba(239,68,68,.22);
     --chip-ring:      rgba(255,255,255,.25);
+    --tab:#1b2130;
   }
   body.light{
     --bg:#f6f8fc; --fg:#111; --muted:#6b7280;
     --card:#ffffff; --border:#e5e7eb; --shadow:0 12px 24px rgba(17,24,39,.06);
     --chip:#eef2ff;
     --chip-ring: rgba(0,0,0,.15);
+    --tab:#f3f5fb;
   }
   .admin-shell{max-width:1200px;margin-inline:auto;padding:20px}
 
@@ -75,6 +79,12 @@ function ensureAdminStyles(){
   .hero h5{margin:0; font-weight:800}
   .hero .sub{color:var(--muted)}
   .hero .act .btn{border-radius:12px}
+
+  .tabs{display:flex;gap:8px;margin:12px 0}
+  .tab{background:var(--tab);border:1px solid var(--border);padding:.5rem .9rem;border-radius:10px;cursor:pointer;user-select:none}
+  .tab.active{outline:2px solid rgba(99,102,241,.45)}
+  .panel{display:none}
+  .panel.active{display:block}
 
   .page-title{display:flex;align-items:center;gap:12px;margin:12px 0 12px}
   .page-title .badge{background:transparent;border:1px dashed var(--border);color:var(--muted)}
@@ -152,39 +162,26 @@ function initThemeToggle(root){
   });
 }
 
-/* 匯出 CSV（當前列表結果） */
-function exportCSV(rows){
-  const header = ['訂單ID','建立時間','狀態','客戶','Email','電話','品項數','合計'];
-  const data = rows.map(({id,v})=>{
-    const items = (v.items||[]).reduce((s,i)=>s+(i.qty||0),0);
-    return [
-      id, toTW(v.createdAt), zh[v.status||'pending']||'-',
-      v?.customer?.name||'', v?.customer?.email||'', v?.customer?.phone||'',
-      items, (v?.amounts?.total||0)
-    ];
-  });
+/* 匯出 CSV（通用） */
+function exportCSVFromObjects(objs, headers){
+  const header = headers.map(h=>h.label);
+  const data   = objs.map(o => headers.map(h => h.get(o)));
   const csv = [header, ...data].map(r=>r.map(x=>{
     const s = (x===undefined||x===null) ? '' : String(x);
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
   }).join(',')).join('\n');
-
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
   const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-  a.download = 'orders-' + ts + '.csv';
-  document.body.appendChild(a);
-  a.click();
-  URL.revokeObjectURL(url);
-  a.remove();
+  a.href = url; a.download = 'export-' + ts + '.csv';
+  document.body.appendChild(a); a.click(); URL.revokeObjectURL(url); a.remove();
 }
 
-/* 今日統計 */
+/* 今日統計（沿用訂單數據） */
 async function computeTodayStats(setters){
   const start = Timestamp.fromDate(startOfToday());
   const end   = Timestamp.fromDate(endOfToday());
-
   const qToday = query(collection(db,'orders'),
     where('createdAt','>=',start),
     where('createdAt','<=',end)
@@ -195,7 +192,7 @@ async function computeTodayStats(setters){
     const v = d.data()||{};
     ordersCnt += 1;
     revenue   += (v?.amounts?.total || 0);
-    if ((v.status||'')==='paid') waitShip += 1; // 已付未出貨
+    if ((v.status||'')==='paid') waitShip += 1;
   });
 
   const since = new Date(); since.setDate(since.getDate()-30);
@@ -235,7 +232,6 @@ function showLogin(el, msg='請先使用 Google 登入才能進入後台', curre
       </div>
     </div>
   `;
-
   const provider = new GoogleAuthProvider();
   $('#googleLogin', el)?.addEventListener('click', async ()=>{
     $('#loginErr', el).textContent = '';
@@ -252,57 +248,319 @@ function showLogin(el, msg='請先使用 Google 登入才能進入後台', curre
   });
 }
 
-/* 後台主畫面（通過驗證才渲染） */
-function renderUI(){
-  ensureAdminStyles();
+/* ───────── 分頁：用戶登入（Log） ───────── */
+function renderLoginLogPanel(root){
+  const panel = document.createElement('div');
+  panel.className = 'panel';
+  panel.innerHTML = `
+    <div class="kcard kpad">
+      <div class="hd">
+        <div class="hd-title">用戶登入紀錄</div>
+        <div class="toolbar">
+          <input id="logKw" class="form-control form-control-sm" placeholder="搜尋：Email / Name / UID">
+          <input id="logFrom" type="date" class="form-control form-control-sm" />
+          <span class="align-self-center">～</span>
+          <input id="logTo" type="date" class="form-control form-control-sm" />
+          <button id="logApply" class="btn btn-sm btn-primary"><i class="bi bi-funnel me-1"></i>套用</button>
+          <button id="logReset" class="btn btn-sm btn-outline-secondary">清除</button>
+          <button id="logCSV" class="btn btn-sm btn-outline-light"><i class="bi bi-download me-1"></i>匯出 CSV</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>時間</th><th>Email</th><th>名稱</th><th>UID</th><th>IP</th></tr></thead>
+          <tbody id="logBody"><tr><td colspan="5" class="text-muted">載入中…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
 
+  const refs = {
+    kw:   $('#logKw', panel),
+    from: $('#logFrom', panel),
+    to:   $('#logTo', panel),
+    apply:$('#logApply', panel),
+    reset:$('#logReset', panel),
+    csv:  $('#logCSV', panel),
+    body: $('#logBody', panel),
+  };
+
+  let cache = [];
+  let unsub  = null;
+
+  function bind(){
+    if (unsub) { unsub(); unsub=null; }
+    refs.body.innerHTML = `<tr><td colspan="5" class="text-muted">載入中…</td></tr>`;
+
+    const from = refs.from.value ? new Date(refs.from.value + 'T00:00:00') : null;
+    const to   = refs.to.value   ? new Date(refs.to.value   + 'T23:59:59') : null;
+
+    try{
+      let qBase = collection(db,'loginLogs');
+      const whs = [];
+      if (from) whs.push(where('createdAt','>=', Timestamp.fromDate(from)));
+      if (to)   whs.push(where('createdAt','<=', Timestamp.fromDate(to)));
+      qBase = whs.length ? query(qBase, ...whs, orderBy('createdAt','desc'), limit(500))
+                         : query(qBase, orderBy('createdAt','desc'), limit(500));
+      unsub = onSnapshot(qBase, snap=>{
+        cache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
+        render();
+      }, _ => { fallback(); });
+    }catch(_){ fallback(); }
+  }
+  function fallback(){
+    const baseQ = query(collection(db,'loginLogs'), orderBy('createdAt','desc'), limit(500));
+    onSnapshot(baseQ, snap=>{
+      cache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
+      render();
+    });
+  }
+
+  function render(){
+    const kw = refs.kw.value.trim().toLowerCase();
+    let arr = cache;
+    if (kw) {
+      arr = arr.filter(({v})=>{
+        const email = (v.email||'').toLowerCase();
+        const name  = (v.name||'').toLowerCase();
+        const uid   = (v.uid||'').toLowerCase();
+        return email.includes(kw) || name.includes(kw) || uid.includes(kw);
+      });
+    }
+    if (!arr.length){
+      refs.body.innerHTML = `<tr><td colspan="5" class="text-muted">沒有符合條件的紀錄</td></tr>`;
+      refs.csv.onclick = ()=>exportCSVFromObjects([],[]);
+      return;
+    }
+    refs.body.innerHTML = arr.map(({v})=>`
+      <tr>
+        <td>${toTW(v.createdAt)}</td>
+        <td>${v.email||''}</td>
+        <td>${v.name||''}</td>
+        <td class="text-muted small">${v.uid||''}</td>
+        <td class="text-muted small">${v.ip||''}</td>
+      </tr>
+    `).join('');
+
+    refs.csv.onclick = ()=>exportCSVFromObjects(
+      arr.map(({v})=>v),
+      [
+        {label:'時間', get:v=>toTW(v.createdAt)},
+        {label:'Email', get:v=>v.email||''},
+        {label:'名稱', get:v=>v.name||''},
+        {label:'UID', get:v=>v.uid||''},
+        {label:'IP', get:v=>v.ip||''},
+      ]
+    );
+  }
+
+  refs.apply.addEventListener('click', bind);
+  refs.reset.addEventListener('click', ()=>{ refs.kw.value=''; refs.from.value=''; refs.to.value=''; bind(); });
+  refs.kw.addEventListener('input', render);
+
+  bind();
+  return panel;
+}
+
+/* ───────── 分頁：用戶記帳（Accounts） ───────── */
+function renderAccountsPanel(root){
+  const panel = document.createElement('div');
+  panel.className = 'panel';
+  panel.innerHTML = `
+    <div class="kcard kpad">
+      <div class="hd">
+        <div class="hd-title">用戶記帳</div>
+        <div class="toolbar">
+          <input id="accKw" class="form-control form-control-sm" placeholder="搜尋：姓名 / Email / 備註">
+          <input id="accFrom" type="date" class="form-control form-control-sm" />
+          <span class="align-self-center">～</span>
+          <input id="accTo" type="date" class="form-control form-control-sm" />
+          <button id="accApply" class="btn btn-sm btn-primary"><i class="bi bi-funnel me-1"></i>套用</button>
+          <button id="accReset" class="btn btn-sm btn-outline-secondary">清除</button>
+          <button id="accCSV" class="btn btn-sm btn-outline-light"><i class="bi bi-download me-1"></i>匯出 CSV</button>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-lg-5">
+          <div class="kcard kpad">
+            <div class="hd"><div class="hd-title">新增記帳</div></div>
+            <div class="row g-2">
+              <div class="col-6"><input id="accName" class="form-control form-control-sm" placeholder="姓名"></div>
+              <div class="col-6"><input id="accEmail" class="form-control form-control-sm" placeholder="Email"></div>
+              <div class="col-6">
+                <select id="accType" class="form-select form-select-sm">
+                  <option value="income">收入 (+)</option>
+                  <option value="expense">支出 (-)</option>
+                </select>
+              </div>
+              <div class="col-6"><input id="accAmount" type="number" step="1" class="form-control form-control-sm" placeholder="金額"></div>
+              <div class="col-12"><input id="accNote" class="form-control form-control-sm" placeholder="備註"></div>
+              <div class="col-12 d-grid"><button id="accAdd" class="btn btn-sm btn-primary">新增</button></div>
+              <div class="col-12"><div id="accErr" class="text-danger small"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-7">
+          <div class="kcard kpad">
+            <div class="hd"><div class="hd-title">紀錄列表</div></div>
+            <div class="d-flex gap-3 mb-2">
+              <div class="badge rounded-pill text-bg-success">今日：<span id="accToday">NT$ 0</span></div>
+              <div class="badge rounded-pill text-bg-secondary">累積：<span id="accTotal">NT$ 0</span></div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead><tr><th>時間</th><th>姓名</th><th>Email</th><th>類型</th><th class="text-end">金額</th><th>備註</th></tr></thead>
+                <tbody id="accBody"><tr><td colspan="6" class="text-muted">載入中…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const refs = {
+    kw: $('#accKw', panel), from: $('#accFrom', panel), to: $('#accTo', panel),
+    apply: $('#accApply', panel), reset: $('#accReset', panel), csv: $('#accCSV', panel),
+    name: $('#accName', panel), email: $('#accEmail', panel), type: $('#accType', panel),
+    amount: $('#accAmount', panel), note: $('#accNote', panel), add: $('#accAdd', panel),
+    err: $('#accErr', panel), body: $('#accBody', panel),
+    tday: $('#accToday', panel), total: $('#accTotal', panel),
+  };
+
+  let cache = [];
+  let unsub  = null;
+
+  refs.add.addEventListener('click', async ()=>{
+    refs.err.textContent = '';
+    const name   = (refs.name.value||'').trim();
+    const email  = (refs.email.value||'').trim();
+    const type   = refs.type.value; // income | expense
+    const amount = Number(refs.amount.value||0);
+    const note   = (refs.note.value||'').trim();
+    if (!amount || !type){ refs.err.textContent = '請輸入正確金額與類型'; return; }
+    try{
+      await addDoc(collection(db,'accounts'), {
+        name, email, type, amount, note,
+        createdAt: serverTimestamp()
+      });
+      refs.name.value=''; refs.email.value=''; refs.amount.value=''; refs.note.value='';
+    }catch(err){ refs.err.textContent = '新增失敗：' + err.message; }
+  });
+
+  function bind(){
+    if (unsub) { unsub(); unsub=null; }
+    refs.body.innerHTML = `<tr><td colspan="6" class="text-muted">載入中…</td></tr>`;
+    const from = refs.from.value ? new Date(refs.from.value + 'T00:00:00') : null;
+    const to   = refs.to.value   ? new Date(refs.to.value   + 'T23:59:59') : null;
+
+    try{
+      let qBase = collection(db,'accounts');
+      const whs = [];
+      if (from) whs.push(where('createdAt','>=', Timestamp.fromDate(from)));
+      if (to)   whs.push(where('createdAt','<=', Timestamp.fromDate(to)));
+      qBase = whs.length ? query(qBase, ...whs, orderBy('createdAt','desc'), limit(500))
+                         : query(qBase, orderBy('createdAt','desc'), limit(500));
+      unsub = onSnapshot(qBase, snap=>{
+        cache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
+        render();
+      }, _ => fallback());
+    }catch(_){ fallback(); }
+  }
+  function fallback(){
+    const baseQ = query(collection(db,'accounts'), orderBy('createdAt','desc'), limit(500));
+    onSnapshot(baseQ, snap=>{
+      cache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
+      render();
+    });
+  }
+  function render(){
+    const kw = refs.kw.value.trim().toLowerCase();
+    let arr = cache;
+    if (kw){
+      arr = arr.filter(({v})=>{
+        const name  = (v.name||'').toLowerCase();
+        const email = (v.email||'').toLowerCase();
+        const note  = (v.note||'').toLowerCase();
+        return name.includes(kw) || email.includes(kw) || note.includes(kw);
+      });
+    }
+    if (!arr.length){
+      refs.body.innerHTML = `<tr><td colspan="6" class="text-muted">沒有符合條件的紀錄</td></tr>`;
+      refs.csv.onclick = ()=>exportCSVFromObjects([],[]);
+      refs.tday.textContent = 'NT$ 0'; refs.total.textContent = 'NT$ 0';
+      return;
+    }
+    // 合計
+    const today = startOfToday();
+    let sumToday = 0, sumTotal = 0;
+    arr.forEach(({v})=>{
+      const sign = (v.type==='expense') ? -1 : 1;
+      const t = v.createdAt?.toDate?.() || new Date(0);
+      sumTotal += sign * (v.amount||0);
+      if (t >= today) sumToday += sign * (v.amount||0);
+    });
+    refs.tday.textContent  = money(sumToday);
+    refs.total.textContent = money(sumTotal);
+
+    refs.body.innerHTML = arr.map(({v})=>{
+      const sign = (v.type==='expense') ? '-' : '+';
+      const clr  = (v.type==='expense') ? 'text-danger' : 'text-success';
+      return `
+        <tr>
+          <td>${toTW(v.createdAt)}</td>
+          <td>${v.name||''}</td>
+          <td>${v.email||''}</td>
+          <td>${v.type==='expense'?'支出':'收入'}</td>
+          <td class="text-end ${clr}">${sign} ${money(v.amount||0)}</td>
+          <td>${v.note||''}</td>
+        </tr>
+      `;
+    }).join('');
+
+    refs.csv.onclick = ()=>exportCSVFromObjects(
+      arr.map(({v})=>v),
+      [
+        {label:'時間', get:v=>toTW(v.createdAt)},
+        {label:'姓名', get:v=>v.name||''},
+        {label:'Email', get:v=>v.email||''},
+        {label:'類型', get:v=>v.type==='expense'?'支出':'收入'},
+        {label:'金額', get:v=>v.amount||0},
+        {label:'備註', get:v=>v.note||''},
+      ]
+    );
+  }
+
+  refs.apply.addEventListener('click', bind);
+  refs.reset.addEventListener('click', ()=>{ refs.kw.value=''; refs.from.value=''; refs.to.value=''; bind(); });
+  refs.kw.addEventListener('input', ()=> render());
+
+  bind();
+  return panel;
+}
+
+/* ───────── 分頁：訂單管理（沿用你的版本，略調整成面板） ───────── */
+function renderOrdersPanel(){
+  const wrap = document.createElement('div');
+  wrap.className = 'panel';
+  // 下面這個函式直接重用你原本 renderUI 的主體（我改成面板，避免重複 Hero）
+  wrap.appendChild(renderOrdersCore());
+  return wrap;
+}
+
+function renderOrdersCore(){
   const el = document.createElement('div');
-  el.className = 'admin-shell';
   el.innerHTML = `
-    <!-- Hero -->
-    <div class="hero">
-      <div>
-        <h5>歡迎回來 👋</h5>
-        <div class="sub">快速存取你的常用工具與最新狀態</div>
-      </div>
-      <div class="act">
-        <button class="btn btn-outline-light me-2" id="themeToggle"><i class="bi bi-brightness-high me-1"></i>切換亮/暗</button>
-        <button class="btn btn-outline-light me-2" data-go="#dashboard"><i class="bi bi-grid me-1"></i> 回首頁</button>
-        <button class="btn btn-outline-danger" id="btnLogout"><i class="bi bi-box-arrow-right me-1"></i> 登出</button>
-      </div>
-    </div>
-
-    <!-- 今日概況 -->
     <div class="page-title">
-      <h6 class="m-0">今日概況</h6>
-      <span class="badge rounded-pill px-2">更新於 <span id="dashTime"></span></span>
+      <h6 class="m-0">訂單管理</h6>
+      <span class="badge rounded-pill px-2">更新於 <span id="dashTime2"></span></span>
     </div>
 
-    <div class="stat-grid">
-      <div class="kcard stat">
-        <div class="ico ico-blue"><i class="bi bi-bag-check"></i></div>
-        <div><div class="meta">今日訂單</div><div class="val" id="statOrders">—</div></div>
-      </div>
-      <div class="kcard stat">
-        <div class="ico ico-green"><i class="bi bi-currency-dollar"></i></div>
-        <div><div class="meta">今日營收</div><div class="val" id="statRevenue">—</div></div>
-      </div>
-      <div class="kcard stat">
-        <div class="ico ico-amber"><i class="bi bi-receipt"></i></div>
-        <div><div class="meta">待出貨</div><div class="val" id="statShip">—</div></div>
-      </div>
-      <div class="kcard stat">
-        <div class="ico ico-purple"><i class="bi bi-people"></i></div>
-        <div><div class="meta">常用客戶</div><div class="val" id="statUsers">—</div></div>
-      </div>
-    </div>
-
-    <!-- 主體：左列表 + 右詳細 -->
     <div class="admin-grid">
       <section class="kcard kpad">
         <div class="hd"><div class="hd-title">訂單列表</div></div>
 
-        <!-- 工具列 -->
         <div class="toolbar">
           <input id="kw" class="form-control form-control-sm" placeholder="搜尋：訂單ID / 客戶 / Email">
           <select id="fStatus" class="form-select form-select-sm">
@@ -330,48 +588,34 @@ function renderUI(){
       </section>
     </div>
   `;
-
-  // 導航
-  el.addEventListener('click', e=>{
-    const go = e.target.closest('[data-go]');
-    if (go) location.hash = go.getAttribute('data-go');
-  });
-
-  initThemeToggle(el);
-  $('#dashTime', el).textContent = new Date().toLocaleString('zh-TW',{hour12:false});
-
-  // 登出（交由 onAuthStateChanged 切回登入畫面）
-  $('#btnLogout', el)?.addEventListener('click', async ()=>{
-    if (!confirm('確定要登出嗎？')) return;
-    try{ await signOut(auth); }catch(err){ alert('登出失敗：' + err.message); }
-  });
-
-  // 今日統計
-  computeTodayStats({
-    orders: n => $('#statOrders', el).textContent  = `${n} 筆`,
-    revenue:n => $('#statRevenue', el).textContent = money(n),
-    ship:   n => $('#statShip', el).textContent    = `${n} 筆`,
-    users:  n => $('#statUsers', el).textContent   = `${n} 位`
-  }).catch(()=>{});
+  $('#dashTime2', el).textContent = new Date().toLocaleString('zh-TW',{hour12:false});
 
   const listEl   = $('#orderList', el);
   const detailEl = $('#orderDetail', el);
-
-  // ── 工具列控制 ──
   const refs = {
-    kw: $('#kw', el),
-    fStatus: $('#fStatus', el),
-    from: $('#dateFrom', el),
-    to: $('#dateTo', el),
-    btnApply: $('#btnApply', el),
-    btnReset: $('#btnReset', el),
-    btnCSV: $('#btnCSV', el),
+    kw: $('#kw', el), fStatus: $('#fStatus', el),
+    from: $('#dateFrom', el), to: $('#dateTo', el),
+    btnApply: $('#btnApply', el), btnReset: $('#btnReset', el), btnCSV: $('#btnCSV', el),
   };
 
   let unsub = null;
   let ordersCache = []; // [{id, v}]
   let qKey = '';
   const makeKey = ()=>JSON.stringify({s:refs.fStatus.value,f:refs.from.value,t:refs.to.value});
+
+  function exportCSV(rows){
+    const headers = [
+      {label:'訂單ID', get:o=>o.id},
+      {label:'建立時間', get:o=>toTW(o.v.createdAt)},
+      {label:'狀態', get:o=>zh[o.v.status||'pending']||'-'},
+      {label:'客戶', get:o=>o.v?.customer?.name||''},
+      {label:'Email', get:o=>o.v?.customer?.email||''},
+      {label:'電話', get:o=>o.v?.customer?.phone||''},
+      {label:'品項數', get:o=>(o.v.items||[]).reduce((s,i)=>s+(i.qty||0),0)},
+      {label:'合計', get:o=>o.v?.amounts?.total||0},
+    ];
+    exportCSVFromObjects(rows, headers);
+  }
 
   function bindOrders(){
     const status = refs.fStatus.value || '';
@@ -396,14 +640,8 @@ function renderUI(){
         if (makeKey() !== qKey) return;
         ordersCache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
         renderList();
-      }, err=>{
-        console.warn('Query fail, fallback to client filter', err);
-        fallbackClient();
-      });
-    }catch(err){
-      console.warn('Query build error, fallback', err);
-      fallbackClient();
-    }
+      }, _=> fallbackClient());
+    }catch(_){ fallbackClient(); }
   }
 
   function fallbackClient(){
@@ -432,13 +670,11 @@ function renderUI(){
         return id.toLowerCase().includes(kw) || name.includes(kw) || email.includes(kw);
       });
     }
-
     if (!arr.length){
       listEl.innerHTML = '<div class="o-sub">沒有符合條件的訂單</div>';
       refs.btnCSV.onclick = ()=> exportCSV([]);
       return;
     }
-
     listEl.innerHTML = arr.map(({id,v})=>{
       const itemsCount = (v.items||[]).reduce((s,i)=>s+(i.qty||0),0);
       const total = money(v?.amounts?.total||0);
@@ -457,15 +693,12 @@ function renderUI(){
         </div>`;
     }).join('');
 
-    $$('.orow', listEl).forEach(r=>{
-      r.addEventListener('click', ()=> showDetail(r.dataset.id));
-    });
-
+    $$('.orow', listEl).forEach(r=> r.addEventListener('click', ()=> showDetail(r.dataset.id)));
     refs.btnCSV.onclick = ()=> exportCSV(arr);
   }
 
-  // 詳細（右側 Chips 狀態）
   async function showDetail(id){
+    const detailEl = $('#orderDetail', el);
     detailEl.innerHTML = '載入中…';
     try{
       const ref = doc(db,'orders', id);
@@ -527,7 +760,6 @@ function renderUI(){
         </div>
       `;
 
-      // Chips 互斥選擇
       let chosen = state;
       $$('#stateChips .chip', detailEl).forEach(c=>{
         c.addEventListener('click', ()=>{
@@ -537,20 +769,17 @@ function renderUI(){
         });
       });
 
-      // 儲存
       $('#saveState', detailEl).addEventListener('click', async ()=>{
         try{
           await updateDoc(ref, { status:chosen, updatedAt: serverTimestamp() });
-          const row = $(`.orow[data-id="${id}"]`, listEl);
+          const row = $(`.orow[data-id="${id}"]`, el);
           if (row){
             const badge = row.querySelector('.o-badge');
             badge.className = `o-badge ${chosen}`;
             badge.textContent = zh[chosen];
           }
           alert('狀態已更新');
-        }catch(err){
-          alert('更新失敗：'+err.message);
-        }
+        }catch(err){ alert('更新失敗：'+err.message); }
       });
 
     }catch(err){
@@ -560,19 +789,117 @@ function renderUI(){
 
   // 綁定工具列
   refs.btnApply.addEventListener('click', bindOrders);
-  refs.btnReset.addEventListener('click', ()=>{
-    refs.kw.value = '';
-    refs.fStatus.value = '';
-    refs.from.value = '';
-    refs.to.value = '';
-    bindOrders();
-  });
+  refs.btnReset.addEventListener('click', ()=>{ refs.kw.value=''; refs.fStatus.value=''; refs.from.value=''; refs.to.value=''; bindOrders(); });
   refs.kw.addEventListener('input', ()=> renderList());
 
-  // 初始載入
   bindOrders();
+  return el;
+}
+
+/* ───────── 主畫面（有分頁） ───────── */
+function renderUI(user){
+  ensureAdminStyles();
+
+  const el = document.createElement('div');
+  el.className = 'admin-shell';
+  el.innerHTML = `
+    <div class="hero">
+      <div>
+        <h5>歡迎回來 👋</h5>
+        <div class="sub">快速存取你的工具與最新狀態</div>
+      </div>
+      <div class="act">
+        <button class="btn btn-outline-light me-2" id="themeToggle"><i class="bi bi-brightness-high me-1"></i>切換亮/暗</button>
+        <button class="btn btn-outline-danger" id="btnLogout"><i class="bi bi-box-arrow-right me-1"></i> 登出</button>
+      </div>
+    </div>
+
+    <div class="page-title">
+      <h6 class="m-0">今日概況</h6>
+      <span class="badge rounded-pill px-2">更新於 <span id="dashTime"></span></span>
+    </div>
+
+    <div class="stat-grid">
+      <div class="kcard stat">
+        <div class="ico ico-blue"><i class="bi bi-bag-check"></i></div>
+        <div><div class="meta">今日訂單</div><div class="val" id="statOrders">—</div></div>
+      </div>
+      <div class="kcard stat">
+        <div class="ico ico-green"><i class="bi bi-currency-dollar"></i></div>
+        <div><div class="meta">今日營收</div><div class="val" id="statRevenue">—</div></div>
+      </div>
+      <div class="kcard stat">
+        <div class="ico ico-amber"><i class="bi bi-receipt"></i></div>
+        <div><div class="meta">待出貨</div><div class="val" id="statShip">—</div></div>
+      </div>
+      <div class="kcard stat">
+        <div class="ico ico-purple"><i class="bi bi-people"></i></div>
+        <div><div class="meta">常用客戶</div><div class="val" id="statUsers">—</div></div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="acc">用戶記帳</div>
+      <div class="tab" data-tab="logs">用戶登入</div>
+      <div class="tab" data-tab="orders">訂單管理</div>
+    </div>
+
+    <div id="panel-acc" class="panel active"></div>
+    <div id="panel-logs" class="panel"></div>
+    <div id="panel-orders" class="panel"></div>
+  `;
+
+  initThemeToggle(el);
+  $('#dashTime', el).textContent = new Date().toLocaleString('zh-TW',{hour12:false});
+
+  // 今日統計
+  computeTodayStats({
+    orders: n => $('#statOrders', el).textContent  = `${n} 筆`,
+    revenue:n => $('#statRevenue', el).textContent = money(n),
+    ship:   n => $('#statShip', el).textContent    = `${n} 筆`,
+    users:  n => $('#statUsers', el).textContent   = `${n} 位`
+  }).catch(()=>{});
+
+  // 分頁載入
+  const accPanel   = renderAccountsPanel(el);
+  const logsPanel  = renderLoginLogPanel(el);
+  const ordersPanel= renderOrdersPanel();
+
+  $('#panel-acc', el).appendChild(accPanel);
+  $('#panel-logs', el).appendChild(logsPanel);
+  $('#panel-orders', el).appendChild(ordersPanel);
+
+  // 分頁切換
+  el.addEventListener('click', (e)=>{
+    const t = e.target.closest('.tab');
+    if (!t) return;
+    $$('.tab', el).forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    const key = t.dataset.tab;
+    $$('.panel', el).forEach(p=>p.classList.remove('active'));
+    $('#panel-'+key, el)?.classList.add('active');
+  });
+
+  // 登出
+  $('#btnLogout', el)?.addEventListener('click', async ()=>{
+    if (!confirm('確定要登出嗎？')) return;
+    try{ await signOut(auth); }catch(err){ alert('登出失敗：' + err.message); }
+  });
 
   return el;
+}
+
+/* 進後台時記錄登入（用於用戶登入分頁） */
+async function logAdminVisit(user){
+  try{
+    await addDoc(collection(db,'loginLogs'), {
+      uid: user.uid || '',
+      email: user.email || '',
+      name: user.displayName || '',
+      ip: '', // 若前端無法取 IP，留空或改由 Cloud Functions 寫入
+      createdAt: serverTimestamp()
+    });
+  }catch(_){ /* 靜默失敗即可 */ }
 }
 
 /* 導出頁面：處理 Google 登入與白名單 */
@@ -583,7 +910,7 @@ export function AdminPage(){
 
   getRedirectResult(auth).catch(()=>{});
 
-  onAuthStateChanged(auth, (user)=>{
+  onAuthStateChanged(auth, async (user)=>{
     if (!user) {
       showLogin(root, '請先使用 Google 登入才能進入後台');
       return;
@@ -592,7 +919,11 @@ export function AdminPage(){
       showLogin(root, '你不符合管理員帳號', user);
       return;
     }
-    const ui = renderUI();
+    // 記錄登入
+    await logAdminVisit(user);
+
+    // 渲染主畫面（含三個分頁）
+    const ui = renderUI(user);
     root.replaceChildren(ui);
   });
 
