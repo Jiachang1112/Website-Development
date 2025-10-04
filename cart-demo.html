@@ -6,58 +6,59 @@
   <title>立國實業｜線上下單 Demo</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <style>
-    body {
-      background:#0f1318;
-      color:#e6e6e6;
-      transition: background 0.3s, color 0.3s;
+    :root {
+      --bg-dark: #0f1318;
+      --text-dark: #e6e6e6;
+      --card-dark: #151a21;
+      --border-dark: #2a2f37;
+
+      --bg-light: #f5f7fb;
+      --text-light: #111;
+      --card-light: #fff;
+      --border-light: #ddd;
     }
+
+    /* 預設深色 */
+    body {
+      background: var(--bg-dark);
+      color: var(--text-dark);
+      min-height: 100vh;
+    }
+    html { background: var(--bg-dark); height: 100%; }
+
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-    .card{background:#151a21;border:1px solid #2a2f37;border-radius:12px}
+    .card{background:var(--card-dark);border:1px solid var(--border-dark);border-radius:12px}
     .price{font-weight:700}
     .btn{border:1px solid #444;background:#1b1f26;color:#e6e6e6}
     .btn:disabled{opacity:.6;cursor:not-allowed}
     .aside{position:sticky;top:16px}
-    @media (max-width: 991px){ .aside{position:static} }
+    @media (max-width: 991px){.aside{position:static}}
 
-    /* ---- 暗色模式可讀性補強 ---- */
-    body .text-muted { color: #aeb4be !important; }        /* 深色 */
-    body.light .text-muted { color: #6b7280 !important; }  /* 亮色 */
-
-    body .btn, body .btn:focus { color: #eaecef !important; }
-    body .btn:hover { color: #ffffff !important; }
-
-    body .form-control,
-    body .form-select {
-      background: #11161b;
-      color: #e6e6e6;
-      border-color: #2a2f37;
+    /* 亮色模式 */
+    body.light {
+      background: var(--bg-light);
+      color: var(--text-light);
     }
-    body .form-control::placeholder { color: #9aa3ad; }
-
-    body.light .form-control,
-    body.light .form-select {
-      background: #ffffff;
-      color: #111;
-      border-color: #ced4da;
+    html.light { background: var(--bg-light); }
+    body.light .card {
+      background: var(--card-light);
+      border:1px solid var(--border-light);
     }
-    body.light .form-control::placeholder { color: #6b7280; }
-
-    body .card { border-color: rgba(255,255,255,.08); }
-    body hr { border-color: rgba(255,255,255,.08); }
-    body.light .card { border-color: #ddd; }
-
-    /* 亮色模式整體背景 */
-    body.light { background:#f8fafc; color:#111; }
-    body.light .navbar { background:#fff !important; color:#111; }
-    body.light .btn { background:#f0f2f5; color:#111 !important; border-color:#ccc; }
+    body.light .btn {
+      background:#f0f0f0;
+      color:#111;
+      border:1px solid #ccc;
+    }
   </style>
 </head>
 <body>
-  <nav class="navbar bg-dark border-bottom border-secondary px-3">
-    <a class="navbar-brand text-white fw-bold" href="#">立國實業</a>
-    <div class="ms-auto d-flex gap-2">
-      <button id="toggleTheme" class="btn btn-sm btn-outline-light">切換亮/暗</button>
-      <a class="btn btn-outline-light btn-sm" href="./index.html">回首頁</a>
+  <nav class="navbar bg-dark border-bottom border-secondary">
+    <div class="container d-flex justify-content-between">
+      <a class="navbar-brand text-white fw-bold" href="#">立國實業</a>
+      <div class="d-flex gap-2">
+        <button id="toggleTheme" class="btn btn-outline-light btn-sm">切換亮/暗</button>
+        <a class="btn btn-outline-light" href="./index.html">回首頁</a>
+      </div>
     </div>
   </nav>
 
@@ -181,8 +182,6 @@
       saveCart(cart);
       renderCart();
     }
-    window.addToCart = addToCart;
-
     function changeQty(sku, delta){
       const cart = loadCart();
       const i = cart.find(x=>x.sku===sku);
@@ -192,7 +191,6 @@
       saveCart(cart);
       renderCart();
     }
-    window.changeQty = changeQty;
 
     function renderProducts(){
       $('#products').innerHTML = PRODUCTS.map(p=>`
@@ -203,6 +201,7 @@
           <button class="btn btn-sm mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
         </div>
       `).join('');
+      window.addToCart = addToCart;
     }
 
     function renderCart(){
@@ -249,11 +248,7 @@
       const total = subtotal + shipping;
 
       const order = {
-        customer: {
-          name: data.name, phone: data.phone, email: data.email,
-          shipping: data.shipping, address: data.address,
-          payment: data.payment, note: data.note || ''
-        },
+        customer: data,
         items: cart,
         amounts: { subtotal, shipping, total },
         status: 'pending',
@@ -263,7 +258,8 @@
       try{
         const ref = await addDoc(collection(db,'orders'), order);
         alert(`訂單已送出：${ref.id}`);
-        clearCart(); renderCart();
+        clearCart();
+        renderCart();
         bootstrap.Modal.getInstance(document.getElementById('checkoutDlg')).hide();
       }catch(err){
         console.error(err);
@@ -271,13 +267,11 @@
       }
     });
 
-    // 主題切換
-    const themeBtn = $('#toggleTheme');
-    themeBtn.addEventListener('click', ()=>{
+    // 切換主題
+    $('#toggleTheme').addEventListener('click', ()=>{
       document.body.classList.toggle('light');
-      localStorage.setItem('theme', document.body.classList.contains('light') ? 'light':'dark');
+      document.documentElement.classList.toggle('light');
     });
-    if (localStorage.getItem('theme')==='light') document.body.classList.add('light');
 
     renderProducts();
     renderCart();
