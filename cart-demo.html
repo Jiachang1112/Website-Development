@@ -5,68 +5,58 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>立國實業｜線上下單 Demo</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-
   <style>
-    :root{
-      --bg:#0f1318;
-      --panel:#171c24;
-      --panel-2:#1e2430;
-      --line:#3b4654;
-      --text:#edf2f7;
-      --muted:#c2cad6;
-      --accent:#5b8cff;
+    :root {
+      --bg-dark: #0f1318;
+      --text-dark: #e6e6e6;
+      --card-dark: #151a21;
+      --border-dark: #2a2f37;
+
+      --bg-light: #f5f7fb;
+      --text-light: #111;
+      --card-light: #fff;
+      --border-light: #ddd;
     }
 
-    body.light{
-      --bg:#f8fafc;
-      --panel:#fff;
-      --panel-2:#f1f5f9;
-      --line:#d1d5db;
-      --text:#111;
-      --muted:#555;
-      --accent:#2563eb;
+    /* 預設深色 */
+    body {
+      background: var(--bg-dark);
+      color: var(--text-dark);
+      min-height: 100vh;
     }
+    html { background: var(--bg-dark); height: 100%; }
 
-    html,body{background:var(--bg);color:var(--text);}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
-    .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 18px rgba(0,0,0,.25)}
-    .navbar{background:var(--panel-2)!important;border-bottom:1px solid var(--line)!important}
-    hr{border-color:var(--line)}
-    .price{font-weight:800;color:var(--text);}
-    .small,.text-muted{color:var(--muted)!important;}
-    .fw-semibold{color:var(--text);}
-
-    .btn{border:1px solid var(--line);background:var(--panel-2);color:var(--text);}
-    .btn:hover{background:var(--line);color:#fff;}
-    .btn:disabled{opacity:.7;cursor:not-allowed}
-    .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;}
-    .btn-primary:hover{filter:brightness(1.1);}
-
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+    .card{background:var(--card-dark);border:1px solid var(--border-dark);border-radius:12px}
+    .price{font-weight:700}
+    .btn{border:1px solid #444;background:#1b1f26;color:#e6e6e6}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
     .aside{position:sticky;top:16px}
-    @media (max-width:991px){.aside{position:static}}
+    @media (max-width: 991px){.aside{position:static}}
 
-    /* Modal 跟隨主題 */
-    .modal-content{background:var(--panel);color:var(--text);}
-    .modal-header,.modal-footer{border-color:var(--line);}
-    .form-control,.form-select,textarea{
-      background:var(--bg);
-      color:var(--text);
-      border:1px solid var(--line);
+    /* 亮色模式 */
+    body.light {
+      background: var(--bg-light);
+      color: var(--text-light);
     }
-    .form-control:focus,.form-select:focus{
-      background:var(--panel-2);
-      color:var(--text);
-      border-color:var(--accent);
-      box-shadow:0 0 0 0.2rem rgba(91,140,255,.25);
+    html.light { background: var(--bg-light); }
+    body.light .card {
+      background: var(--card-light);
+      border:1px solid var(--border-light);
+    }
+    body.light .btn {
+      background:#f0f0f0;
+      color:#111;
+      border:1px solid #ccc;
     }
   </style>
 </head>
 <body>
-  <nav class="navbar border-bottom">
+  <nav class="navbar bg-dark border-bottom border-secondary">
     <div class="container d-flex justify-content-between">
-      <a class="navbar-brand fw-bold" href="#" style="color:var(--text)">立國實業</a>
+      <a class="navbar-brand text-white fw-bold" href="#">立國實業</a>
       <div class="d-flex gap-2">
-        <button id="themeToggle" class="btn btn-sm">切換亮/暗</button>
+        <button id="toggleTheme" class="btn btn-outline-light btn-sm">切換亮/暗</button>
         <a class="btn btn-outline-light" href="./index.html">回首頁</a>
       </div>
     </div>
@@ -85,7 +75,7 @@
             <h5 class="m-0">購物車</h5>
             <button id="btnClear" class="btn btn-sm">清空</button>
           </div>
-          <div id="cartItems" class="small">尚無商品</div>
+          <div id="cartItems" class="small text-muted">尚無商品</div>
           <hr>
           <div class="d-flex justify-content-between">
             <div class="text-muted">小計</div><div id="subtotal" class="fw-bold">NT$ 0</div>
@@ -161,9 +151,11 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
+  <!-- 購物邏輯 + Firestore 寫入 -->
   <script type="module">
     import { db } from './assets/js/firebase.js';
-    import { collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+    import { collection, addDoc, serverTimestamp } 
+      from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
     const PRODUCTS = [
       { sku:'LG-001', name:'立國工業手套 M', price:120 },
@@ -187,7 +179,8 @@
       const f = cart.find(i=>i.sku===p.sku);
       if (f) f.qty++;
       else cart.push({ sku:p.sku, name:p.name, price:p.price, qty:1 });
-      saveCart(cart); renderCart();
+      saveCart(cart);
+      renderCart();
     }
     function changeQty(sku, delta){
       const cart = loadCart();
@@ -195,7 +188,8 @@
       if (!i) return;
       i.qty += delta;
       if (i.qty <= 0) cart.splice(cart.indexOf(i),1);
-      saveCart(cart); renderCart();
+      saveCart(cart);
+      renderCart();
     }
 
     function renderProducts(){
@@ -264,19 +258,23 @@
       try{
         const ref = await addDoc(collection(db,'orders'), order);
         alert(`訂單已送出：${ref.id}`);
-        clearCart(); renderCart();
+        clearCart();
+        renderCart();
         bootstrap.Modal.getInstance(document.getElementById('checkoutDlg')).hide();
       }catch(err){
-        console.error(err); alert('寫入訂單失敗：' + err.message);
+        console.error(err);
+        alert('寫入訂單失敗：' + err.message);
       }
     });
 
-    // 主題切換
-    $('#themeToggle').addEventListener('click',()=>{
+    // 切換主題
+    $('#toggleTheme').addEventListener('click', ()=>{
       document.body.classList.toggle('light');
+      document.documentElement.classList.toggle('light');
     });
 
-    renderProducts(); renderCart();
+    renderProducts();
+    renderCart();
   </script>
 </body>
 </html>
