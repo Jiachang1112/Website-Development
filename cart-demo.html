@@ -16,21 +16,71 @@
       --text-light: #111;
       --card-light: #fff;
       --border-light: #ddd;
+
+      --accent: #3b82f6;      /* 主色（藍） */
+      --accent-2: #22c55e;    /* 輔助（綠） */
     }
 
     /* 預設深色 */
+    html, body { height: 100%; }
+    html { background: var(--bg-dark); }
     body {
       background: var(--bg-dark);
       color: var(--text-dark);
       min-height: 100vh;
     }
-    html { background: var(--bg-dark); height: 100%; }
 
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-    .card{background:var(--card-dark);border:1px solid var(--border-dark);border-radius:12px}
-    .price{font-weight:700}
-    .btn{border:1px solid #444;background:#1b1f26;color:#e6e6e6}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .card{
+      background:var(--card-dark);
+      border:1px solid var(--border-dark);
+      border-radius:12px;
+    }
+
+    /* 讓卡片裡的 muted 也看得清楚 */
+    .card .text-muted,
+    .card .text-secondary,
+    .card .text-body-secondary{
+      color:#c7d2de !important;
+    }
+
+    .price{font-weight:800;color:#e8eef6}
+
+    /* 對比更高的通用按鈕（含 hover/focus） */
+    .btn{
+      border:1px solid #4a5568;
+      background:#1b2331;
+      color:#eef2f7;
+    }
+    .btn:hover,
+    .btn:focus{
+      background:#233048;
+      border-color:#62708a;
+      color:#ffffff;
+    }
+
+    /* 主要行動按鈕（結帳等） */
+    .btn-primary{
+      background:var(--accent);
+      border-color:var(--accent);
+      color:#fff;
+    }
+    .btn-primary:hover,
+    .btn-primary:focus{
+      filter:brightness(1.1);
+      color:#fff;
+    }
+
+    .btn-outline-light{
+      color:#e6e6e6;
+      border-color:#6b7280;
+    }
+    .btn-outline-light:hover{
+      background:#2b3445;
+      color:#fff;
+      border-color:#94a3b8;
+    }
+
     .aside{position:sticky;top:16px}
     @media (max-width: 991px){.aside{position:static}}
 
@@ -40,36 +90,50 @@
       color: var(--text-light);
     }
     html.light { background: var(--bg-light); }
-    body.light .card {
-      background: var(--card-light);
-      border:1px solid var(--border-light);
-    }
-    body.light .btn {
-      background:#f0f0f0;
-      color:#111;
-      border:1px solid #ccc;
-    }
+    body.light .card { background: var(--card-light); border:1px solid var(--border-light); }
+    body.light .btn { background:#f0f0f0; color:#111; border:1px solid #ccc; }
+    body.light .btn:hover, body.light .btn:focus { background:#e6e6e6; }
+    body.light .btn-outline-light{ color:#111; border-color:#bbb; }
+    body.light .btn-outline-light:hover{ background:#fff; color:#111; }
 
-    /* ==== 購物車字色 & 對比優化 ==== */
-    .cart-box { color: #e9edf3; }
+    /* ==== 購物車區塊：字色&對比強化 ==== */
+    .cart-box { color: #edf2f7; }
     body .text-muted,
     body .text-secondary,
     body .text-body-secondary {
       color: #c6d0dc !important;
     }
-    #subtotal, #shipping, #total {
-      color: #f8fafc !important;
-      font-weight: 800;
-    }
+    #subtotal, #shipping { color:#e9edf3 !important; font-weight: 700; }
+    #total{ color:#ffffff !important; font-weight: 900; }
+
     .cart-item { border-bottom: 1px solid #475366; }
     .cart-box hr {
       border-color: #3f4b5b;
       opacity: 1;
     }
+
+    /* 合計列更醒目：藍邊條 */
+    .total-row{
+      border-top:1px solid #3f4b5b;
+      padding-top:6px;
+      margin-top:6px;
+    }
+    .total-row .badge-total{
+      background: transparent;
+      color:#fff;
+      border-left:4px solid var(--accent);
+      padding-left:10px;
+      font-weight:900;
+      letter-spacing:.5px;
+    }
+
+    /* 加減數量按鈕（小而清楚） */
     .btn-darkish{
       border:1px solid #556073;
       background:#1d2433;
       color:#eef2f7;
+      line-height:1;
+      padding:.25rem .5rem;
     }
     .btn-darkish:hover{
       background:#243047;
@@ -77,15 +141,26 @@
       color:#fff;
     }
 
-    /* 亮色模式保持正常 */
-    body.light .text-muted,
-    body.light .text-secondary,
-    body.light .text-body-secondary { color: #6b7280 !important; }
-    body.light #subtotal, 
-    body.light #shipping, 
-    body.light #total { color:#111 !important; }
-    body.light .cart-item{ border-bottom:1px solid #e7e7e7; }
-    body.light .cart-box hr{ border-color:#e7e7e7; }
+    /* Modal（深色下強化表單對比） */
+    .modal-content{ background:var(--card-dark); color:#e8edf6; border:1px solid var(--border-dark); }
+    .form-control, .form-select{
+      background:#0f1520;
+      color:#e8edf6;
+      border:1px solid #3a4558;
+    }
+    .form-control::placeholder{ color:#9fb0c3; }
+    .form-control:focus, .form-select:focus{
+      background:#0f1520;
+      color:#fff;
+      border-color:#5b6b85;
+      box-shadow:0 0 0 .2rem rgba(59,130,246,.15);
+    }
+
+    /* 亮色下的表單回復正常 */
+    body.light .modal-content{ background:#fff; color:#111; border-color:#e5e7eb; }
+    body.light .form-control, body.light .form-select{
+      background:#fff; color:#111; border:1px solid #ced4da;
+    }
   </style>
 </head>
 <body>
@@ -120,8 +195,8 @@
           <div class="d-flex justify-content-between">
             <div class="text-muted">運費</div><div id="shipping" class="fw-bold">NT$ 0</div>
           </div>
-          <div class="d-flex justify-content-between fs-5">
-            <div>合計</div><div id="total" class="fw-bold">NT$ 0</div>
+          <div class="d-flex justify-content-between fs-5 total-row">
+            <div class="badge-total">合計</div><div id="total" class="fw-bold">NT$ 0</div>
           </div>
           <div class="d-grid mt-2">
             <button id="btnCheckout" class="btn btn-primary">結帳</button>
@@ -143,16 +218,16 @@
           <div class="row g-2">
             <div class="col-md-6">
               <label class="form-label">姓名</label>
-              <input name="name" class="form-control" required>
+              <input name="name" class="form-control" required placeholder="王小明">
             </div>
             <div class="col-md-6">
               <label class="form-label">電話</label>
-              <input name="phone" class="form-control" required>
+              <input name="phone" class="form-control" required placeholder="0900-000-000">
             </div>
           </div>
           <div class="mt-2">
             <label class="form-label">Email（收訂單）</label>
-            <input name="email" type="email" class="form-control" required>
+            <input name="email" type="email" class="form-control" required placeholder="you@example.com">
           </div>
           <div class="mt-2">
             <label class="form-label">配送方式</label>
@@ -163,7 +238,7 @@
           </div>
           <div class="mt-2">
             <label class="form-label">地址/門市</label>
-            <input name="address" class="form-control" required>
+            <input name="address" class="form-control" required placeholder="高雄市立國路 88 號">
           </div>
           <div class="mt-2">
             <label class="form-label">付款方式</label>
@@ -179,7 +254,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">取消</button>
+          <button class="btn btn-outline-light" data-bs-dismiss="modal" type="button">取消</button>
           <button class="btn btn-primary" type="submit">送出訂單</button>
         </div>
       </form>
@@ -238,7 +313,9 @@
           <button class="btn btn-sm mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
         </div>
       `).join('');
+      // 讓 onclick 可用
       window.addToCart = addToCart;
+      window.changeQty  = changeQty;
     }
 
     function renderCart(){
@@ -246,16 +323,16 @@
       const wrap = $('#cartItems');
       wrap.innerHTML = cart.length
         ? cart.map(i=>`
-          <div class="d-flex justify-content-between align-items-center py-1 cart-item">
+          <div class="d-flex justify-content-between align-items-center py-2 cart-item">
             <div>
-              <div>${i.name}</div>
+              <div class="fw-semibold">${i.name}</div>
               <div class="text-muted small">SKU：${i.sku}</div>
             </div>
             <div class="d-flex align-items-center gap-2">
-              <button class="btn btn-sm btn-darkish" onclick="changeQty('${i.sku}',-1)">－</button>
-              <span>${i.qty}</span>
-              <button class="btn btn-sm btn-darkish" onclick="changeQty('${i.sku}',+1)">＋</button>
-              <div class="ms-2">${fmt(i.price*i.qty)}</div>
+              <button class="btn btn-darkish btn-sm" onclick="changeQty('${i.sku}',-1)">－</button>
+              <span class="fw-bold">${i.qty}</span>
+              <button class="btn btn-darkish btn-sm" onclick="changeQty('${i.sku}',+1)">＋</button>
+              <div class="ms-2 fw-bold">${fmt(i.price*i.qty)}</div>
             </div>
           </div>
         `).join('')
@@ -263,6 +340,7 @@
 
       const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
       const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
+
       $('#subtotal').textContent = fmt(subtotal);
       $('#shipping').textContent = fmt(shipping);
       $('#total').textContent = fmt(subtotal+shipping);
