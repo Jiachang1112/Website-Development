@@ -1,19 +1,18 @@
-/* 只在暗色模式下，把商品卡片內文變“更重/更清楚” */
+<style>
+/* 只在暗色模式下，把商品卡片內文變更重/更清楚 */
 body:not(.light) #products .card .fw-semibold{
   font-weight: 800;           /* 商品名稱更粗 */
   letter-spacing: .2px;
 }
-
 body:not(.light) #products .card .text-muted{
   color: #d1d8e2 !important;  /* SKU 提亮 */
   font-weight: 600;           /* 字重略加 */
 }
-
 body:not(.light) #products .card .price{
   color: #f3f6fb;             /* 價格更亮 */
   font-weight: 800;           /* 價格更粗 */
 }
-
 body:not(.light) #products .card .btn{
   font-weight: 700;           /* 加入購物車字重 */
 }
+</style>
