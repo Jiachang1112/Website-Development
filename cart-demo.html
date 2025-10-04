@@ -1,304 +1,253 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cart Demo</title>
-
-  <!-- Bootstrap Icons（只用到購物車圖示） -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>立國實業｜線上下單 Demo</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <style>
-    /* ===== 版面與卡片 ===== */
-    :root { color-scheme: dark; }
-    body{
-      margin:0; font-family:system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans TC", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
-      background:#0f1318; color:#e6e6e6;
+    body{background:#0f1318;color:#e6e6e6}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+    .card{background:#151a21;border:1px solid #2a2f37;border-radius:12px}
+    .price{font-weight:700}
+    .btn{border:1px solid #444;background:#1b1f26;color:#e6e6e6}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    /* 右側購物車面板 */
+    .aside{position:sticky;top:16px}
+    @media (max-width: 991px){
+      .aside{position:static}
     }
-    .container{ max-width:1200px; margin:0 auto; padding:24px 16px; }
-    .title{ font-size:24px; font-weight:800; margin:8px 0 16px; }
-    .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px; }
-    .card{
-      border:1px solid #2a2f37; border-radius:12px; padding:16px;
-      background:#151a21; box-shadow: 0 8px 30px #0008;
-    }
-    .btn{
-      border:1px solid #444; background:#1b1f26; color:#e6e6e6;
-      border-radius:8px; padding:.5rem .8rem; cursor:pointer;
-    }
-    .btn:hover{ filter:brightness(1.05); }
-    .btn-primary{ background:#3b82f6; border-color:#3b82f6; }
-    .btn-secondary{ background:#334155; border-color:#334155; }
-    .btn-danger{ background:#ef4444; border-color:#ef4444; }
-
-    .price{ font-weight:700; }
-    .text-muted{ color:#9aa0a6; }
-
-    /* ===== 右側購物車 Panel ===== */
-    .cart-mask{
-      position:fixed; inset:0; background:#0007; opacity:0; pointer-events:none; transition:.25s; z-index:8888;
-    }
-    .cart-mask.open{ opacity:1; pointer-events:auto; }
-    .cart-panel{
-      position:fixed; top:0; right:0; height:100vh; width:380px;
-      background:#111; color:#eee; border-left:1px solid #333;
-      transform: translateX(100%); transition:.25s; z-index:8890;
-      display:flex; flex-direction:column;
-      box-shadow:-8px 0 24px #0008;
-    }
-    .cart-panel.open{ transform:none; }
-    .cart-head{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #333; }
-    .cart-body{ flex:1; overflow:auto; padding:16px; }
-    .cart-foot{ border-top:1px solid #333; padding:12px 16px; }
-    .cart-row{ display:flex; align-items:center; justify-content:space-between; padding:6px 0; }
-    .qty-btn{ width:28px; height:28px; display:grid; place-items:center; border:1px solid #444; border-radius:6px; background:#1b1f26; cursor:pointer; }
-
-    /* ===== 右下角浮動購物車按鈕 ===== */
-    #fabShop{
-      position:fixed; right:16px; bottom:16px; z-index:9000;
-      width:56px; height:56px; border-radius:50%;
-      display:grid; place-items:center; background:#3b82f6; border:none; color:#fff; font-size:22px;
-      box-shadow:0 8px 30px #0008; cursor:pointer;
-    }
-    #fabShop .badge-dot{
-      position:absolute; top:-4px; right:-4px; background:#ef4444; color:#fff;
-      border-radius:999px; font-size:12px; line-height:18px; min-width:18px; height:18px;
-      display:grid; place-items:center; padding:0 4px; border:2px solid #0f1318;
-    }
-
-    /* ===== Checkout Modal（簡易） ===== */
-    .modal{
-      display:none; position:fixed; inset:0; background:rgba(0,0,0,.6);
-      z-index:9999; display:flex; align-items:center; justify-content:center;
-    }
-    .modal-content{
-      background:#0f1318; color:#e6e6e6; border:1px solid #333; border-radius:8px; padding:20px;
-      width:90%; max-width:520px; box-shadow:0 20px 60px #000a;
-    }
-    .form-control, .form-select{
-      width:100%; background:#141a22; color:#eee; border:1px solid #2a2f37; border-radius:8px;
-      padding:.55rem .7rem; outline:none;
-    }
-    .form-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .mt-2{ margin-top:.5rem; }
-    .mt-3{ margin-top:.75rem; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="title">商品列表</div>
-    <div id="products" class="grid"></div>
-  </div>
-
-  <!-- 右下角浮動購物車 -->
-  <button id="fabShop" title="購物車">
-    <i class="bi bi-cart"></i>
-  </button>
-
-  <!-- 購物車：遮罩 + 右側面板 -->
-  <div id="cartMask" class="cart-mask"></div>
-  <aside id="cartPanel" class="cart-panel" aria-hidden="true">
-    <div class="cart-head">
-      <div>購物車</div>
-      <button id="cartClose" class="btn btn-secondary">關閉</button>
+  <nav class="navbar bg-dark border-bottom border-secondary">
+    <div class="container">
+      <a class="navbar-brand text-white fw-bold" href="#">立國實業</a>
+      <a class="btn btn-outline-light" href="./index.html">回首頁</a>
     </div>
-    <div id="cartItems" class="cart-body">
-      <div class="text-muted">尚無商品</div>
-    </div>
-    <div class="cart-foot">
-      <div class="cart-row"><span class="text-muted">小計</span><span id="cartSubtotal">NT$ 0</span></div>
-      <div class="cart-row"><span class="text-muted">運費</span><span id="cartShipping">NT$ 0</span></div>
-      <div class="cart-row"><span>合計</span><span id="cartTotal">NT$ 0</span></div>
-      <div class="cart-row" style="gap:8px">
-        <button id="cartClear" class="btn btn-secondary">清空</button>
-        <button id="checkoutBtn" class="btn btn-primary" style="flex:1">結帳</button>
+  </nav>
+
+  <main class="container py-3">
+    <div class="row g-3">
+      <div class="col-lg-8">
+        <h4 class="mb-3">商品列表</h4>
+        <div id="products" class="grid"></div>
       </div>
-    </div>
-  </aside>
 
-  <!-- Checkout Modal -->
-  <div id="checkoutModal" class="modal" role="dialog" aria-modal="true">
-    <form id="checkoutForm" class="modal-content">
-      <h3 style="margin:0 0 .5rem;">訂購資料</h3>
-      <div class="form-row mt-2">
-        <div>
-          <label class="text-muted">姓名</label>
-          <input name="name" class="form-control" required>
-        </div>
-        <div>
-          <label class="text-muted">電話</label>
-          <input name="phone" class="form-control" required>
+      <div class="col-lg-4">
+        <div class="card aside p-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="m-0">購物車</h5>
+            <button id="btnClear" class="btn btn-sm">清空</button>
+          </div>
+          <div id="cartItems" class="small text-muted">尚無商品</div>
+          <hr>
+          <div class="d-flex justify-content-between">
+            <div class="text-muted">小計</div><div id="subtotal" class="fw-bold">NT$ 0</div>
+          </div>
+          <div class="d-flex justify-content-between">
+            <div class="text-muted">運費</div><div id="shipping" class="fw-bold">NT$ 0</div>
+          </div>
+          <div class="d-flex justify-content-between fs-5">
+            <div>合計</div><div id="total" class="fw-bold">NT$ 0</div>
+          </div>
+          <div class="d-grid mt-2">
+            <button id="btnCheckout" class="btn btn-primary">結帳</button>
+          </div>
         </div>
       </div>
-      <div class="mt-2">
-        <label class="text-muted">Email（收訂單）</label>
-        <input name="email" type="email" class="form-control" required>
-      </div>
-      <div class="mt-2">
-        <label class="text-muted">配送方式</label>
-        <select name="shipping" class="form-select" required>
-          <option value="宅配">宅配（黑貓/新竹）</option>
-          <option value="超商取貨（先匯款）">超商取貨（先匯款）</option>
-        </select>
-      </div>
-      <div class="mt-2">
-        <label class="text-muted">地址/門市</label>
-        <input name="address" class="form-control" required>
-      </div>
-      <div class="mt-2">
-        <label class="text-muted">付款方式</label>
-        <select name="payment" class="form-select" required>
-          <option value="銀行轉帳">銀行轉帳</option>
-          <option value="貨到付款">貨到付款</option>
-          <option value="信用卡">信用卡（綠界/藍新）</option>
-        </select>
-      </div>
-      <div class="mt-2">
-        <label class="text-muted">備註</label>
-        <textarea name="note" rows="3" class="form-control" placeholder="尺寸、發票抬頭/統編等"></textarea>
-      </div>
-      <div class="mt-3" style="display:flex; gap:8px; justify-content:flex-end">
-        <button type="button" id="closeModal" class="btn btn-secondary">取消</button>
-        <button type="submit" class="btn btn-primary">送出訂單</button>
-      </div>
-    </form>
+    </div>
+  </main>
+
+  <!-- 結帳 Modal -->
+  <div class="modal fade" id="checkoutDlg" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <form id="checkoutForm" class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">訂購資料</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">姓名</label>
+              <input name="name" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">電話</label>
+              <input name="phone" class="form-control" required>
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">Email（收訂單）</label>
+            <input name="email" type="email" class="form-control" required>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">配送方式</label>
+            <select name="shipping" class="form-select" required>
+              <option value="宅配">宅配（黑貓/新竹）</option>
+              <option value="超商取貨（先匯款）">超商取貨（先匯款）</option>
+            </select>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">地址/門市</label>
+            <input name="address" class="form-control" required>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">付款方式</label>
+            <select name="payment" class="form-select" required>
+              <option value="銀行轉帳">銀行轉帳</option>
+              <option value="貨到付款">貨到付款</option>
+              <option value="信用卡">信用卡（綠界/藍新）</option>
+            </select>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">備註</label>
+            <textarea name="note" rows="3" class="form-control" placeholder="尺寸、發票抬頭/統編等"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">取消</button>
+          <button class="btn btn-primary" type="submit">送出訂單</button>
+        </div>
+      </form>
+    </div>
   </div>
 
-  <script>
-    /* ========= 簡易資料 / 工具 ========= */
-    const fmt = n => 'NT$ ' + (n||0).toLocaleString();
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-    // 產 50 個示例商品（可改成你的品項）
-    const PRODUCTS = Array.from({length:50}, (_,i)=>{
-      const n2 = String(i+1).padStart(2,'0');
-      const n3 = String(i+1).padStart(3,'0');
-      return {
-        sku: `P-${n3}`,
-        name: `商品 ${n2}`,
-        price: (i+1)*100,
-        image: `/assets/product-${n2}.jpg` // 沒圖會 fallback
-      };
-    });
+  <!-- 購物邏輯 + Firestore 寫入 -->
+  <script type="module">
+    import { db } from './assets/js/firebase.js';
+    import {
+      collection, addDoc, serverTimestamp
+    } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-    /* ========= 購物車（localStorage） ========= */
+    /* === 商品資料 === */
+    const PRODUCTS = [
+      { sku:'LG-001', name:'立國工業手套 M', price:120 },
+      { sku:'LG-002', name:'立國工業手套 L', price:120 },
+      { sku:'LT-010', name:'立國安全帽',    price:980 },
+      { sku:'P-004',  name:'工地雨鞋',      price:560 },
+      { sku:'P-005',  name:'商品 05',       price:500 },
+      { sku:'P-008',  name:'護目鏡',        price:199 },
+    ];
+
+    /* === 購物車（localStorage） === */
     const CART_KEY = 'cart';
     const $ = sel => document.querySelector(sel);
+    const fmt = n => 'NT$ ' + (n||0).toLocaleString();
 
-    function loadCart(){
-      try{ return JSON.parse(localStorage.getItem(CART_KEY)||'[]'); }
-      catch{ return []; }
-    }
-    function saveCart(cart){
-      localStorage.setItem(CART_KEY, JSON.stringify(cart));
-      updateBadge();
-    }
-
-    function updateBadge(){
-      const btn = $('#fabShop');
-      if(!btn) return;
-      let badge = btn.querySelector('.badge-dot');
-      const cart = loadCart();
-      const count = cart.reduce((s,i)=>s+i.qty,0);
-      if(!badge){
-        badge = document.createElement('span');
-        badge.className = 'badge-dot';
-        btn.appendChild(badge);
-      }
-      badge.textContent = count;
-      badge.style.display = count>0 ? 'grid' : 'none';
-    }
+    const loadCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY)||'[]'); } catch { return []; } };
+    const saveCart = (c) => localStorage.setItem(CART_KEY, JSON.stringify(c));
+    const clearCart = () => localStorage.removeItem(CART_KEY);
 
     function addToCart(p){
       const cart = loadCart();
-      const found = cart.find(i=>i.sku===p.sku);
-      if(found) found.qty++;
+      const f = cart.find(i=>i.sku===p.sku);
+      if (f) f.qty++;
       else cart.push({ sku:p.sku, name:p.name, price:p.price, qty:1 });
-      saveCart(cart); renderCart();
+      saveCart(cart);
+      renderCart();
     }
     function changeQty(sku, delta){
       const cart = loadCart();
-      const item = cart.find(i=>i.sku===sku);
-      if(!item) return;
-      item.qty += delta;
-      if(item.qty<=0) cart.splice(cart.indexOf(item),1);
-      saveCart(cart); renderCart();
+      const i = cart.find(x=>x.sku===sku);
+      if (!i) return;
+      i.qty += delta;
+      if (i.qty <= 0) cart.splice(cart.indexOf(i),1);
+      saveCart(cart);
+      renderCart();
     }
-    function clearCart(){
-      localStorage.removeItem(CART_KEY);
-      renderCart(); updateBadge();
+
+    function renderProducts(){
+      $('#products').innerHTML = PRODUCTS.map(p=>`
+        <div class="card p-3">
+          <div class="fw-semibold">${p.name}</div>
+          <div class="text-muted small">SKU：${p.sku}</div>
+          <div class="price mt-1">NT$ ${p.price.toLocaleString()}</div>
+          <button class="btn btn-sm mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
+        </div>
+      `).join('');
+      // 讓 onclick 可用
+      window.addToCart = addToCart;
     }
 
     function renderCart(){
       const cart = loadCart();
-      $('#cartItems').innerHTML = cart.length ? cart.map(i=>`
-        <div class="cart-row" style="align-items:flex-start">
-          <div>
-            <div style="font-weight:700">${i.name}</div>
-            <div class="text-muted">SKU：${i.sku}</div>
+      const wrap = $('#cartItems');
+      wrap.innerHTML = cart.length
+        ? cart.map(i=>`
+          <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-secondary">
+            <div>
+              <div>${i.name}</div>
+              <div class="text-muted small">SKU：${i.sku}</div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-sm" onclick="changeQty('${i.sku}',-1)">－</button>
+              <span>${i.qty}</span>
+              <button class="btn btn-sm" onclick="changeQty('${i.sku}',+1)">＋</button>
+              <div class="ms-2">${fmt(i.price*i.qty)}</div>
+            </div>
           </div>
-          <div>${fmt(i.price*i.qty)}</div>
-        </div>
-        <div class="cart-row" style="gap:8px">
-          <button class="qty-btn" onclick="changeQty('${i.sku}',-1)">－</button>
-          <div class="text-muted">x ${i.qty}</div>
-          <button class="qty-btn" onclick="changeQty('${i.sku}',+1)">＋</button>
-        </div>
-      `).join('') : '<div class="text-muted">尚無商品</div>';
+        `).join('')
+        : '<div class="text-muted">尚無商品</div>';
 
-      const subtotal = cart.reduce((s,i)=>s+i.price*i.qty,0);
-      const shipping = (subtotal>2000 || subtotal===0) ? 0 : 100;
-      $('#cartSubtotal').textContent = fmt(subtotal);
-      $('#cartShipping').textContent = fmt(shipping);
-      $('#cartTotal').textContent = fmt(subtotal+shipping);
-      updateBadge();
+      const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
+      const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
+      $('#subtotal').textContent = fmt(subtotal);
+      $('#shipping').textContent = fmt(shipping);
+      $('#total').textContent = fmt(subtotal+shipping);
     }
 
-    /* ========= Panel / Modal 控制 ========= */
-    function openCart(){ $('#cartPanel').classList.add('open'); $('#cartMask').classList.add('open'); }
-    function closeCart(){ $('#cartPanel').classList.remove('open'); $('#cartMask').classList.remove('open'); }
-
-    function openCheckout(){ $('#checkoutModal').style.display='flex'; }
-    function closeCheckout(){ $('#checkoutModal').style.display='none'; }
-
-    /* ========= DOM 綁定 ========= */
-    // 商品列表
-    $('#products').innerHTML = PRODUCTS.slice(0,8).map(p=>`
-      <div class="card">
-        <div style="font-weight:600">${p.name}</div>
-        <div class="text-muted" style="font-size:12px">SKU：${p.sku}</div>
-        <div class="price" style="margin:.5rem 0">${fmt(p.price)}</div>
-        <button class="btn" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
-      </div>
-    `).join('');
-
-    // panel 與按鈕
-    $('#fabShop').addEventListener('click', openCart);
-    $('#cartClose').addEventListener('click', closeCart);
-    $('#cartMask').addEventListener('click', closeCart);
-    $('#cartClear').addEventListener('click', clearCart);
-    $('#checkoutBtn').addEventListener('click', ()=>{
-      closeCart(); openCheckout();
+    // UI 綁定
+    $('#btnClear').addEventListener('click', ()=>{ clearCart(); renderCart(); });
+    $('#btnCheckout').addEventListener('click', ()=>{
+      if (!loadCart().length) { alert('購物車是空的'); return; }
+      new bootstrap.Modal('#checkoutDlg').show();
     });
 
-    // checkout 表單
-    $('#closeModal').addEventListener('click', closeCheckout);
-    $('#checkoutForm').addEventListener('submit', (e)=>{
+    // 送出訂單 → Firestore
+    $('#checkoutForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
       const cart = loadCart();
-      if(!cart.length){ alert('購物車是空的'); return; }
+      if (!cart.length){ alert('購物車是空的'); return; }
+
       const data = Object.fromEntries(new FormData(e.target).entries());
+      const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
+      const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
+      const total = subtotal + shipping;
+
       const order = {
-        id: 'OD' + Date.now(),
-        customer: data,
+        customer: {
+          name: data.name,
+          phone: data.phone,
+          email: data.email,
+          shipping: data.shipping,
+          address: data.address,
+          payment: data.payment,
+          note: data.note || ''
+        },
         items: cart,
-        amount: $('#cartTotal').textContent
+        amounts: { subtotal, shipping, total },
+        status: 'pending',
+        createdAt: serverTimestamp()
       };
-      console.log('🧾 訂單：', order);
-      alert(`訂單已送出：${order.id}\n（這裡可以改成導向 /checkout.html 或打 API 建立訂單）`);
-      closeCheckout();
-      clearCart();
+
+      try{
+        const ref = await addDoc(collection(db,'orders'), order);
+        alert(`訂單已送出：${ref.id}`);
+        clearCart();
+        renderCart();
+        bootstrap.Modal.getInstance(document.getElementById('checkoutDlg')).hide();
+      }catch(err){
+        console.error(err);
+        alert('寫入訂單失敗：' + err.message);
+      }
     });
 
-    // 初始顯示
+    // 初始化
+    renderProducts();
     renderCart();
   </script>
 </body>
