@@ -9,92 +9,30 @@
     :root {
       --bg-dark: #0f1318;
       --text-dark: #e6e6e6;
-      --muted-dark: #a7b0bb;        /* 原來的 text-muted 太淡，這個提亮 */
       --card-dark: #151a21;
-      --card-dark-2: #1a1f27;       /* 更深一階，給購物車用 */
       --border-dark: #2a2f37;
-      --divider-dark: #3a4250;      /* 清楚的分隔線 */
 
       --bg-light: #f5f7fb;
       --text-light: #111;
-      --muted-light: #6b7280;
       --card-light: #fff;
       --border-light: #ddd;
-
-      --primary: #3b82f6;
     }
 
     /* 預設深色 */
-    html { background: var(--bg-dark); height: 100%; }
     body {
       background: var(--bg-dark);
       color: var(--text-dark);
       min-height: 100vh;
     }
+    html { background: var(--bg-dark); height: 100%; }
 
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-
-    /* 商品卡片：加深 + 陰影 */
-    .card{
-      background:var(--card-dark);
-      border:1px solid var(--border-dark);
-      border-radius:12px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.28), 0 2px 8px rgba(0,0,0,.18);
-    }
-
-    /* 購物車卡片：再深一階，更醒目 */
-    .cart-box{
-      background: var(--card-dark-2);
-      border:1px solid var(--border-dark);
-      border-radius:14px;
-      box-shadow: 0 10px 28px rgba(0,0,0,.34), 0 4px 10px rgba(0,0,0,.22);
-    }
-
+    .card{background:var(--card-dark);border:1px solid var(--border-dark);border-radius:12px}
     .price{font-weight:700}
-
-    /* 深色模式按鈕（一般小按鈕，如 + / - / 清空） */
-    .btn-darkish{
-      border:1px solid #424853;
-      background:#1b2130;
-      color:#eef2f7;
-    }
-    .btn-darkish:hover{
-      background:#222a3b;
-      border-color:#4b5361;
-      color:#fff;
-    }
-
-    /* 主要按鈕維持 Bootstrap primary，但在暗色上做點陰影 */
-    .btn-primary{ box-shadow: 0 6px 16px rgba(59,130,246,.35); }
-
+    .btn{border:1px solid #444;background:#1b1f26;color:#e6e6e6}
     .btn:disabled{opacity:.6;cursor:not-allowed}
     .aside{position:sticky;top:16px}
     @media (max-width: 991px){.aside{position:static}}
-
-    /* 購物車列的分隔線更清楚 */
-    .cart-item{ border-bottom:1px solid var(--divider-dark) }
-
-    /* 提亮 muted 文字（深色模式） */
-    body .text-muted{ color: var(--muted-dark) !important; }
-
-    /* 深色 Modal 與表單欄位 */
-    .modal-content{
-      background: var(--card-dark);
-      color: var(--text-dark);
-      border:1px solid var(--border-dark);
-    }
-    .form-control, .form-select{
-      background:#0f1318;
-      color:#e6e6e6;
-      border:1px solid var(--border-dark);
-    }
-    .form-control::placeholder{ color:#9aa3af; }
-    .form-control:focus, .form-select:focus{
-      color:#fff;
-      background:#0f1318;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 .2rem rgba(59,130,246,.25);
-    }
 
     /* 亮色模式 */
     body.light {
@@ -102,33 +40,52 @@
       color: var(--text-light);
     }
     html.light { background: var(--bg-light); }
-
-    body.light .card,
-    body.light .cart-box{
+    body.light .card {
       background: var(--card-light);
       border:1px solid var(--border-light);
-      box-shadow: 0 8px 24px rgba(17,24,39,.06);
     }
-    body.light .btn-darkish{
+    body.light .btn {
       background:#f0f0f0;
       color:#111;
       border:1px solid #ccc;
     }
-    body.light .cart-item{ border-bottom:1px solid #e7e7e7; }
-    body.light .text-muted{ color: var(--muted-light) !important; }
 
-    body.light .modal-content{
-      background: var(--card-light);
-      color: var(--text-light);
-      border: 1px solid var(--border-light);
+    /* ==== 購物車字色 & 對比優化 ==== */
+    .cart-box { color: #e9edf3; }
+    body .text-muted,
+    body .text-secondary,
+    body .text-body-secondary {
+      color: #c6d0dc !important;
     }
-    body.light .form-control, body.light .form-select{
-      background:#fff; color:#111; border:1px solid #cfcfcf;
+    #subtotal, #shipping, #total {
+      color: #f8fafc !important;
+      font-weight: 800;
     }
-    body.light .form-control:focus, body.light .form-select:focus{
-      border-color: var(--primary);
-      box-shadow: 0 0 0 .2rem rgba(59,130,246,.25);
+    .cart-item { border-bottom: 1px solid #475366; }
+    .cart-box hr {
+      border-color: #3f4b5b;
+      opacity: 1;
     }
+    .btn-darkish{
+      border:1px solid #556073;
+      background:#1d2433;
+      color:#eef2f7;
+    }
+    .btn-darkish:hover{
+      background:#243047;
+      border-color:#64718a;
+      color:#fff;
+    }
+
+    /* 亮色模式保持正常 */
+    body.light .text-muted,
+    body.light .text-secondary,
+    body.light .text-body-secondary { color: #6b7280 !important; }
+    body.light #subtotal, 
+    body.light #shipping, 
+    body.light #total { color:#111 !important; }
+    body.light .cart-item{ border-bottom:1px solid #e7e7e7; }
+    body.light .cart-box hr{ border-color:#e7e7e7; }
   </style>
 </head>
 <body>
@@ -153,7 +110,7 @@
         <div class="card aside p-3 cart-box">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h5 class="m-0">購物車</h5>
-            <button id="btnClear" class="btn btn-sm btn-darkish">清空</button>
+            <button id="btnClear" class="btn btn-sm">清空</button>
           </div>
           <div id="cartItems" class="small text-muted">尚無商品</div>
           <hr>
@@ -278,7 +235,7 @@
           <div class="fw-semibold">${p.name}</div>
           <div class="text-muted small">SKU：${p.sku}</div>
           <div class="price mt-1">NT$ ${p.price.toLocaleString()}</div>
-          <button class="btn btn-sm btn-darkish mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
+          <button class="btn btn-sm mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
         </div>
       `).join('');
       window.addToCart = addToCart;
@@ -296,7 +253,7 @@
             </div>
             <div class="d-flex align-items-center gap-2">
               <button class="btn btn-sm btn-darkish" onclick="changeQty('${i.sku}',-1)">－</button>
-              <span class="fw-semibold">${i.qty}</span>
+              <span>${i.qty}</span>
               <button class="btn btn-sm btn-darkish" onclick="changeQty('${i.sku}',+1)">＋</button>
               <div class="ms-2">${fmt(i.price*i.qty)}</div>
             </div>
@@ -355,9 +312,6 @@
 
     renderProducts();
     renderCart();
-
-    // 暴露 changeQty 給 inline handler
-    window.changeQty = changeQty;
   </script>
 </body>
 </html>
