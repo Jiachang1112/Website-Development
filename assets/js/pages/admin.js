@@ -1,14 +1,16 @@
 // assets/js/pages/admin.js
 // 後台：上方加入「歡迎 / 今日概況 + 4 張統計卡」，下方為卡片風格訂單管理
-// 依賴：assets/js/firebase.js
+// 依賴：assets/js/firebase.js（只需要初始化 app & db），auth 由這裡自行取用
 
-import { db, auth } from '../firebase.js';
+import { db } from '../firebase.js';
 import {
   collection, query, orderBy, limit, onSnapshot,
   doc, getDoc, updateDoc, serverTimestamp,
   where, getDocs, Timestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
-import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
+import {
+  getAuth, onAuthStateChanged
+} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
 /* ───────── 小工具 ───────── */
 const $  = (sel, root=document) => root.querySelector(sel);
@@ -44,7 +46,6 @@ function ensureAdminStyles(){
   }
   .admin-shell{max-width:1200px;margin-inline:auto;padding:20px}
 
-  /* Hero */
   .hero{background:linear-gradient(135deg, rgba(59,130,246,.15), rgba(168,85,247,.10));
         border:1px solid var(--border); border-radius:18px; padding:18px;
         display:flex; justify-content:space-between; align-items:center; margin-bottom:14px}
@@ -52,7 +53,6 @@ function ensureAdminStyles(){
   .hero .sub{color:var(--muted)}
   .hero .act .btn{border-radius:12px}
 
-  /* 今日概況 */
   .page-title{display:flex;align-items:center;gap:12px;margin:12px 0 12px}
   .page-title .badge{background:transparent;border:1px dashed var(--border);color:var(--muted)}
   .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
@@ -68,14 +68,12 @@ function ensureAdminStyles(){
   .meta{color:var(--muted);font-size:14px}
   .val{font-weight:800;font-size:20px;color:var(--fg)}
 
-  /* 主體兩欄 */
   .admin-grid{display:grid;grid-template-columns:1fr 1fr; gap:18px}
   @media(max-width: 992px){ .admin-grid{grid-template-columns:1fr} }
   .kpad{padding:16px}
   .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .hd-title{font-weight:800}
 
-  /* 列表卡片（深色卡） */
   .olist{display:flex;flex-direction:column;gap:12px}
   .orow{display:flex;align-items:center;justify-content:space-between; padding:16px;border:1px solid var(--border);border-radius:14px;cursor:pointer; transition:transform .15s ease, box-shadow .2s ease}
   .orow:hover{transform:translateY(-1px); box-shadow:0 10px 28px rgba(0,0,0,.3)}
@@ -86,7 +84,6 @@ function ensureAdminStyles(){
   .o-sub{color:var(--muted);font-size:13px}
   .o-time{font-size:12px;border:1px solid var(--border);background:var(--chip);color:var(--muted); padding:.25rem .6rem; border-radius:999px}
 
-  /* 詳細區 */
   .detail-title{font-weight:800;margin-bottom:6px}
   .kv{display:grid;grid-template-columns:120px 1fr; gap:6px 12px; margin-bottom:8px}
   .kv .k{color:var(--muted)}
@@ -111,7 +108,7 @@ function initThemeToggle(root){
   });
 }
 
-/* 今日統計（與首頁相同口徑） */
+/* 今日統計 */
 async function computeTodayStats(setters){
   const start = Timestamp.fromDate(startOfToday());
   const end   = Timestamp.fromDate(endOfToday());
@@ -127,7 +124,7 @@ async function computeTodayStats(setters){
     const v = d.data()||{};
     ordersCnt += 1;
     revenue   += (v?.amounts?.total || 0);
-    if ((v.status||'')==='paid') waitShip += 1; // 已付款未出貨
+    if ((v.status||'')==='paid') waitShip += 1;
   });
 
   const since = new Date(); since.setDate(since.getDate()-30);
@@ -162,8 +159,11 @@ export function AdminPage(){
     </div>
   `;
 
-  // 僅允許這個信箱
+  // 僅允許此 Email（小寫比較）
   const ADMIN_EMAIL = 'bruce9811123@gmail.com';
+
+  // 直接從 SDK 取用同一個 app 的 auth，避免 import 到不同實例
+  const auth = getAuth();
 
   onAuthStateChanged(auth, (user)=>{
     if (!user){
@@ -174,7 +174,8 @@ export function AdminPage(){
         </div>`;
       return;
     }
-    if (user.email !== ADMIN_EMAIL){
+    const email = (user.email || '').toLowerCase();
+    if (email !== ADMIN_EMAIL){
       el.innerHTML = `
         <div class="kcard kpad">
           <div class="hd-title text-danger">你不符合管理員帳號</div>
@@ -193,19 +194,21 @@ export function AdminPage(){
 /* 渲染真正後台 UI，並綁定行為 */
 function renderAdminUI(el){
   el.innerHTML = `
-    <!-- Hero（歡迎 + 按鈕） -->
     <div class="hero">
       <div>
         <h5>歡迎回來 👋</h5>
         <div class="sub">快速存取你的常用工具與最新狀態</div>
       </div>
       <div class="act">
-        <button class="btn btn-outline-light me-2" id="themeToggle"><i class="bi bi-brightness-high me-1"></i>切換亮/暗</button>
-        <button class="btn btn-outline-light" data-go="#dashboard"><i class="bi bi-grid me-1"></i> 回首頁</button>
+        <button class="btn btn-outline-light me-2" id="themeToggle">
+          <i class="bi bi-brightness-high me-1"></i>切換亮/暗
+        </button>
+        <button class="btn btn-outline-light" data-go="#dashboard">
+          <i class="bi bi-grid me-1"></i> 回首頁
+        </button>
       </div>
     </div>
 
-    <!-- 今日概況 -->
     <div class="page-title">
       <h6 class="m-0">今日概況</h6>
       <span class="badge rounded-pill px-2">更新於 <span id="dashTime"></span></span>
@@ -214,38 +217,22 @@ function renderAdminUI(el){
     <div class="stat-grid">
       <div class="kcard stat">
         <div class="ico ico-blue"><i class="bi bi-bag-check"></i></div>
-        <div>
-          <div class="meta">今日訂單</div>
-          <div class="val" id="statOrders">—</div>
-        </div>
+        <div><div class="meta">今日訂單</div><div class="val" id="statOrders">—</div></div>
       </div>
-
       <div class="kcard stat">
         <div class="ico ico-green"><i class="bi bi-currency-dollar"></i></div>
-        <div>
-          <div class="meta">今日營收</div>
-          <div class="val" id="statRevenue">—</div>
-        </div>
+        <div><div class="meta">今日營收</div><div class="val" id="statRevenue">—</div></div>
       </div>
-
       <div class="kcard stat">
         <div class="ico ico-amber"><i class="bi bi-receipt"></i></div>
-        <div>
-          <div class="meta">待出貨</div>
-          <div class="val" id="statShip">—</div>
-        </div>
+        <div><div class="meta">待出貨</div><div class="val" id="statShip">—</div></div>
       </div>
-
       <div class="kcard stat">
         <div class="ico ico-purple"><i class="bi bi-people"></i></div>
-        <div>
-          <div class="meta">常用客戶</div>
-          <div class="val" id="statUsers">—</div>
-        </div>
+        <div><div class="meta">常用客戶</div><div class="val" id="statUsers">—</div></div>
       </div>
     </div>
 
-    <!-- 主體：左列表 + 右詳細 -->
     <div class="admin-grid">
       <section class="kcard kpad">
         <div class="hd"><div class="hd-title">訂單列表</div></div>
@@ -259,7 +246,6 @@ function renderAdminUI(el){
     </div>
   `;
 
-  // 導航（按鈕 data-go）
   el.addEventListener('click', e=>{
     const go = e.target.closest('[data-go]');
     if (go) location.hash = go.getAttribute('data-go');
@@ -268,7 +254,6 @@ function renderAdminUI(el){
   initThemeToggle(el);
   $('#dashTime', el).textContent = new Date().toLocaleString('zh-TW',{hour12:false});
 
-  // 今日統計
   computeTodayStats({
     orders: n => $('#statOrders', el).textContent  = `${n} 筆`,
     revenue:n => $('#statRevenue', el).textContent = money(n),
@@ -279,7 +264,6 @@ function renderAdminUI(el){
   const listEl = $('#orderList', el);
   const detailEl = $('#orderDetail', el);
 
-  // 監聽訂單（最新 50 筆）
   const q = query(collection(db,'orders'), orderBy('createdAt','desc'), limit(50));
   onSnapshot(q, snap=>{
     if (snap.empty){ listEl.innerHTML = '<div class="o-sub">目前沒有訂單</div>'; return; }
@@ -309,7 +293,6 @@ function renderAdminUI(el){
   });
 }
 
-/* 顯示訂單詳細（分離成純函式，方便重用） */
 async function showDetail(id, detailEl, listEl){
   detailEl.innerHTML = '載入中…';
   try{
@@ -371,7 +354,6 @@ async function showDetail(id, detailEl, listEl){
       </div>
     `;
 
-    // 儲存狀態
     $('#saveState', detailEl).addEventListener('click', async ()=>{
       const zhVal = $('#stateSel', detailEl).value;
       const newState = en[zhVal] || 'pending';
