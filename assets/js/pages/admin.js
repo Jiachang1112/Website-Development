@@ -1,23 +1,26 @@
 // assets/js/pages/admin.js
-// 後台：歡迎/統計 + 進階訂單管理（搜尋／篩選／匯出 CSV），並將狀態改為彩色 Chips
-// 依賴：assets/js/firebase.js
+// 後台：歡迎/統計 + 進階訂單管理（搜尋／篩選／匯出 CSV），狀態彩色 Chips
+// 加入 Google 登入守門：只有白名單帳號可進入
+// 依賴：assets/js/firebase.js (需 export { db, auth })
 
-import { db, auth } from '../firebase.js'; // ← 加上 auth
+import { db, auth } from '../firebase.js';
 import {
   collection, query, orderBy, limit, onSnapshot,
   doc, getDoc, updateDoc, serverTimestamp,
-  where, getDocs, Timestamp, startAt, endAt
+  where, getDocs, Timestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 import {
-  signOut // ← 匯入登出
+  onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
+
+/* ====== 管理員白名單 ====== */
+const ADMIN_EMAILS = ['bruce9811123@gmail.com'];
 
 /* ───────── 小工具 ───────── */
 const $  = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 const money = n => 'NT$ ' + (n || 0).toLocaleString();
 const zh   = { pending:'待付款', paid:'已付款', shipped:'已出貨', canceled:'已取消' };
-const en   = { '待付款':'pending', '已付款':'paid', '已出貨':'shipped', '已取消':'canceled' };
 const shortId = id => (id||'').slice(0,10);
 const toTW = ts => {
   try {
@@ -83,12 +86,12 @@ function ensureAdminStyles(){
   .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .hd-title{font-weight:800}
 
-  /* 工具列（搜尋/篩選/匯出） */
+  /* 工具列 */
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
   .toolbar .form-control, .toolbar .form-select{min-width:160px}
   .toolbar .btn{white-space:nowrap}
 
-  /* 列表卡片（深色卡） */
+  /* 列表卡片 */
   .olist{display:flex;flex-direction:column;gap:12px}
   .orow{display:flex;align-items:center;justify-content:space-between; padding:16px;border:1px solid var(--border);border-radius:14px;cursor:pointer; transition:transform .15s ease, box-shadow .2s ease}
   .orow:hover{transform:translateY(-1px); box-shadow:0 10px 28px rgba(0,0,0,.3)}
@@ -121,6 +124,9 @@ function ensureAdminStyles(){
   .chip.paid     {background:var(--chip-paid)}
   .chip.shipped  {background:var(--chip-shipped)}
   .chip.canceled {background:var(--chip-canceled)}
+
+  /* Gate（登入/封鎖） */
+  .gate{max-width:800px;margin:40px auto;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:24px;text-align:center}
   `;
   document.head.appendChild(css);
 }
@@ -141,7 +147,7 @@ function initThemeToggle(root){
   });
 }
 
-/* 登出（Google/Firebase） */
+/* 登出 */
 function initLogout(root){
   const btn = $('#btnLogout', root);
   if (!btn) return;
@@ -229,14 +235,12 @@ function exportCSV(rows){
   a.remove();
 }
 
-/* ───────── 版面與行為 ───────── */
-export function AdminPage(){
-  ensureAdminStyles();
-
+/* ====== 後台主畫面（只有管理員才會渲染） ====== */
+function renderAdminApp(){
   const el = document.createElement('div');
   el.className = 'admin-shell';
   el.innerHTML = `
-    <!-- Hero（歡迎 + 按鈕） -->
+    <!-- Hero -->
     <div class="hero">
       <div>
         <h5>歡迎回來 👋</h5>
@@ -276,7 +280,6 @@ export function AdminPage(){
 
     <!-- 主體：左列表 + 右詳細 -->
     <div class="admin-grid">
-
       <section class="kcard kpad">
         <div class="hd"><div class="hd-title">訂單列表</div></div>
 
@@ -306,7 +309,6 @@ export function AdminPage(){
         <div class="hd"><div class="hd-title">訂單詳細</div></div>
         <div id="orderDetail" class="o-sub">左側點一筆查看</div>
       </section>
-
     </div>
   `;
 
@@ -317,7 +319,7 @@ export function AdminPage(){
   });
 
   initThemeToggle(el);
-  initLogout(el); // ← 綁定登出
+  initLogout(el);
   $('#dashTime', el).textContent = new Date().toLocaleString('zh-TW',{hour12:false});
 
   // 今日統計
@@ -346,9 +348,7 @@ export function AdminPage(){
   let ordersCache = []; // [{id, v}]
   let currentQueryKey = '';
 
-  function keyForQuery({status, from, to}){
-    return JSON.stringify({status, from, to});
-  }
+  const keyForQuery = ({status, from, to}) => JSON.stringify({status, from, to});
 
   function bindOrders(){
     const status = refs.fStatus.value || '';
@@ -360,7 +360,6 @@ export function AdminPage(){
 
     try{
       let qBase = collection(db,'orders');
-
       const wheres = [];
       if (status) wheres.push(where('status','==',status));
       if (from)   wheres.push(where('createdAt','>=', Timestamp.fromDate(from)));
@@ -376,7 +375,7 @@ export function AdminPage(){
       currentQueryKey = qKey;
 
       unsub = onSnapshot(qBase, snap=>{
-        if (currentQueryKey !== qKey) return;
+        if (currentQueryKey !== qKey) return; // 避免舊快照覆蓋
         ordersCache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
         renderList();
       }, err=>{
@@ -540,6 +539,17 @@ export function AdminPage(){
     }
   }
 
+  // 綁定工具列
+  const refs = {
+    kw: $('#kw', el),
+    fStatus: $('#fStatus', el),
+    from: $('#dateFrom', el),
+    to: $('#dateTo', el),
+    btnApply: $('#btnApply', el),
+    btnReset: $('#btnReset', el),
+    btnCSV: $('#btnCSV', el)
+  };
+
   refs.btnApply.addEventListener('click', bindOrders);
   refs.btnReset.addEventListener('click', ()=>{
     refs.kw.value = '';
@@ -548,8 +558,88 @@ export function AdminPage(){
     refs.to.value = '';
     bindOrders();
   });
-  refs.kw.addEventListener('input', ()=> renderList());
+  refs.kw.addEventListener('input', ()=> renderList()); // 即時關鍵字
 
+  // 初始載入
+  $('#dashTime', el).textContent = new Date().toLocaleString('zh-TW',{hour12:false});
   bindOrders();
+
   return el;
+}
+
+/* ====== Gate 畫面（未登入 / 非管理員） ====== */
+function renderGate({ title, desc, showLogin }){
+  const wrap = document.createElement('div');
+  wrap.className = 'admin-shell';
+  wrap.innerHTML = `
+    <div class="gate">
+      <h4 class="mb-2">${title}</h4>
+      <div class="text-muted mb-3">${desc}</div>
+      <div class="d-flex justify-content-center gap-2">
+        ${showLogin ? '<button id="btnGoogleLogin" class="btn btn-primary"><i class="bi bi-google me-1"></i> 以 Google 登入</button>' : ''}
+        <a href="#dashboard" class="btn btn-outline-secondary">回首頁</a>
+      </div>
+    </div>
+  `;
+
+  if (showLogin){
+    $('#btnGoogleLogin', wrap)?.addEventListener('click', async ()=>{
+      try{
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+        // 登入後 onAuthStateChanged 會自動觸發，進一步檢查白名單
+      }catch(err){
+        alert('登入失敗：' + err.message);
+      }
+    });
+  }
+
+  return wrap;
+}
+
+/* ====== 導出頁面：先守門，再渲染 ====== */
+export function AdminPage(){
+  ensureAdminStyles();
+
+  const root = document.createElement('div');
+  root.className = 'admin-shell';
+  root.innerHTML = `<div class="text-muted">檢查權限中…</div>`;
+
+  // Firebase Auth 守門
+  onAuthStateChanged(auth, async (user) => {
+    root.innerHTML = ''; // 清空
+
+    if (!user) {
+      // 未登入：顯示登入 gate
+      root.appendChild(renderGate({
+        title: '請先登入',
+        desc: '此區域僅開放管理員使用，請使用 Google 登入授權。',
+        showLogin: true
+      }));
+      return;
+    }
+
+    const email = (user.email || '').toLowerCase();
+    const isAdmin = ADMIN_EMAILS.includes(email);
+
+    if (!isAdmin) {
+      // 非白名單：顯示無權限、登出並導回首頁
+      root.appendChild(renderGate({
+        title: '你不符合管理員帳號',
+        desc: `目前登入：${email}。此帳號沒有管理員權限，將返回首頁。`,
+        showLogin: false
+      }));
+      setTimeout(async ()=>{
+        try { await signOut(auth); } catch {}
+        location.hash = '#dashboard';
+      }, 1500);
+      return;
+    }
+
+    // OK：渲染真正的後台
+    const app = renderAdminApp();
+    root.appendChild(app);
+  });
+
+  return root;
 }
