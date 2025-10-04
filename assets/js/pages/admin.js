@@ -2,12 +2,13 @@
 // 後台：上方加入「歡迎 / 今日概況 + 4 張統計卡」，下方為卡片風格訂單管理
 // 依賴：assets/js/firebase.js
 
-import { db } from '../firebase.js';
+import { db, auth } from '../firebase.js';
 import {
   collection, query, orderBy, limit, onSnapshot,
   doc, getDoc, updateDoc, serverTimestamp,
   where, getDocs, Timestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
 /* ───────── 小工具 ───────── */
 const $  = (sel, root=document) => root.querySelector(sel);
@@ -115,8 +116,8 @@ async function computeTodayStats(setters){
   const start = Timestamp.fromDate(startOfToday());
   const end   = Timestamp.fromDate(endOfToday());
 
-  // 今日所有訂單
-  const qToday = query(collection(db,'orders'),
+  const qToday = query(
+    collection(db,'orders'),
     where('createdAt','>=',start),
     where('createdAt','<=',end)
   );
@@ -126,13 +127,12 @@ async function computeTodayStats(setters){
     const v = d.data()||{};
     ordersCnt += 1;
     revenue   += (v?.amounts?.total || 0);
-    // 待出貨定義：已付款但未出貨
-    if ((v.status||'')==='paid') waitShip += 1;
+    if ((v.status||'')==='paid') waitShip += 1; // 已付款未出貨
   });
 
-  // 最近 30 天常用客戶（去重 email）
   const since = new Date(); since.setDate(since.getDate()-30);
-  const q30 = query(collection(db,'orders'),
+  const q30 = query(
+    collection(db,'orders'),
     where('createdAt','>=', Timestamp.fromDate(since)),
     orderBy('createdAt','desc'), limit(200)
   );
@@ -149,12 +149,49 @@ async function computeTodayStats(setters){
   setters.users(uniq.size);
 }
 
-/* ───────── 版面與行為 ───────── */
+/* ───────── 主頁面（含權限檢查） ───────── */
 export function AdminPage(){
   ensureAdminStyles();
 
   const el = document.createElement('div');
   el.className = 'admin-shell';
+  el.innerHTML = `
+    <div class="kcard kpad">
+      <div class="hd-title">驗證中...</div>
+      <div class="meta">請稍候</div>
+    </div>
+  `;
+
+  // 僅允許這個信箱
+  const ADMIN_EMAIL = 'bruce9811123@gmail.com';
+
+  onAuthStateChanged(auth, (user)=>{
+    if (!user){
+      el.innerHTML = `
+        <div class="kcard kpad">
+          <div class="hd-title">請先登入才能進入後台</div>
+          <a class="btn btn-primary mt-2" href="#auth">前往登入</a>
+        </div>`;
+      return;
+    }
+    if (user.email !== ADMIN_EMAIL){
+      el.innerHTML = `
+        <div class="kcard kpad">
+          <div class="hd-title text-danger">你不符合管理員帳號</div>
+          <div class="meta">目前帳號：${user.email || '-'}</div>
+        </div>`;
+      return;
+    }
+
+    // 是管理員 → 渲染真正後台
+    renderAdminUI(el);
+  });
+
+  return el;
+}
+
+/* 渲染真正後台 UI，並綁定行為 */
+function renderAdminUI(el){
   el.innerHTML = `
     <!-- Hero（歡迎 + 按鈕） -->
     <div class="hero">
@@ -231,13 +268,13 @@ export function AdminPage(){
   initThemeToggle(el);
   $('#dashTime', el).textContent = new Date().toLocaleString('zh-TW',{hour12:false});
 
-  // 填入今日統計
+  // 今日統計
   computeTodayStats({
     orders: n => $('#statOrders', el).textContent  = `${n} 筆`,
     revenue:n => $('#statRevenue', el).textContent = money(n),
     ship:   n => $('#statShip', el).textContent    = `${n} 筆`,
     users:  n => $('#statUsers', el).textContent   = `${n} 位`
-  }).catch(()=>{ /* 靜默失敗即可 */ });
+  }).catch(()=>{});
 
   const listEl = $('#orderList', el);
   const detailEl = $('#orderDetail', el);
@@ -265,92 +302,90 @@ export function AdminPage(){
     }).join('');
 
     $$('.orow', listEl).forEach(r=>{
-      r.addEventListener('click', ()=> showDetail(r.dataset.id));
+      r.addEventListener('click', ()=> showDetail(r.dataset.id, detailEl, listEl));
     });
   }, err=>{
     listEl.innerHTML = `<div class="text-danger">讀取失敗：${err.message}</div>`;
   });
+}
 
-  // 顯示訂單詳細
-  async function showDetail(id){
-    detailEl.innerHTML = '載入中…';
-    try{
-      const ref = doc(db,'orders', id);
-      const snap = await getDoc(ref);
-      if (!snap.exists()){ detailEl.innerHTML = '查無資料'; return; }
-      const v = snap.data()||{};
+/* 顯示訂單詳細（分離成純函式，方便重用） */
+async function showDetail(id, detailEl, listEl){
+  detailEl.innerHTML = '載入中…';
+  try{
+    const ref = doc(db,'orders', id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()){ detailEl.innerHTML = '查無資料'; return; }
+    const v = snap.data()||{};
 
-      const itemsRows = (v.items||[]).map(i=>`
-        <tr>
-          <td>${i.name||''}</td>
-          <td>${i.sku||''}</td>
-          <td class="text-end">${i.qty||0}</td>
-          <td class="text-end">${money(i.price||0)}</td>
-          <td class="text-end">${money((i.price||0)*(i.qty||0))}</td>
-        </tr>`).join('');
+    const itemsRows = (v.items||[]).map(i=>`
+      <tr>
+        <td>${i.name||''}</td>
+        <td>${i.sku||''}</td>
+        <td class="text-end">${i.qty||0}</td>
+        <td class="text-end">${money(i.price||0)}</td>
+        <td class="text-end">${money((i.price||0)*(i.qty||0))}</td>
+      </tr>`).join('');
 
-      detailEl.innerHTML = `
-        <div class="detail-title">#${snap.id}</div>
+    detailEl.innerHTML = `
+      <div class="detail-title">#${snap.id}</div>
 
-        <div class="kv">
-          <div class="k">建立時間</div><div>${toTW(v.createdAt)}</div>
-          <div class="k">狀態</div>
-          <div>
-            <select id="stateSel" class="form-select form-select-sm" style="max-width:160px;display:inline-block">
-              ${['待付款','已付款','已出貨','已取消'].map(t=>{
-                const sel = (zh[v.status||'pending']===t) ? 'selected' : '';
-                return `<option ${sel}>${t}</option>`;
-              }).join('')}
-            </select>
-            <button id="saveState" class="btn btn-sm btn-primary ms-2">儲存</button>
-          </div>
-
-          <div class="k">客戶</div><div>${v?.customer?.name||'-'}</div>
-          <div class="k">電話</div><div>${v?.customer?.phone||'-'}</div>
-          <div class="k">Email</div><div>${v?.customer?.email||'-'}</div>
-          <div class="k">配送</div><div>${v?.customer?.shipping||'-'} ｜ ${v?.customer?.address||'-'}</div>
-          <div class="k">付款</div><div>${v?.customer?.payment||'-'}</div>
-          <div class="k">備註</div><div>${v?.customer?.note||''}</div>
+      <div class="kv">
+        <div class="k">建立時間</div><div>${toTW(v.createdAt)}</div>
+        <div class="k">狀態</div>
+        <div>
+          <select id="stateSel" class="form-select form-select-sm" style="max-width:160px;display:inline-block">
+            ${['待付款','已付款','已出貨','已取消'].map(t=>{
+              const sel = (zh[v.status||'pending']===t) ? 'selected' : '';
+              return `<option ${sel}>${t}</option>`;
+            }).join('')}
+          </select>
+          <button id="saveState" class="btn btn-sm btn-primary ms-2">儲存</button>
         </div>
 
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th>名稱</th><th>SKU</th>
-                <th class="text-end">數量</th>
-                <th class="text-end">單價</th>
-                <th class="text-end">小計</th>
-              </tr>
-            </thead>
-            <tbody>${itemsRows}</tbody>
-            <tfoot>
-              <tr><th colspan="4" class="text-end">小計</th><th class="text-end">${money(v?.amounts?.subtotal||0)}</th></tr>
-              <tr><th colspan="4" class="text-end">運費</th><th class="text-end">${money(v?.amounts?.shipping||0)}</th></tr>
-              <tr><th colspan="4" class="text-end">合計</th><th class="text-end">${money(v?.amounts?.total||0)}</th></tr>
-            </tfoot>
-          </table>
-        </div>
-      `;
+        <div class="k">客戶</div><div>${v?.customer?.name||'-'}</div>
+        <div class="k">電話</div><div>${v?.customer?.phone||'-'}</div>
+        <div class="k">Email</div><div>${v?.customer?.email||'-'}</div>
+        <div class="k">配送</div><div>${v?.customer?.shipping||'-'} ｜ ${v?.customer?.address||'-'}</div>
+        <div class="k">付款</div><div>${v?.customer?.payment||'-'}</div>
+        <div class="k">備註</div><div>${v?.customer?.note||''}</div>
+      </div>
 
-      // 儲存狀態
-      $('#saveState', detailEl).addEventListener('click', async ()=>{
-        const zhVal = $('#stateSel', detailEl).value;
-        const newState = en[zhVal] || 'pending';
-        try{
-          await updateDoc(ref, { status:newState, updatedAt: serverTimestamp() });
-          const row = $(`.orow[data-id="${id}"]`, listEl);
-          if (row) row.querySelector('.o-badge').textContent = zh[newState];
-          alert('狀態已更新');
-        }catch(err){
-          alert('更新失敗：'+err.message);
-        }
-      });
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>名稱</th><th>SKU</th>
+              <th class="text-end">數量</th>
+              <th class="text-end">單價</th>
+              <th class="text-end">小計</th>
+            </tr>
+          </thead>
+          <tbody>${itemsRows}</tbody>
+          <tfoot>
+            <tr><th colspan="4" class="text-end">小計</th><th class="text-end">${money(v?.amounts?.subtotal||0)}</th></tr>
+            <tr><th colspan="4" class="text-end">運費</th><th class="text-end">${money(v?.amounts?.shipping||0)}</th></tr>
+            <tr><th colspan="4" class="text-end">合計</th><th class="text-end">${money(v?.amounts?.total||0)}</th></tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
 
-    }catch(err){
-      detailEl.innerHTML = `<div class="text-danger">讀取失敗：${err.message}</div>`;
-    }
+    // 儲存狀態
+    $('#saveState', detailEl).addEventListener('click', async ()=>{
+      const zhVal = $('#stateSel', detailEl).value;
+      const newState = en[zhVal] || 'pending';
+      try{
+        await updateDoc(ref, { status:newState, updatedAt: serverTimestamp() });
+        const row = listEl?.querySelector(`.orow[data-id="${id}"]`);
+        if (row) row.querySelector('.o-badge').textContent = zh[newState];
+        alert('狀態已更新');
+      }catch(err){
+        alert('更新失敗：'+err.message);
+      }
+    });
+
+  }catch(err){
+    detailEl.innerHTML = `<div class="text-danger">讀取失敗：${err.message}</div>`;
   }
-
-  return el;
 }
