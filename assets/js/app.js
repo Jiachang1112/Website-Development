@@ -7,7 +7,6 @@ import { ChatbookPage } from './pages/chatbook.js';
 import { CameraExpensePage } from './pages/camera-expense.js';
 import { ShopPage } from './pages/shop.js';
 import { AdminPage } from './pages/admin.js';
-import { DashboardPage } from './pages/dashboard.js';
 import { SettingsPage } from './pages/settings.js';
 import { BackupPage } from './pages/backup.js';
 import { AuthPage } from './pages/auth.js';
