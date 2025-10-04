@@ -28,7 +28,6 @@ const en2zh = en => STATE_ZH[STATE_EN.indexOf(en)] || '待付款';
 const zh2en = zh => STATE_EN[STATE_ZH.indexOf(zh)] || 'pending';
 
 // ---------- 樣式注入：沿用 dashboard.js 的 CSS ----------
-// 若 dashboard 已注入 id="dash-css"，則不會重覆注入
 function ensureStyles() {
   if ($('#dash-css')) return;
   const css = document.createElement('style');
@@ -116,7 +115,7 @@ export function AdminPage(){
     </div>
   `;
 
-  // 簡單路由跳轉（與你的 dashboard 相同寫法）
+  // 簡單路由跳轉（跟你 dashboard 寫法一致）
   el.addEventListener('click', e=>{
     const go = e.target.closest('[data-go]');
     if (go) location.hash = go.getAttribute('data-go');
@@ -129,7 +128,6 @@ export function AdminPage(){
   function bindOrders(){
     if (ordersUnsub) { ordersUnsub(); ordersUnsub = null; }
 
-    // 依狀態建構 query
     let qO = query(collection(db,'orders'), orderBy('createdAt','desc'), limit(100));
     if (currentState) {
       qO = query(collection(db,'orders'), where('status','==', currentState), orderBy('createdAt','desc'), limit(100));
@@ -160,7 +158,7 @@ export function AdminPage(){
     });
   }
 
-  // 點篩選 pill
+  // 篩選 pill 行為
   $('#statePills', el).addEventListener('click', e=>{
     const p = e.target.closest('.p');
     if (!p) return;
@@ -181,7 +179,6 @@ export function AdminPage(){
       if (!d.exists()) { wrap.innerHTML = '查無資料'; return; }
       const v = d.data();
 
-      // 狀態選單（中文）
       const optZh = STATE_ZH.map(zh=>{
         const selected = (en2zh(v?.status||'pending')===zh) ? 'selected' : '';
         return `<option ${selected}>${zh}</option>`;
@@ -252,7 +249,7 @@ export function AdminPage(){
         </div>
       `;
 
-      // 儲存狀態
+      // 儲存狀態（中文 -> 英文）
       $('#btnSave', wrap).addEventListener('click', async ()=>{
         const zh = $('#stateSelZh', wrap).value;
         const en = zh2en(zh);
