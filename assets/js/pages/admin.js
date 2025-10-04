@@ -1,5 +1,5 @@
 // assets/js/pages/admin.js
-// 後台：訂單列表（卡片） + 右側詳細
+// 後台：訂單列表（卡片） + 右側詳細（可修改付款狀態，顯示中文）
 // 依賴：assets/js/firebase.js
 
 import { db } from '../firebase.js';
@@ -9,10 +9,11 @@ import {
   orderBy,
   onSnapshot,
   doc,
-  getDoc
+  getDoc,
+  updateDoc,
+  serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-// 具名匯出，供 app.js import { AdminPage } 使用
 export function AdminPage() {
   const el = document.createElement('div');
   el.className = 'container card p-3';
@@ -46,6 +47,14 @@ export function AdminPage() {
     } catch { return '(未記錄時間)'; }
   };
 
+  // 狀態對照表（英文 → 中文）
+  const statusMap = {
+    pending: "待付款",
+    paid: "已付款",
+    shipped: "已出貨",
+    canceled: "已取消"
+  };
+
   const listBox = $('#orders');
   const detailBox = $('#orderDetail');
 
@@ -64,18 +73,18 @@ export function AdminPage() {
       const email = o?.customer?.email ?? '';
       const count = (o?.items || []).reduce((s, i) => s + (i.qty || 0), 0);
       const ts = dt(o.createdAt);
-      const status = (o.status || 'pending');
+      const status = o.status || 'pending';
       const badge =
         status === 'paid'     ? 'success'   :
         status === 'shipped'  ? 'info'      :
-        status === 'canceled' ? 'secondary' : 'warning'; // pending
+        status === 'canceled' ? 'secondary' : 'warning';
 
       return `
         <div class="card mb-2 p-2 list-item" data-id="${d.id}" style="cursor:pointer">
           <div class="d-flex justify-content-between align-items-center">
             <div class="fw-semibold">
               <span class="text-info">#${d.id.slice(0,10)}</span>
-              <span class="badge bg-${badge} ms-1">${status}</span>
+              <span class="badge bg-${badge} ms-1">${statusMap[status] || status}</span>
             </div>
             <div class="fw-bold text-primary">${money(total)}</div>
           </div>
@@ -126,7 +135,14 @@ export function AdminPage() {
           </div>
           <div class="col-md-6">
             <div class="small text-muted">狀態</div>
-            <div><span class="badge bg-secondary">${status}</span></div>
+            <div class="d-flex gap-2 align-items-center">
+              <select id="orderState" class="form-select form-select-sm" style="max-width:160px">
+                ${Object.entries(statusMap).map(([key, label]) =>
+                  `<option value="${key}" ${key === status ? 'selected' : ''}>${label}</option>`
+                ).join('')}
+              </select>
+              <button id="btnSaveState" class="btn btn-sm btn-primary">儲存</button>
+            </div>
           </div>
         </div>
 
@@ -171,6 +187,20 @@ export function AdminPage() {
           </table>
         </div>
       `;
+
+      // 綁定狀態儲存
+      $('#btnSaveState', detailBox).addEventListener('click', async () => {
+        const newStatus = $('#orderState', detailBox).value;
+        try {
+          await updateDoc(doc(db, 'orders', id), {
+            status: newStatus,
+            updatedAt: serverTimestamp()
+          });
+          alert('狀態已更新為：' + statusMap[newStatus]);
+        } catch (err) {
+          alert('更新失敗：' + err.message);
+        }
+      });
     } catch (e) {
       detailBox.innerHTML = `<span class="text-danger">讀取失敗：</span>${e.message}`;
     }
