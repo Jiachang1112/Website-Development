@@ -1,6 +1,6 @@
 // assets/js/pages/admin.js
-// 後台：上方加入「歡迎 / 今日概況 + 4 張統計卡」，下方為卡片風格訂單管理
-// 依賴：assets/js/firebase.js（只需要初始化 app & db），auth 由這裡自行取用
+// 後台：登入門檻（內嵌表單） + 上方概況 + 卡片風格訂單管理
+// 依賴：assets/js/firebase.js（初始化 app / db）
 
 import { db } from '../firebase.js';
 import {
@@ -9,7 +9,7 @@ import {
   where, getDocs, Timestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 import {
-  getAuth, onAuthStateChanged
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
 /* ───────── 小工具 ───────── */
@@ -45,35 +45,35 @@ function ensureAdminStyles(){
     --chip:#eef2ff;
   }
   .admin-shell{max-width:1200px;margin-inline:auto;padding:20px}
+  .kcard{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+  .kpad{padding:16px}
+  .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .hd-title{font-weight:800}
+  .meta{color:var(--muted)}
+  .btn-pill{border-radius:12px}
 
+  /* Hero */
   .hero{background:linear-gradient(135deg, rgba(59,130,246,.15), rgba(168,85,247,.10));
         border:1px solid var(--border); border-radius:18px; padding:18px;
         display:flex; justify-content:space-between; align-items:center; margin-bottom:14px}
   .hero h5{margin:0; font-weight:800}
   .hero .sub{color:var(--muted)}
-  .hero .act .btn{border-radius:12px}
 
+  /* 今日概況 */
   .page-title{display:flex;align-items:center;gap:12px;margin:12px 0 12px}
   .page-title .badge{background:transparent;border:1px dashed var(--border);color:var(--muted)}
   .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
   @media (max-width:1200px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
   @media (max-width:640px){.stat-grid{grid-template-columns:1fr}}
-  .kcard{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
   .stat{padding:16px;border-radius:14px;display:flex;gap:14px;align-items:center}
   .ico{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;font-size:20px}
   .ico-blue{background:rgba(59,130,246,.15);color:#93c5fd;border:1px solid rgba(59,130,246,.25)}
   .ico-green{background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.25)}
   .ico-amber{background:rgba(245,158,11,.15);color:#fcd34d;border:1px solid rgba(245,158,11,.25)}
   .ico-purple{background:rgba(168,85,247,.15);color:#e9d5ff;border:1px solid rgba(168,85,247,.25)}
-  .meta{color:var(--muted);font-size:14px}
   .val{font-weight:800;font-size:20px;color:var(--fg)}
 
-  .admin-grid{display:grid;grid-template-columns:1fr 1fr; gap:18px}
-  @media(max-width: 992px){ .admin-grid{grid-template-columns:1fr} }
-  .kpad{padding:16px}
-  .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-  .hd-title{font-weight:800}
-
+  /* 列表卡片 */
   .olist{display:flex;flex-direction:column;gap:12px}
   .orow{display:flex;align-items:center;justify-content:space-between; padding:16px;border:1px solid var(--border);border-radius:14px;cursor:pointer; transition:transform .15s ease, box-shadow .2s ease}
   .orow:hover{transform:translateY(-1px); box-shadow:0 10px 28px rgba(0,0,0,.3)}
@@ -84,10 +84,8 @@ function ensureAdminStyles(){
   .o-sub{color:var(--muted);font-size:13px}
   .o-time{font-size:12px;border:1px solid var(--border);background:var(--chip);color:var(--muted); padding:.25rem .6rem; border-radius:999px}
 
-  .detail-title{font-weight:800;margin-bottom:6px}
-  .kv{display:grid;grid-template-columns:120px 1fr; gap:6px 12px; margin-bottom:8px}
-  .kv .k{color:var(--muted)}
-  .table{margin-top:8px}
+  /* 登入表單 */
+  .auth-wrap{display:flex; flex-direction:column; gap:10px; max-width:360px}
   `;
   document.head.appendChild(css);
 }
@@ -146,7 +144,7 @@ async function computeTodayStats(setters){
   setters.users(uniq.size);
 }
 
-/* ───────── 主頁面（含權限檢查） ───────── */
+/* ───────── 主頁面（含登入表單門檻） ───────── */
 export function AdminPage(){
   ensureAdminStyles();
 
@@ -159,32 +157,60 @@ export function AdminPage(){
     </div>
   `;
 
-  // 僅允許此 Email（小寫比較）
   const ADMIN_EMAIL = 'bruce9811123@gmail.com';
-
-  // 直接從 SDK 取用同一個 app 的 auth，避免 import 到不同實例
+  const ADMIN_PASS  = '0900564233';
   const auth = getAuth();
 
-  onAuthStateChanged(auth, (user)=>{
-    if (!user){
-      el.innerHTML = `
-        <div class="kcard kpad">
-          <div class="hd-title">請先登入才能進入後台</div>
-          <a class="btn btn-primary mt-2" href="#auth">前往登入</a>
-        </div>`;
-      return;
-    }
-    const email = (user.email || '').toLowerCase();
-    if (email !== ADMIN_EMAIL){
-      el.innerHTML = `
-        <div class="kcard kpad">
-          <div class="hd-title text-danger">你不符合管理員帳號</div>
-          <div class="meta">目前帳號：${user.email || '-'}</div>
-        </div>`;
-      return;
-    }
+  const showLogin = (msg='請先登入才能進入後台')=>{
+    el.innerHTML = `
+      <div class="kcard kpad" style="max-width:520px">
+        <div class="hd-title mb-2">${msg}</div>
+        <form id="adminLogin" class="auth-wrap">
+          <div>
+            <label class="form-label">帳號（Email）</label>
+            <input id="loginEmail" type="email" class="form-control" placeholder="bruce9811123@gmail.com" required>
+          </div>
+          <div>
+            <label class="form-label">密碼</label>
+            <input id="loginPass" type="password" class="form-control" placeholder="******" required>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-pill" type="submit">登入</button>
+            <a class="btn btn-outline-light btn-pill" href="#dashboard">回首頁</a>
+          </div>
+          <div id="loginErr" class="text-danger small"></div>
+        </form>
+      </div>
+    `;
 
-    // 是管理員 → 渲染真正後台
+    $('#loginEmail', el).value = ADMIN_EMAIL;
+    $('#loginPass', el).value  = '';
+
+    $('#adminLogin', el).addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const email = $('#loginEmail', el).value.trim();
+      const pass  = $('#loginPass',  el).value.trim();
+      try{
+        const cred = await signInWithEmailAndPassword(auth, email, pass);
+        const ok = (cred.user?.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        if (!ok) throw new Error('not-admin');
+        // 通過 → 渲染後台
+        renderAdminUI(el);
+      }catch(err){
+        $('#loginErr', el).textContent = '管理員帳號錯誤，將自動返回首頁…';
+        setTimeout(()=>{ location.hash = '#dashboard'; }, 2000);
+        try{ await signOut(auth); }catch{}
+      }
+    });
+  };
+
+  onAuthStateChanged(auth, (user)=>{
+    if (!user) { showLogin(); return; }
+    const ok = (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    if (!ok) {
+      showLogin('你不符合管理員帳號，請使用管理員帳號登入');
+      return;
+    }
     renderAdminUI(el);
   });
 
@@ -200,10 +226,10 @@ function renderAdminUI(el){
         <div class="sub">快速存取你的常用工具與最新狀態</div>
       </div>
       <div class="act">
-        <button class="btn btn-outline-light me-2" id="themeToggle">
+        <button class="btn btn-outline-light me-2 btn-pill" id="themeToggle">
           <i class="bi bi-brightness-high me-1"></i>切換亮/暗
         </button>
-        <button class="btn btn-outline-light" data-go="#dashboard">
+        <button class="btn btn-outline-light btn-pill" data-go="#dashboard">
           <i class="bi bi-grid me-1"></i> 回首頁
         </button>
       </div>
