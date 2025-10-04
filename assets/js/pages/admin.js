@@ -1,5 +1,5 @@
 // assets/js/pages/admin.js
-// 後台：上方加入「歡迎 / 今日概況 + 4 張統計卡」，下方為卡片風格訂單管理（含搜尋/篩選/日期/匯出CSV）
+// 後台：歡迎 / 今日概況 + 訂單管理（搜尋/篩選/日期/匯出CSV），右側狀態改為彩色 Chips
 // 依賴：assets/js/firebase.js（同一個 app 實例輸出 auth / db）
 
 import { auth, db } from '../firebase.js';
@@ -22,8 +22,8 @@ import {
 const $  = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 const money = n => 'NT$ ' + (n || 0).toLocaleString();
-const zh = { pending:'待付款', paid:'已付款', shipped:'已出貨', canceled:'已取消' };
-const en = { '待付款':'pending', '已付款':'paid', '已出貨':'shipped', '已取消':'canceled' };
+const zh   = { pending:'待付款', paid:'已付款', shipped:'已出貨', canceled:'已取消' };
+const en   = { '待付款':'pending', '已付款':'paid', '已出貨':'shipped', '已取消':'canceled' };
 const shortId = id => (id||'').slice(0,10);
 const toTW = ts => {
   try {
@@ -36,7 +36,7 @@ const endOfToday   = () => { const d = new Date(); d.setHours(23,59,59,999); ret
 
 /* ───────── 白名單 ───────── */
 const ADMIN_EMAILS = ['bruce9811123@gmail.com'].map(s => s.trim().toLowerCase());
-const ADMIN_UIDS = []; // 需要的話把 uid 填進來
+const ADMIN_UIDS = []; // 需要可填 uid
 
 function isAdminUser(user) {
   if (!user) return false;
@@ -55,11 +55,17 @@ function ensureAdminStyles(){
     --bg:#0f1318; --fg:#e6e6e6; --muted:#9aa3af;
     --card:#151a21; --border:#2a2f37; --shadow:0 6px 24px rgba(0,0,0,.25), 0 2px 8px rgba(0,0,0,.2);
     --chip:#0b1220;
+    --chip-pending:   rgba(245,158,11,.20);
+    --chip-paid:      rgba(34,197,94,.20);
+    --chip-shipped:   rgba(59,130,246,.20);
+    --chip-canceled:  rgba(239,68,68,.22);
+    --chip-ring:      rgba(255,255,255,.25);
   }
   body.light{
     --bg:#f6f8fc; --fg:#111; --muted:#6b7280;
     --card:#ffffff; --border:#e5e7eb; --shadow:0 12px 24px rgba(17,24,39,.06);
     --chip:#eef2ff;
+    --chip-ring: rgba(0,0,0,.15);
   }
   .admin-shell{max-width:1200px;margin-inline:auto;padding:20px}
 
@@ -96,19 +102,39 @@ function ensureAdminStyles(){
   .toolbar .form-control, .toolbar .form-select{min-width:160px}
   .toolbar .btn{white-space:nowrap}
 
+  /* 列表卡片 */
   .olist{display:flex;flex-direction:column;gap:12px}
   .orow{display:flex;align-items:center;justify-content:space-between; padding:16px;border:1px solid var(--border);border-radius:14px;cursor:pointer; transition:transform .15s ease, box-shadow .2s ease}
   .orow:hover{transform:translateY(-1px); box-shadow:0 10px 28px rgba(0,0,0,.3)}
   .o-left{display:flex;flex-direction:column;gap:4px}
   .o-line{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .o-id{font-weight:700}
-  .o-badge{font-size:12px;border:1px solid var(--border);padding:.2rem .55rem;border-radius:999px;color:var(--muted)}
+  .o-badge{font-size:12px;border:1px solid var(--border);padding:.2rem .55rem;border-radius:999px;color:var(--fg)}
+  .o-badge.pending  {background:var(--chip-pending)}
+  .o-badge.paid     {background:var(--chip-paid)}
+  .o-badge.shipped  {background:var(--chip-shipped)}
+  .o-badge.canceled {background:var(--chip-canceled)}
   .o-sub{color:var(--muted);font-size:13px}
   .o-time{font-size:12px;border:1px solid var(--border);background:var(--chip);color:var(--muted); padding:.25rem .6rem; border-radius:999px}
+
+  /* 詳細區 + 狀態 Chips */
   .detail-title{font-weight:800;margin-bottom:6px}
   .kv{display:grid;grid-template-columns:120px 1fr; gap:6px 12px; margin-bottom:8px}
   .kv .k{color:var(--muted)}
   .table{margin-top:8px}
+
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{
+    border:1px solid var(--border);border-radius:999px;
+    padding:.25rem .7rem; cursor:pointer; user-select:none; font-size:13px;
+    background:var(--chip); color:var(--fg); transition:transform .06s ease;
+  }
+  .chip:hover{transform:translateY(-1px)}
+  .chip.active{outline:2px solid var(--chip-ring)}
+  .chip.pending  {background:var(--chip-pending)}
+  .chip.paid     {background:var(--chip-paid)}
+  .chip.shipped  {background:var(--chip-shipped)}
+  .chip.canceled {background:var(--chip-canceled)}
   `;
   document.head.appendChild(css);
 }
@@ -129,25 +155,20 @@ function initThemeToggle(root){
   });
 }
 
-/* 匯出 CSV（依目前列表結果） */
+/* 匯出 CSV */
 function exportCSV(rows){
   const header = ['訂單ID','建立時間','狀態','客戶','Email','電話','品項數','合計'];
   const data = rows.map(({id,v})=>{
     const items = (v.items||[]).reduce((s,i)=>s+(i.qty||0),0);
     return [
-      id,
-      toTW(v.createdAt),
-      zh[v.status||'pending']||'-',
-      v?.customer?.name||'',
-      v?.customer?.email||'',
-      v?.customer?.phone||'',
-      items,
-      (v?.amounts?.total||0)
+      id, toTW(v.createdAt), zh[v.status||'pending']||'-',
+      v?.customer?.name||'', v?.customer?.email||'', v?.customer?.phone||'',
+      items, (v?.amounts?.total||0)
     ];
   });
   const csv = [header, ...data].map(r=>r.map(x=>{
     const s = (x===undefined||x===null) ? '' : String(x);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+    return /[",\n]/.test(s) ? \`"\${s.replace(/"/g,'""')}"\` : s;
   }).join(',')).join('\n');
 
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
@@ -155,7 +176,7 @@ function exportCSV(rows){
   const a = document.createElement('a');
   a.href = url;
   const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-  a.download = `orders-${ts}.csv`;
+  a.download = \`orders-\${ts}.csv\`;
   document.body.appendChild(a);
   a.click();
   URL.revokeObjectURL(url);
@@ -284,7 +305,7 @@ function renderUI(){
       <section class="kcard kpad">
         <div class="hd"><div class="hd-title">訂單列表</div></div>
 
-        <!-- 工具列（新增） -->
+        <!-- 工具列 -->
         <div class="toolbar">
           <input id="kw" class="form-control form-control-sm" placeholder="搜尋：訂單ID / 客戶 / Email">
           <select id="fStatus" class="form-select form-select-sm">
@@ -336,10 +357,10 @@ function renderUI(){
 
   // 今日統計
   computeTodayStats({
-    orders: n => $('#statOrders', el).textContent  = `${n} 筆`,
+    orders: n => $('#statOrders', el).textContent  = \`\${n} 筆\`,
     revenue:n => $('#statRevenue', el).textContent = money(n),
-    ship:   n => $('#statShip', el).textContent    = `${n} 筆`,
-    users:  n => $('#statUsers', el).textContent   = `${n} 位`
+    ship:   n => $('#statShip', el).textContent    = \`\${n} 筆\`,
+    users:  n => $('#statUsers', el).textContent   = \`\${n} 位\`
   }).catch(()=>{});
 
   const listEl   = $('#orderList', el);
@@ -359,8 +380,7 @@ function renderUI(){
   let unsub = null;
   let ordersCache = []; // [{id, v}]
   let qKey = '';
-
-  function makeKey(){ return JSON.stringify({s:refs.fStatus.value, f:refs.from.value, t:refs.to.value}); }
+  const makeKey = ()=>JSON.stringify({s:refs.fStatus.value,f:refs.from.value,t:refs.to.value});
 
   function bindOrders(){
     const status = refs.fStatus.value || '';
@@ -432,12 +452,13 @@ function renderUI(){
     listEl.innerHTML = arr.map(({id,v})=>{
       const itemsCount = (v.items||[]).reduce((s,i)=>s+(i.qty||0),0);
       const total = money(v?.amounts?.total||0);
+      const state = v.status||'pending';
       return `
         <div class="orow" data-id="${id}">
           <div class="o-left">
             <div class="o-line">
               <span class="o-id">#${shortId(id)}</span>
-              <span class="o-badge">${zh[v.status||'pending']||'-'}</span>
+              <span class="o-badge ${state}">${zh[state]||'-'}</span>
               <span class="o-id">${total}</span>
             </div>
             <div class="o-sub">${v?.customer?.name||'-'} ｜ ${itemsCount} 件</div>
@@ -453,7 +474,7 @@ function renderUI(){
     refs.btnCSV.onclick = ()=> exportCSV(arr);
   }
 
-  // 詳細
+  // 詳細（右側狀態 Chips）
   async function showDetail(id){
     detailEl.innerHTML = '載入中…';
     try{
@@ -461,6 +482,7 @@ function renderUI(){
       const snap = await getDoc(ref);
       if (!snap.exists()){ detailEl.innerHTML = '查無資料'; return; }
       const v = snap.data()||{};
+      const state = v.status || 'pending';
 
       const itemsRows = (v.items||[]).map(i=>`
         <tr>
@@ -476,15 +498,15 @@ function renderUI(){
 
         <div class="kv">
           <div class="k">建立時間</div><div>${toTW(v.createdAt)}</div>
+
           <div class="k">狀態</div>
           <div>
-            <select id="stateSel" class="form-select form-select-sm" style="max-width:160px;display:inline-block">
-              ${['待付款','已付款','已出貨','已取消'].map(t=>{
-                const sel = (zh[v.status||'pending']===t) ? 'selected' : '';
-                return `<option ${sel}>${t}</option>`;
-              }).join('')}
-            </select>
-            <button id="saveState" class="btn btn-sm btn-primary ms-2">儲存</button>
+            <div class="chips" id="stateChips">
+              ${['pending','paid','shipped','canceled'].map(s=>`
+                <span class="chip ${s} ${s===state?'active':''}" data-state="${s}">${zh[s]}</span>
+              `).join('')}
+              <button id="saveState" class="btn btn-sm btn-primary ms-2">儲存</button>
+            </div>
           </div>
 
           <div class="k">客戶</div><div>${v?.customer?.name||'-'}</div>
@@ -515,13 +537,27 @@ function renderUI(){
         </div>
       `;
 
+      // Chips 互斥選擇
+      let chosen = state;
+      $$('#stateChips .chip', detailEl).forEach(c=>{
+        c.addEventListener('click', ()=>{
+          $$('#stateChips .chip', detailEl).forEach(x=>x.classList.remove('active'));
+          c.classList.add('active');
+          chosen = c.dataset.state;
+        });
+      });
+
+      // 儲存
       $('#saveState', detailEl).addEventListener('click', async ()=>{
-        const zhVal = $('#stateSel', detailEl).value;
-        const newState = en[zhVal] || 'pending';
         try{
-          await updateDoc(ref, { status:newState, updatedAt: serverTimestamp() });
+          await updateDoc(ref, { status:chosen, updatedAt: serverTimestamp() });
+          // 左側列徽章同步
           const row = $(`.orow[data-id="${id}"]`, listEl);
-          if (row) row.querySelector('.o-badge').textContent = zh[newState];
+          if (row){
+            const badge = row.querySelector('.o-badge');
+            badge.className = `o-badge ${chosen}`;
+            badge.textContent = zh[chosen];
+          }
           alert('狀態已更新');
         }catch(err){
           alert('更新失敗：'+err.message);
