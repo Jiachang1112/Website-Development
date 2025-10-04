@@ -1,30 +1,20 @@
 // assets/js/pages/admin.js
-// 後台（需要 Google 登入 + 指定管理員信箱）
+// 後台：歡迎/統計 + 進階訂單管理（搜尋／篩選／匯出 CSV），並將狀態改為彩色 Chips
 // 依賴：assets/js/firebase.js
 
-import { db, auth } from '../firebase.js';
+import { db } from '../firebase.js';
 import {
   collection, query, orderBy, limit, onSnapshot,
   doc, getDoc, updateDoc, serverTimestamp,
-  where, getDocs, Timestamp
+  where, getDocs, Timestamp, startAt, endAt
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-import {
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut
-} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
-
-/* ====== 參數：允許進入後台的管理員 Email ====== */
-const ADMIN_EMAIL = 'bruce9811123@gmail.com';
-
-/* ====== 小工具 ====== */
+/* ───────── 小工具 ───────── */
 const $  = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 const money = n => 'NT$ ' + (n || 0).toLocaleString();
-const zh = { pending:'待付款', paid:'已付款', shipped:'已出貨', canceled:'已取消' };
-const en = { '待付款':'pending', '已付款':'paid', '已出貨':'shipped', '已取消':'canceled' };
+const zh   = { pending:'待付款', paid:'已付款', shipped:'已出貨', canceled:'已取消' };
+const en   = { '待付款':'pending', '已付款':'paid', '已出貨':'shipped', '已取消':'canceled' };
 const shortId = id => (id||'').slice(0,10);
 const toTW = ts => {
   try {
@@ -35,7 +25,7 @@ const toTW = ts => {
 const startOfToday = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
 const endOfToday   = () => { const d = new Date(); d.setHours(23,59,59,999); return d; };
 
-/* ====== 樣式（只注入一次） ====== */
+/* ───────── 樣式（一次） ───────── */
 function ensureAdminStyles(){
   if ($('#admin-css')) return;
   const css = document.createElement('style');
@@ -45,23 +35,29 @@ function ensureAdminStyles(){
     --bg:#0f1318; --fg:#e6e6e6; --muted:#9aa3af;
     --card:#151a21; --border:#2a2f37; --shadow:0 6px 24px rgba(0,0,0,.25), 0 2px 8px rgba(0,0,0,.2);
     --chip:#0b1220;
+    --chip-pending:   rgba(245,158,11,.18);
+    --chip-paid:      rgba(34,197,94,.20);
+    --chip-shipped:   rgba(59,130,246,.20);
+    --chip-canceled:  rgba(239,68,68,.18);
+    --chip-ring:      rgba(255,255,255,.25);
   }
   body.light{
     --bg:#f6f8fc; --fg:#111; --muted:#6b7280;
     --card:#ffffff; --border:#e5e7eb; --shadow:0 12px 24px rgba(17,24,39,.06);
     --chip:#eef2ff;
+    --chip-ring: rgba(0,0,0,.2);
   }
   .admin-shell{max-width:1200px;margin-inline:auto;padding:20px}
 
+  /* Hero */
   .hero{background:linear-gradient(135deg, rgba(59,130,246,.15), rgba(168,85,247,.10));
         border:1px solid var(--border); border-radius:18px; padding:18px;
         display:flex; justify-content:space-between; align-items:center; margin-bottom:14px}
   .hero h5{margin:0; font-weight:800}
   .hero .sub{color:var(--muted)}
-  .hero .act{display:flex; align-items:center; gap:10px}
-  .hero .user{display:flex; align-items:center; gap:8px; color:var(--muted)}
-  .hero .user img{width:32px;height:32px;border-radius:50%}
+  .hero .act .btn{border-radius:12px}
 
+  /* 今日概況 */
   .page-title{display:flex;align-items:center;gap:12px;margin:12px 0 12px}
   .page-title .badge{background:transparent;border:1px dashed var(--border);color:var(--muted)}
   .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
@@ -77,12 +73,19 @@ function ensureAdminStyles(){
   .meta{color:var(--muted);font-size:14px}
   .val{font-weight:800;font-size:20px;color:var(--fg)}
 
+  /* 主體兩欄 */
   .admin-grid{display:grid;grid-template-columns:1fr 1fr; gap:18px}
   @media(max-width: 992px){ .admin-grid{grid-template-columns:1fr} }
   .kpad{padding:16px}
   .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .hd-title{font-weight:800}
 
+  /* 工具列（搜尋/篩選/匯出） */
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .toolbar .form-control, .toolbar .form-select{min-width:160px}
+  .toolbar .btn{white-space:nowrap}
+
+  /* 列表卡片（深色卡） */
   .olist{display:flex;flex-direction:column;gap:12px}
   .orow{display:flex;align-items:center;justify-content:space-between; padding:16px;border:1px solid var(--border);border-radius:14px;cursor:pointer; transition:transform .15s ease, box-shadow .2s ease}
   .orow:hover{transform:translateY(-1px); box-shadow:0 10px 28px rgba(0,0,0,.3)}
@@ -90,15 +93,31 @@ function ensureAdminStyles(){
   .o-line{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .o-id{font-weight:700}
   .o-badge{font-size:12px;border:1px solid var(--border);padding:.2rem .55rem;border-radius:999px;color:var(--muted)}
+  .o-badge.pending  {background:var(--chip-pending); border-color:var(--chip-ring)}
+  .o-badge.paid     {background:var(--chip-paid);    border-color:var(--chip-ring)}
+  .o-badge.shipped  {background:var(--chip-shipped); border-color:var(--chip-ring)}
+  .o-badge.canceled {background:var(--chip-canceled);border-color:var(--chip-ring)}
   .o-sub{color:var(--muted);font-size:13px}
   .o-time{font-size:12px;border:1px solid var(--border);background:var(--chip);color:var(--muted); padding:.25rem .6rem; border-radius:999px}
 
+  /* 詳細區 + 狀態 Chips */
   .detail-title{font-weight:800;margin-bottom:6px}
   .kv{display:grid;grid-template-columns:120px 1fr; gap:6px 12px; margin-bottom:8px}
   .kv .k{color:var(--muted)}
   .table{margin-top:8px}
 
-  .login-card{max-width:520px;margin:32px auto;padding:20px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{
+    border:1px solid var(--border);border-radius:999px;
+    padding:.25rem .7rem; cursor:pointer; user-select:none; font-size:13px;
+    background:var(--chip); color:var(--fg); transition:transform .06s ease;
+  }
+  .chip:hover{transform:translateY(-1px)}
+  .chip.active{outline:2px solid var(--chip-ring)}
+  .chip.pending  {background:var(--chip-pending)}
+  .chip.paid     {background:var(--chip-paid)}
+  .chip.shipped  {background:var(--chip-shipped)}
+  .chip.canceled {background:var(--chip-canceled)}
   `;
   document.head.appendChild(css);
 }
@@ -134,7 +153,7 @@ async function computeTodayStats(setters){
     const v = d.data()||{};
     ordersCnt += 1;
     revenue   += (v?.amounts?.total || 0);
-    if ((v.status||'')==='paid') waitShip += 1; // 已付款視為待出貨
+    if ((v.status||'')==='paid') waitShip += 1; // 已付未出貨
   });
 
   const since = new Date(); since.setDate(since.getDate()-30);
@@ -155,29 +174,56 @@ async function computeTodayStats(setters){
   setters.users(uniq.size);
 }
 
-/* ====== 主頁面（已登入且授權通過） ====== */
-function renderAdminUI(user){
+/* 匯出 CSV（目前列表結果） */
+function exportCSV(rows){
+  const header = [
+    '訂單ID','建立時間','狀態','客戶','Email','電話','品項數','合計'
+  ];
+  const data = rows.map(({id,v})=>{
+    const items = (v.items||[]).reduce((s,i)=>s+(i.qty||0),0);
+    return [
+      id, toTW(v.createdAt), zh[v.status||'pending']||'-',
+      v?.customer?.name||'', v?.customer?.email||'', v?.customer?.phone||'',
+      items, (v?.amounts?.total||0)
+    ];
+  });
+  const csv = [header, ...data].map(r=>r.map(x=>{
+    const s = (x===undefined||x===null) ? '' : String(x);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  }).join(',')).join('\n');
+
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  a.download = `orders-${ts}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(url);
+  a.remove();
+}
+
+/* ───────── 版面與行為 ───────── */
+export function AdminPage(){
   ensureAdminStyles();
 
   const el = document.createElement('div');
   el.className = 'admin-shell';
   el.innerHTML = `
+    <!-- Hero（歡迎 + 按鈕） -->
     <div class="hero">
       <div>
         <h5>歡迎回來 👋</h5>
         <div class="sub">快速存取你的常用工具與最新狀態</div>
       </div>
       <div class="act">
-        <div class="user">
-          <img src="${user.photoURL || ''}" alt="avatar">
-          <span>${user.displayName || user.email}</span>
-        </div>
-        <button class="btn btn-outline-light" id="themeToggle"><i class="bi bi-brightness-high me-1"></i>切換亮/暗</button>
+        <button class="btn btn-outline-light me-2" id="themeToggle"><i class="bi bi-brightness-high me-1"></i>切換亮/暗</button>
         <button class="btn btn-outline-light" data-go="#dashboard"><i class="bi bi-grid me-1"></i> 回首頁</button>
-        <button class="btn btn-outline-danger" id="logoutBtn">登出</button>
       </div>
     </div>
 
+    <!-- 今日概況 -->
     <div class="page-title">
       <h6 class="m-0">今日概況</h6>
       <span class="badge rounded-pill px-2">更新於 <span id="dashTime"></span></span>
@@ -202,9 +248,31 @@ function renderAdminUI(user){
       </div>
     </div>
 
+    <!-- 主體：左列表 + 右詳細 -->
     <div class="admin-grid">
+
       <section class="kcard kpad">
         <div class="hd"><div class="hd-title">訂單列表</div></div>
+
+        <!-- 工具列 -->
+        <div class="toolbar">
+          <input id="kw" class="form-control form-control-sm" placeholder="搜尋：訂單ID / 客戶 / Email">
+          <select id="fStatus" class="form-select form-select-sm">
+            <option value="">全部狀態</option>
+            <option value="pending">待付款</option>
+            <option value="paid">已付款</option>
+            <option value="shipped">已出貨</option>
+            <option value="canceled">已取消</option>
+          </select>
+          <input id="dateFrom" type="date" class="form-control form-control-sm" />
+          <span class="align-self-center">～</span>
+          <input id="dateTo" type="date" class="form-control form-control-sm" />
+          <button id="btnApply" class="btn btn-sm btn-primary"><i class="bi bi-funnel me-1"></i>套用</button>
+          <button id="btnReset" class="btn btn-sm btn-outline-secondary">清除</button>
+          <div class="flex-grow-1"></div>
+          <button id="btnCSV" class="btn btn-sm btn-outline-light"><i class="bi bi-download me-1"></i>匯出 CSV</button>
+        </div>
+
         <div id="orderList" class="olist"><div class="o-sub">載入中…</div></div>
       </section>
 
@@ -212,16 +280,16 @@ function renderAdminUI(user){
         <div class="hd"><div class="hd-title">訂單詳細</div></div>
         <div id="orderDetail" class="o-sub">左側點一筆查看</div>
       </section>
+
     </div>
   `;
 
-  // 導航
+  // 導航（按鈕 data-go）
   el.addEventListener('click', e=>{
     const go = e.target.closest('[data-go]');
     if (go) location.hash = go.getAttribute('data-go');
   });
 
-  // 切換主題 & 顯示時間
   initThemeToggle(el);
   $('#dashTime', el).textContent = new Date().toLocaleString('zh-TW',{hour12:false});
 
@@ -233,23 +301,118 @@ function renderAdminUI(user){
     users:  n => $('#statUsers', el).textContent   = `${n} 位`
   }).catch(()=>{});
 
-  // 監聽訂單
-  const listEl = $('#orderList', el);
+  const listEl   = $('#orderList', el);
   const detailEl = $('#orderDetail', el);
-  const qOrders = query(collection(db,'orders'), orderBy('createdAt','desc'), limit(50));
 
-  onSnapshot(qOrders, snap=>{
-    if (snap.empty){ listEl.innerHTML = '<div class="o-sub">目前沒有訂單</div>'; return; }
-    listEl.innerHTML = snap.docs.map(d=>{
-      const v = d.data()||{};
+  // 狀態 / 日期 / 關鍵字
+  const refs = {
+    kw: $('#kw', el),
+    fStatus: $('#fStatus', el),
+    from: $('#dateFrom', el),
+    to: $('#dateTo', el),
+    btnApply: $('#btnApply', el),
+    btnReset: $('#btnReset', el),
+    btnCSV: $('#btnCSV', el)
+  };
+
+  let unsub = null;
+  let ordersCache = []; // [{id, v}]
+  let currentQueryKey = '';
+
+  function keyForQuery({status, from, to}){
+    return JSON.stringify({status, from, to});
+  }
+
+  function bindOrders(){
+    // 解析條件
+    const status = refs.fStatus.value || '';
+    const from   = refs.from.value ? new Date(refs.from.value + 'T00:00:00') : null;
+    const toDate = refs.to.value   ? new Date(refs.to.value   + 'T23:59:59') : null;
+
+    // 若上一個監聽存在，先關閉
+    if (unsub){ unsub(); unsub = null; }
+    listEl.innerHTML = '<div class="o-sub">載入中…</div>';
+
+    // 嘗試用 Firestore 查詢（狀態/日期）
+    try{
+      let qBase = collection(db,'orders');
+
+      const wheres = [];
+      if (status) wheres.push(where('status','==',status));
+      if (from)   wheres.push(where('createdAt','>=', Timestamp.fromDate(from)));
+      if (toDate) wheres.push(where('createdAt','<=', Timestamp.fromDate(toDate)));
+
+      if (wheres.length){
+        qBase = query(qBase, ...wheres, orderBy('createdAt','desc'), limit(300));
+      }else{
+        qBase = query(qBase, orderBy('createdAt','desc'), limit(300));
+      }
+
+      const qKey = keyForQuery({status, from: refs.from.value, to: refs.to.value});
+      currentQueryKey = qKey;
+
+      unsub = onSnapshot(qBase, snap=>{
+        if (currentQueryKey !== qKey) return; // 避免舊的事件回來覆蓋
+
+        ordersCache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
+        renderList();
+      }, err=>{
+        // 例如需要 composite index 時，退回用前端過濾
+        console.warn('Query failed, fallback to client filter', err);
+        fallbackClient();
+      });
+    }catch(err){
+      console.warn('Query build error, fallback', err);
+      fallbackClient();
+    }
+  }
+
+  // 前端過濾 fallback（抓近期 300 筆）
+  function fallbackClient(){
+    (unsub && unsub()); unsub = null;
+    const baseQ = query(collection(db,'orders'), orderBy('createdAt','desc'), limit(300));
+    onSnapshot(baseQ, snap=>{
+      let arr = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
+      const status = refs.fStatus.value || '';
+      const from   = refs.from.value ? new Date(refs.from.value + 'T00:00:00') : null;
+      const toDate = refs.to.value   ? new Date(refs.to.value   + 'T23:59:59') : null;
+
+      if (status) arr = arr.filter(x => (x.v.status||'')===status);
+      if (from)   arr = arr.filter(x => (x.v.createdAt?.toDate?.()||new Date(0)) >= from);
+      if (toDate) arr = arr.filter(x => (x.v.createdAt?.toDate?.()||new Date(0)) <= toDate);
+
+      ordersCache = arr;
+      renderList();
+    });
+  }
+
+  function renderList(){
+    // 關鍵字過濾（ID/客戶/Email）
+    const kw = refs.kw.value.trim().toLowerCase();
+    let arr = ordersCache;
+    if (kw){
+      arr = arr.filter(({id,v})=>{
+        const name  = (v?.customer?.name||'').toLowerCase();
+        const email = (v?.customer?.email||'').toLowerCase();
+        return id.toLowerCase().includes(kw) || name.includes(kw) || email.includes(kw);
+      });
+    }
+
+    if (!arr.length){
+      listEl.innerHTML = '<div class="o-sub">沒有符合條件的訂單</div>';
+      return;
+    }
+
+    listEl.innerHTML = arr.map(({id,v})=>{
       const itemsCount = (v.items||[]).reduce((s,i)=>s+(i.qty||0),0);
       const total = money(v?.amounts?.total||0);
+      const state = v.status||'pending';
       return `
-        <div class="orow" data-id="${d.id}">
+        <div class="orow" data-id="${id}">
           <div class="o-left">
             <div class="o-line">
-              <span class="o-id">#${shortId(d.id)}</span>
-              <span class="o-badge">${zh[v.status||'pending']||'-'}</span>
+              <span class="o-id">#${shortId(id)}</span>
+              <span class="o-badge ${state}">${zh[state]||'-'}</span>
               <span class="o-id">${total}</span>
             </div>
             <div class="o-sub">${v?.customer?.name||'-'} ｜ ${itemsCount} 件</div>
@@ -261,9 +424,10 @@ function renderAdminUI(user){
     $$('.orow', listEl).forEach(r=>{
       r.addEventListener('click', ()=> showDetail(r.dataset.id));
     });
-  }, err=>{
-    listEl.innerHTML = `<div class="text-danger">讀取失敗：${err.message}</div>`;
-  });
+
+    // 匯出當前結果
+    refs.btnCSV.onclick = ()=> exportCSV(arr);
+  }
 
   // 詳細
   async function showDetail(id){
@@ -273,6 +437,7 @@ function renderAdminUI(user){
       const snap = await getDoc(ref);
       if (!snap.exists()){ detailEl.innerHTML = '查無資料'; return; }
       const v = snap.data()||{};
+
       const itemsRows = (v.items||[]).map(i=>`
         <tr>
           <td>${i.name||''}</td>
@@ -282,20 +447,24 @@ function renderAdminUI(user){
           <td class="text-end">${money((i.price||0)*(i.qty||0))}</td>
         </tr>`).join('');
 
+      const state = v.status || 'pending';
+
       detailEl.innerHTML = `
         <div class="detail-title">#${snap.id}</div>
+
         <div class="kv">
           <div class="k">建立時間</div><div>${toTW(v.createdAt)}</div>
+
           <div class="k">狀態</div>
           <div>
-            <select id="stateSel" class="form-select form-select-sm" style="max-width:160px;display:inline-block">
-              ${['待付款','已付款','已出貨','已取消'].map(t=>{
-                const sel = (zh[v.status||'pending']===t) ? 'selected' : '';
-                return `<option ${sel}>${t}</option>`;
-              }).join('')}
-            </select>
-            <button id="saveState" class="btn btn-sm btn-primary ms-2">儲存</button>
+            <div class="chips" id="stateChips">
+              ${['pending','paid','shipped','canceled'].map(s=>`
+                <span class="chip ${s} ${s===state?'active':''}" data-state="${s}">${zh[s]}</span>
+              `).join('')}
+              <button id="saveState" class="btn btn-sm btn-primary ms-2">儲存</button>
+            </div>
           </div>
+
           <div class="k">客戶</div><div>${v?.customer?.name||'-'}</div>
           <div class="k">電話</div><div>${v?.customer?.phone||'-'}</div>
           <div class="k">Email</div><div>${v?.customer?.email||'-'}</div>
@@ -324,14 +493,27 @@ function renderAdminUI(user){
         </div>
       `;
 
+      // 狀態 Chips：互斥選擇
+      let chosen = state;
+      $$('#stateChips .chip', detailEl).forEach(c=>{
+        c.addEventListener('click', ()=>{
+          $$('#stateChips .chip', detailEl).forEach(x=>x.classList.remove('active'));
+          c.classList.add('active');
+          chosen = c.dataset.state;
+        });
+      });
+
       // 儲存狀態
       $('#saveState', detailEl).addEventListener('click', async ()=>{
-        const zhVal = $('#stateSel', detailEl).value;
-        const newState = en[zhVal] || 'pending';
         try{
-          await updateDoc(ref, { status:newState, updatedAt: serverTimestamp() });
+          await updateDoc(ref, { status:chosen, updatedAt: serverTimestamp() });
+          // 左邊對應列更新徽章
           const row = $(`.orow[data-id="${id}"]`, listEl);
-          if (row) row.querySelector('.o-badge').textContent = zh[newState];
+          if (row){
+            const badge = row.querySelector('.o-badge');
+            badge.className = `o-badge ${chosen}`;
+            badge.textContent = zh[chosen];
+          }
           alert('狀態已更新');
         }catch(err){
           alert('更新失敗：'+err.message);
@@ -343,82 +525,19 @@ function renderAdminUI(user){
     }
   }
 
-  // 登出
-  $('#logoutBtn', el)?.addEventListener('click', ()=>{
-    signOut(auth).finally(()=> location.hash = '#dashboard');
+  // 綁定工具列
+  refs.btnApply.addEventListener('click', bindOrders);
+  refs.btnReset.addEventListener('click', ()=>{
+    refs.kw.value = '';
+    refs.fStatus.value = '';
+    refs.from.value = '';
+    refs.to.value = '';
+    bindOrders();
   });
+  refs.kw.addEventListener('input', ()=> renderList()); // 即時關鍵字
+
+  // 初始載入
+  bindOrders();
 
   return el;
-}
-
-/* ====== 登入頁（未登入） ====== */
-function renderLoginUI(errorText=''){
-  ensureAdminStyles();
-  const box = document.createElement('div');
-  box.className = 'admin-shell';
-  box.innerHTML = `
-    <div class="kcard login-card">
-      <h5 class="mb-2">請先使用 Google 登入才能進入後台</h5>
-      <div class="d-flex align-items-center gap-2 mb-3">
-        <button class="btn btn-light" id="googleSignin">
-          <i class="bi bi-google me-1"></i> 使用 Google 登入
-        </button>
-        <a class="ms-2" href="#dashboard">回首頁</a>
-      </div>
-      <div id="loginErr" class="text-danger small">${errorText||''}</div>
-    </div>
-  `;
-
-  $('#googleSignin', box)?.addEventListener('click', async ()=>{
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    try{
-      await signInWithPopup(auth, provider);
-      // onAuthStateChanged 會接手
-    }catch(err){
-      const msg = `Firebase: ${err.message || err.code || '登入失敗'}`;
-      $('#loginErr', box).textContent = msg;
-    }
-  });
-
-  return box;
-}
-
-/* ====== 導出：主入口 ====== */
-export function AdminPage(){
-  const container = document.createElement('div');
-
-  onAuthStateChanged(auth, user=>{
-    container.innerHTML = ''; // 清空
-    if (!user){
-      container.appendChild(renderLoginUI());
-      return;
-    }
-
-    // 僅允許指定 Email
-    if ((user.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase()){
-      // 登出 + 提示 + 導回首頁
-      const warn = document.createElement('div');
-      warn.className = 'admin-shell';
-      warn.innerHTML = `
-        <div class="kcard login-card">
-          <h5 class="mb-2">你不符合管理員帳號資格</h5>
-          <div class="text-muted mb-2">${user.email || ''}</div>
-          <a href="#dashboard">回首頁</a>
-        </div>`;
-      container.appendChild(warn);
-      signOut(auth).finally(()=>{
-        setTimeout(()=> location.hash = '#dashboard', 1500);
-      });
-      return;
-    }
-
-    // 已登入且授權通過 → 顯示後台
-    container.appendChild(renderAdminUI(user));
-  }, err=>{
-    container.innerHTML = '';
-    container.appendChild(renderLoginUI(`Firebase: ${err.message || err.code}`));
-  });
-
-  return container;
 }
