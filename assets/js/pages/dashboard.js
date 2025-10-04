@@ -111,9 +111,10 @@ export function DashboardPage(){
         <div class="sub">集中管理記帳、訂單與日常工具，介面簡潔、上手快速。</div>
       </div>
       <div class="cta">
-        <button class="btn btn-primary btn-round" data-go="#shop">
-          <i class="bi bi-cart me-1"></i>開始購物
-        </button>
+        <button class="btn btn-primary btn-round" 
+  onclick="window.open('https://jiachang1112.github.io/Website-Development/cart-demo.html','_blank')">
+  <i class="bi bi-cart me-1"></i>開始購物
+</button>
         <button class="btn btn-outline-light btn-round" data-go="#admin">
           <i class="bi bi-speedometer2 me-1"></i>管理後台
         </button>
