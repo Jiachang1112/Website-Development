@@ -1,5 +1,12 @@
 // assets/js/pages/login-logs.js
-import { db } from '../firebase.js';
+// 進入頁面先檢查是否為管理員；通過才渲染「用戶登入 / 管理員登入」兩個分頁與表格
+
+import { auth, db } from '../firebase.js';
+import {
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 import {
   collection, query, where, orderBy, onSnapshot,
   getDocs, startAfter, limit, Timestamp
@@ -14,6 +21,18 @@ const toTW = ts => {
   }catch{ return '-'; }
 };
 
+/* ========= 你的管理員白名單（依需要增補） ========= */
+const ADMIN_EMAILS = ['bruce9811123@gmail.com'];   // ← 改成你的管理員 email 列表
+const ADMIN_UIDS   = [];                           // ← 如果要用 uid 也可填在這
+
+function isAdminUser(user){
+  if (!user) return false;
+  const email = (user.email||'').trim().toLowerCase();
+  const uid   = user.uid || '';
+  return ADMIN_EMAILS.includes(email) || ADMIN_UIDS.includes(uid);
+}
+
+/* ========= 樣式 ========= */
 function stylesOnce(){
   if ($('#login-logs-css')) return;
   const css = document.createElement('style');
@@ -21,7 +40,7 @@ function stylesOnce(){
   css.textContent = `
     .logs-wrap{max-width:1200px;margin:20px auto;padding:0 16px}
     .kcard{background:var(--card,#151a21);border:1px solid var(--border,#2a2f37);
-           border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.2)}
+          border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.2)}
     .kpad{padding:16px}
     .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
     .tabs{display:flex;gap:8px}
@@ -36,12 +55,68 @@ function stylesOnce(){
   document.head.appendChild(css);
 }
 
+/* ========= 主頁面（包含身分檢查） ========= */
 export function LoginLogsPage(){
   stylesOnce();
-  const el = document.createElement('div');
-  el.className = 'logs-wrap';
 
-  el.innerHTML = `
+  const root = document.createElement('div');
+  root.className = 'logs-wrap';
+  root.innerHTML = `
+    <div class="kcard kpad" id="gate">
+      <div class="h5 m-0">帳號</div>
+      <div class="muted" id="gateTip">載入中…</div>
+      <div class="mt-3 d-flex gap-2">
+        <button class="btn btn-primary" id="btnGoogle" style="display:none">使用 Google 登入</button>
+        <button class="btn btn-outline-light" id="btnBack" style="display:none">回首頁</button>
+      </div>
+    </div>
+    <div id="page" style="display:none"></div>
+  `;
+
+  const gate     = $('#gate', root);
+  const gateTip  = $('#gateTip', root);
+  const btnLogin = $('#btnGoogle', root);
+  const btnBack  = $('#btnBack', root);
+  const pageHost = $('#page', root);
+
+  btnBack.onclick = ()=> location.hash = '#home';
+
+  const provider = new GoogleAuthProvider();
+  btnLogin.onclick = async ()=>{
+    try{ await signInWithPopup(auth, provider); }
+    catch(e){ gateTip.textContent = e.message || '登入失敗'; }
+  };
+
+  // 先做權限檢查
+  onAuthStateChanged(auth, (user)=>{
+    if (!user){
+      gateTip.textContent = '請先使用 Google 登入才能查看此頁';
+      btnLogin.style.display = '';
+      btnBack.style.display  = '';
+      pageHost.style.display = 'none';
+      gate.style.display     = '';
+      return;
+    }
+    if (!isAdminUser(user)){
+      gateTip.textContent = '你沒有權限查看此頁（僅限管理員）。';
+      btnLogin.style.display = 'none';
+      btnBack.style.display  = '';
+      pageHost.style.display = 'none';
+      gate.style.display     = '';
+      return;
+    }
+    // 通過管理員檢查 → 渲染真正頁面
+    gate.style.display     = 'none';
+    pageHost.style.display = '';
+    renderLogsUI(pageHost);
+  });
+
+  return root;
+}
+
+/* ========= 真正的紀錄頁 UI（你原本的內容，未登入者不會看到） ========= */
+function renderLogsUI(host){
+  host.innerHTML = `
     <button class="btn btn-outline-light mb-3" id="backBtn">← 返回選單</button>
 
     <div class="kcard kpad">
@@ -57,7 +132,7 @@ export function LoginLogsPage(){
       </div>
 
       <div class="toolbar">
-        <input id="kw" class="form-control form-control-sm" placeholder="搜尋：姓名 / Email / UID">
+        <input id="kw"   class="form-control form-control-sm" placeholder="搜尋：姓名 / Email / UID">
         <input id="from" type="date" class="form-control form-control-sm">
         <span class="align-self-center">～</span>
         <input id="to"   type="date" class="form-control form-control-sm">
@@ -84,16 +159,16 @@ export function LoginLogsPage(){
     </div>
   `;
 
-  $('#backBtn', el).onclick = ()=> location.hash = '#home';
+  $('#backBtn', host).onclick = ()=> location.hash = '#home';
 
   const refs = {
-    tabs: $$('.tab', el),
-    kw:   $('#kw', el),
-    from: $('#from', el),
-    to:   $('#to', el),
-    clear:$('#clear', el),
-    csv:  $('#csvAll', el),
-    body: $('#tbody', el),
+    tabs: $$('.tab', host),
+    kw:   $('#kw', host),
+    from: $('#from', host),
+    to:   $('#to', host),
+    clear:$('#clear', host),
+    csv:  $('#csvAll', host),
+    body: $('#tbody', host),
   };
 
   let kind = 'user';
@@ -103,14 +178,12 @@ export function LoginLogsPage(){
   function buildQuery(_kind, range){
     const col = collection(db, 'login_logs');
     const wheres = [ where('kind','==',_kind) ];
-    // 日期範圍
     if (range?.from) wheres.push(where('ts','>=', Timestamp.fromDate(range.from)));
     if (range?.to)   wheres.push(where('ts','<=', Timestamp.fromDate(range.to)));
     return query(col, ...wheres, orderBy('ts','desc'));
   }
 
   function bind(){
-    // 解析日期
     const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
     const to   = refs.to.value   ? new Date(refs.to.value  +'T23:59:59') : null;
 
@@ -154,7 +227,6 @@ export function LoginLogsPage(){
     `).join('');
   }
 
-  // 事件
   refs.tabs.forEach(t=>{
     t.onclick = ()=>{
       refs.tabs.forEach(x=>x.classList.remove('active'));
@@ -169,7 +241,7 @@ export function LoginLogsPage(){
     bind();
   };
 
-  // 匯出「全部」（自動分頁抓完）
+  // 匯出全部
   refs.csv.onclick = async ()=>{
     refs.csv.disabled = true;
     try{
@@ -187,9 +259,7 @@ export function LoginLogsPage(){
         if (page.empty) break;
         page.forEach(d=>{
           const v = d.data()||{};
-          rows.push([
-            toTW(v.ts), v.name||'', v.email||'', v.uid||'', v.providerId||'', v.userAgent||''
-          ]);
+          rows.push([ toTW(v.ts), v.name||'', v.email||'', v.uid||'', v.providerId||'', v.userAgent||'' ]);
         });
         last = page.docs[page.docs.length-1];
         if (page.size < 1000) break;
@@ -211,6 +281,5 @@ export function LoginLogsPage(){
     }
   };
 
-  bind(); // 首次載入（用戶）
-  return el;
+  bind(); // 預設載入「用戶」分頁
 }
