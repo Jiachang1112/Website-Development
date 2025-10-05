@@ -1,102 +1,171 @@
 // /assets/js/pages/accounting-settings.js
-// 記帳設定（帳本 / 預算 / 類型）+ Firestore CRUD
-
-import { auth, db } from '../firebase.js';
-import {
-  collection, doc, addDoc, setDoc, updateDoc, deleteDoc, getDoc,
-  onSnapshot, serverTimestamp, query, orderBy
-} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+// 記帳設定頁：左側功能清單 + 右側內容區，支援 hash 切換
 
 // 小工具
 const $  = (s, r=document)=>r.querySelector(s);
 const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
-const toast = (m)=>alert(m);
 
-// ======= 畫面模板（右側） =======
+// 簡單的佔位內容（之後把 Firestore/功能接上）
 const templates = {
   ledgers: `
     <div class="card p-3">
-      <h5 class="mb-3">管理帳本</h5>
-      <div class="row g-3">
+      <h5 class="mb-2">管理帳本</h5>
+      <p class="muted">用來新增 / 編輯 / 刪除帳本，並設定預設帳本。</p>
+      <div class="row g-2">
         <div class="col-md-6">
-          <label class="form-label">新增帳本</label>
+          <label class="form-label">新增帳本名稱</label>
           <div class="input-group">
-            <input id="in-ledger-name" class="form-control" placeholder="例如：主帳本"/>
+            <input id="in-ledger-name" class="form-control" placeholder="例如：我的主帳本"/>
             <button class="btn btn-primary" id="btn-add-ledger">新增</button>
           </div>
-          <div class="small muted mt-2">點選名稱可直接重新命名；垃圾桶可刪除。</div>
+          <div class="small mt-2 muted">（示意：目前僅作前端佔位，之後接 Firestore）</div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">現有帳本</label>
+          <ul class="list-group" id="list-ledgers">
+            <li class="list-group-item">Demo 帳本 A</li>
+            <li class="list-group-item">Demo 帳本 B</li>
+          </ul>
         </div>
       </div>
-      <hr class="border-secondary">
-      <ul class="list-group" id="list-ledgers"></ul>
     </div>
   `,
+
   budget: `
     <div class="card p-3">
-      <h5 class="mb-3">管理預算</h5>
-
-      <div class="mb-3">
-        <label class="form-label">每月總預算</label>
-        <div class="input-group" style="max-width:420px">
-          <span class="input-group-text">NT$</span>
-          <input id="in-month-budget" type="number" min="0" class="form-control" placeholder="30000"/>
-          <button class="btn btn-primary" id="btn-save-month-budget">儲存</button>
-        </div>
-      </div>
-
-      <hr class="border-secondary">
-
-      <div class="row g-3">
-        <div class="col-md-7">
-          <label class="form-label">新增分類預算</label>
+      <h5 class="mb-2">管理預算</h5>
+      <p class="muted">設定每月/每分類的預算、提醒等。</p>
+      <div class="row g-2">
+        <div class="col-md-6">
+          <label class="form-label">每月總預算</label>
           <div class="input-group">
-            <select id="sel-budget-cat" class="form-select" style="max-width: 280px"></select>
             <span class="input-group-text">NT$</span>
-            <input id="in-budget-amt" type="number" min="0" class="form-control" placeholder="5000"/>
-            <button class="btn btn-outline-primary" id="btn-add-cat-budget">新增/更新</button>
+            <input class="form-control" id="in-month-budget" type="number" min="0" placeholder="30000"/>
+            <button class="btn btn-primary" id="btn-save-budget">儲存</button>
           </div>
-          <div class="small muted mt-2">選擇類別後填金額，點「新增/更新」；下方清單可編輯或刪除。</div>
         </div>
-      </div>
-
-      <div class="mt-3">
-        <h6 class="mb-2">分類預算清單</h6>
-        <ul class="list-group" id="list-cat-budgets"></ul>
+        <div class="col-md-6">
+          <label class="form-label">分類預算（示意）</label>
+          <ul class="list-group">
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              餐飲 <span class="badge bg-secondary">NT$ 5000</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              交通 <span class="badge bg-secondary">NT$ 2000</span>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   `,
+
+  currency: `
+    <div class="card p-3">
+      <h5 class="mb-2">管理貨幣</h5>
+      <p class="muted">設定顯示貨幣與符號、換算等（示意）。</p>
+      <div class="row g-2">
+        <div class="col-md-6">
+          <label class="form-label">顯示貨幣</label>
+          <select class="form-select" id="sel-currency">
+            <option value="TWD">TWD（新台幣）</option>
+            <option value="USD">USD（美元）</option>
+            <option value="JPY">JPY（日圓）</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">千分位 / 小數位</label>
+          <div class="input-group">
+            <select class="form-select">
+              <option selected>千分位顯示</option>
+              <option>不顯示</option>
+            </select>
+            <select class="form-select">
+              <option>0</option><option selected>2</option><option>4</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  `,
+
   categories: `
     <div class="card p-3">
-      <h5 class="mb-3">管理類型</h5>
-      <div class="row g-3">
-        <div class="col-md-7">
+      <h5 class="mb-2">管理類型</h5>
+      <p class="muted">新增、調整「支出 / 收入」分類（示意）。</p>
+      <div class="row g-2">
+        <div class="col-md-6">
           <label class="form-label">新增分類</label>
           <div class="input-group">
-            <select id="sel-cat-type" class="form-select" style="max-width:160px">
+            <select class="form-select" id="sel-cat-type">
               <option value="expense">支出</option>
               <option value="income">收入</option>
             </select>
-            <input id="in-cat-name" class="form-control" placeholder="分類名稱（例如：餐飲）"/>
+            <input class="form-control" id="in-cat-name" placeholder="分類名稱"/>
             <button class="btn btn-primary" id="btn-add-cat">新增</button>
           </div>
         </div>
+        <div class="col-md-6">
+          <label class="form-label">現有分類</label>
+          <ul class="list-group">
+            <li class="list-group-item">餐飲（支出）</li>
+            <li class="list-group-item">薪資（收入）</li>
+          </ul>
+        </div>
       </div>
+    </div>
+  `,
+
+  chat: `
+    <div class="card p-3">
+      <h5 class="mb-2">聊天設定</h5>
+      <p class="muted">設定專屬角色、記帳指令（示意）。</p>
+      <div class="row g-2">
+        <div class="col-md-6">
+          <label class="form-label">專屬角色</label>
+          <input class="form-control" id="in-role" placeholder="例如：小幫手 Bee"/>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">記帳指令</label>
+          <input class="form-control" id="in-command" placeholder="例如：記 50 早餐"/>
+        </div>
+      </div>
+      <div class="mt-3">
+        <button class="btn btn-primary" id="btn-save-chat">儲存</button>
+        <span class="small muted ms-2">（示意：先存於本地或 Firestore 的 users/{uid}/settings.chat）</span>
+      </div>
+    </div>
+  `,
+
+  general: `
+    <div class="card p-3">
+      <h5 class="mb-2">一般設定</h5>
+      <p class="muted">每日提醒、匯入帳本、匯出帳本（示意）。</p>
+
+      <div class="row g-2">
+        <div class="col-md-4">
+          <label class="form-label">每日提醒時間</label>
+          <input type="time" class="form-control" id="in-remind-at" value="21:00"/>
+        </div>
+        <div class="col-md-8 d-flex align-items-end gap-2">
+          <button class="btn btn-outline-light" id="btn-enable-remind">啟用提醒</button>
+          <button class="btn btn-outline-secondary" id="btn-disable-remind">停用提醒</button>
+        </div>
+      </div>
+
       <hr class="border-secondary">
-      <div class="row">
-        <div class="col-md-6">
-          <h6>支出</h6>
-          <ul class="list-group" id="list-expense-cats"></ul>
-        </div>
-        <div class="col-md-6">
-          <h6>收入</h6>
-          <ul class="list-group" id="list-income-cats"></ul>
-        </div>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" id="btn-export">匯出帳本（CSV / JSON）</button>
+        <label class="btn btn-outline-success mb-0">
+          匯入帳本（JSON）
+          <input id="file-import" type="file" accept="application/json" hidden/>
+        </label>
       </div>
     </div>
   `
 };
 
-// ======= 版面骨架（左側清單 + 右側畫面） =======
+// 版面骨架
 function renderShell(root){
   root.innerHTML = `
     <div class="mb-3 d-flex align-items-center justify-content-between">
@@ -111,9 +180,13 @@ function renderShell(root){
         <div class="list-group" id="menu">
           <button class="list-group-item list-group-item-action" data-screen="ledgers">管理帳本</button>
           <button class="list-group-item list-group-item-action" data-screen="budget">管理預算</button>
+          <button class="list-group-item list-group-item-action" data-screen="currency">管理貨幣</button>
           <button class="list-group-item list-group-item-action" data-screen="categories">管理類型</button>
+          <button class="list-group-item list-group-item-action" data-screen="chat">聊天設定</button>
+          <button class="list-group-item list-group-item-action" data-screen="general">一般設定</button>
         </div>
       </aside>
+
       <main class="col-md-9">
         <div id="screen"></div>
       </main>
@@ -121,265 +194,94 @@ function renderShell(root){
   `;
 }
 
-// ======= Route / 內容切換 =======
+// 切換畫面
 function show(screen){
-  const valid = ['ledgers','budget','categories'];
+  const valid = ['ledgers','budget','currency','categories','chat','general'];
   if (!valid.includes(screen)) screen = 'ledgers';
 
-  $$('#menu .list-group-item').forEach(b=>b.classList.toggle('active', b.dataset.screen===screen));
-  $('#screen').innerHTML = templates[screen];
-  if (location.hash !== '#'+screen) history.replaceState(null,'','#'+screen);
-
-  // 綁定每個畫面 & 初始讀取
-  if (screen==='ledgers')     initLedgers();
-  if (screen==='categories')  initCategories();
-  if (screen==='budget')      initBudget();
-}
-
-// ======= 驗證登入 =======
-function needUid(){
-  const uid = auth.currentUser?.uid || null;
-  if (!uid){
-    toast('請先登入（此頁僅限登入使用者）');
-    return null;
-  }
-  return uid;
-}
-
-// ==================== 帳本：CRUD ====================
-let unsubLedgers = null;
-function initLedgers(){
-  const uid = needUid(); if (!uid) return;
-
-  // 新增
-  $('#btn-add-ledger')?.addEventListener('click', async ()=>{
-    const name = $('#in-ledger-name').value.trim();
-    if (!name) return toast('請輸入帳本名稱');
-    await addDoc(collection(db,'users',uid,'ledgers'), {
-      name, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-    });
-    $('#in-ledger-name').value = '';
+  // 左側 active
+  $$('#menu .list-group-item').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.screen === screen);
   });
 
-  // 即時串流清單
-  unsubLedgers && unsubLedgers();
-  const q = query(collection(db,'users',uid,'ledgers'), orderBy('createdAt','asc'));
-  unsubLedgers = onSnapshot(q, snap=>{
-    const ul = $('#list-ledgers');
-    ul.innerHTML = '';
-    if (snap.empty){
-      ul.innerHTML = `<li class="list-group-item muted">尚無帳本</li>`;
-      return;
-    }
-    snap.forEach(d=>{
-      const v = d.data()||{};
+  // 右側內容
+  $('#screen').innerHTML = templates[screen] || '<div class="card p-3">N/A</div>';
+
+  // 設定網址 hash
+  if (location.hash !== '#'+screen) {
+    history.replaceState(null, '', '#'+screen);
+  }
+
+  // 這裡綁定各畫面的事件（示意）
+  bindScreenEvents(screen);
+}
+
+// 綁定各畫面按鈕（示意）
+function bindScreenEvents(screen){
+  if (screen === 'ledgers'){
+    $('#btn-add-ledger')?.addEventListener('click', ()=>{
+      const name = $('#in-ledger-name').value.trim();
+      if (!name) return alert('請輸入帳本名稱');
       const li = document.createElement('li');
-      li.className = 'list-group-item d-flex justify-content-between align-items-center gap-2';
-      li.innerHTML = `
-        <input class="form-control form-control-sm bg-transparent text-light border-0" value="${escapeHTML(v.name||'')}" />
-        <div class="btn-group">
-          <button class="btn btn-sm btn-outline-primary">重新命名</button>
-          <button class="btn btn-sm btn-outline-danger">刪除</button>
-        </div>
-      `;
-      const input = li.querySelector('input');
-      li.querySelector('.btn-outline-primary').onclick = async ()=>{
-        const newName = input.value.trim();
-        if (!newName) return toast('名稱不可為空');
-        await updateDoc(doc(db,'users',uid,'ledgers',d.id), { name:newName, updatedAt: serverTimestamp() });
-        toast('已更新名稱');
-      };
-      li.querySelector('.btn-outline-danger').onclick = async ()=>{
-        if (!confirm('確定要刪除此帳本？（僅刪帳本，不影響你的紀錄資料）')) return;
-        await deleteDoc(doc(db,'users',uid,'ledgers',d.id));
-      };
+      li.className = 'list-group-item';
+      li.textContent = name + '（本地示意）';
       $('#list-ledgers').appendChild(li);
+      $('#in-ledger-name').value = '';
     });
-  }, err=>{
-    $('#list-ledgers').innerHTML = `<li class="list-group-item text-danger">載入失敗：${err.message}</li>`;
-  });
-}
-
-// ==================== 類型：CRUD ====================
-let unsubCats = null;
-let cachedCats = []; // 供預算下拉使用
-
-function initCategories(){
-  const uid = needUid(); if (!uid) return;
-
-  // 新增分類
-  $('#btn-add-cat')?.addEventListener('click', async ()=>{
-    const type = $('#sel-cat-type').value;
-    const name = $('#in-cat-name').value.trim();
-    if (!name) return toast('請輸入分類名稱');
-    await addDoc(collection(db,'users',uid,'categories'), {
-      name, type, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-    });
-    $('#in-cat-name').value = '';
-  });
-
-  // 串流
-  unsubCats && unsubCats();
-  const q = query(collection(db,'users',uid,'categories'), orderBy('createdAt','asc'));
-  unsubCats = onSnapshot(q, snap=>{
-    cachedCats = snap.docs.map(d=>({ id:d.id, ...(d.data()||{}) }));
-    const expenseUL = $('#list-expense-cats');  expenseUL.innerHTML = '';
-    const incomeUL  = $('#list-income-cats');   incomeUL.innerHTML  = '';
-
-    if (snap.empty){
-      expenseUL.innerHTML = `<li class="list-group-item muted">尚無分類</li>`;
-      incomeUL.innerHTML  = `<li class="list-group-item muted">尚無分類</li>`;
-      return;
-    }
-
-    snap.forEach(d=>{
-      const v = d.data()||{};
-      const li = document.createElement('li');
-      li.className = 'list-group-item d-flex justify-content-between align-items-center';
-      li.innerHTML = `
-        <span>${escapeHTML(v.name||'-')}</span>
-        <button class="btn btn-sm btn-outline-danger">刪除</button>
-      `;
-      li.querySelector('button').onclick = async ()=>{
-        if (!confirm(`刪除分類「${v.name}」？`)) return;
-        await deleteDoc(doc(db,'users',uid,'categories',d.id));
-      };
-      (v.type==='income' ? incomeUL : expenseUL).appendChild(li);
-    });
-  }, err=>{
-    $('#list-expense-cats').innerHTML = `<li class="list-group-item text-danger">載入失敗：${err.message}</li>`;
-    $('#list-income-cats').innerHTML  = `<li class="list-group-item text-danger">載入失敗：${err.message}</li>`;
-  });
-}
-
-// ==================== 預算：每月總額 + 分類預算 ====================
-let unsubCatBudgets = null;
-
-async function initBudget(){
-  const uid = needUid(); if (!uid) return;
-
-  // 1) 每月總預算（users/{uid}.settings.budget.monthly）
-  await loadMonthlyBudget(uid);
-  $('#btn-save-month-budget')?.addEventListener('click', async ()=>{
-    const n = Number($('#in-month-budget').value||0);
-    const uref = doc(db,'users',uid);
-    await setDoc(uref, { settings:{ budget:{ monthly:n } } }, { merge:true });
-    toast('已儲存每月總預算');
-  });
-
-  // 2) 分類下拉（來自 categories 的 cachedCats，如果還沒載到，等 categories 流完成）
-  //   為避免 race condition，這裡多跑一次 get 最新 categories（簡化）
-  const qCats = query(collection(db,'users',uid,'categories'), orderBy('createdAt','asc'));
-  onSnapshot(qCats, snap=>{
-    cachedCats = snap.docs.map(d=>({ id:d.id, ...(d.data()||{}) }));
-    renderCatOptions();
-  });
-
-  // 3) 新增/更新分類預算
-  $('#btn-add-cat-budget')?.addEventListener('click', async ()=>{
-    const catId = $('#sel-budget-cat').value;
-    if (!catId) return toast('請先建立類別');
-    const amt = Number($('#in-budget-amt').value||0);
-    if (amt < 0) return toast('金額需為非負數');
-
-    // 用「類別ID」當唯一鍵：若存在就更新，不存在就新增
-    // 為了簡單，docId 也使用 catId（同一類別只有一筆）
-    const bref = doc(db,'users',uid,'category_budgets',catId);
-    await setDoc(bref, {
-      categoryId: catId,
-      amount: amt,
-      updatedAt: serverTimestamp(),
-      // createdAt 只在新建時寫入
-    }, { merge:true });
-
-    // 若是新建，補 createdAt（merge 時不覆蓋）
-    const now = await getDoc(bref);
-    if (!now.data()?.createdAt){
-      await updateDoc(bref, { createdAt: serverTimestamp() });
-    }
-  });
-
-  // 4) 串流分類預算清單
-  unsubCatBudgets && unsubCatBudgets();
-  const qBud = query(collection(db,'users',uid,'category_budgets'), orderBy('createdAt','asc'));
-  unsubCatBudgets = onSnapshot(qBud, snap=>{
-    const ul = $('#list-cat-budgets'); ul.innerHTML = '';
-    if (snap.empty){
-      ul.innerHTML = `<li class="list-group-item muted">尚無分類預算</li>`;
-      return;
-    }
-    snap.forEach(d=>{
-      const v = d.data()||{};
-      const catName = cachedCats.find(c=>c.id===v.categoryId)?.name || '(未知類別)';
-      const li = document.createElement('li');
-      li.className = 'list-group-item d-flex justify-content-between align-items-center gap-2';
-      li.innerHTML = `
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-          <span class="badge text-bg-secondary">${escapeHTML(catName)}</span>
-          <div class="input-group input-group-sm" style="max-width:220px">
-            <span class="input-group-text">NT$</span>
-            <input class="form-control" type="number" min="0" value="${v.amount||0}">
-          </div>
-        </div>
-        <div class="btn-group">
-          <button class="btn btn-sm btn-outline-primary">儲存</button>
-          <button class="btn btn-sm btn-outline-danger">刪除</button>
-        </div>
-      `;
-      const input = li.querySelector('input');
-      li.querySelector('.btn-outline-primary').onclick = async ()=>{
-        const val = Number(input.value||0);
-        await updateDoc(doc(db,'users',uid,'category_budgets',d.id), {
-          amount: val, updatedAt: serverTimestamp()
-        });
-        toast('已更新');
-      };
-      li.querySelector('.btn-outline-danger').onclick = async ()=>{
-        if (!confirm(`刪除「${catName}」的分類預算？`)) return;
-        await deleteDoc(doc(db,'users',uid,'category_budgets',d.id));
-      };
-      ul.appendChild(li);
-    });
-  }, err=>{
-    $('#list-cat-budgets').innerHTML = `<li class="list-group-item text-danger">載入失敗：${err.message}</li>`;
-  });
-}
-
-async function loadMonthlyBudget(uid){
-  const snap = await getDoc(doc(db,'users',uid));
-  const v = snap.data()?.settings?.budget?.monthly ?? '';
-  $('#in-month-budget').value = (v || v===0) ? v : '';
-}
-
-function renderCatOptions(){
-  const sel = $('#sel-budget-cat'); if (!sel) return;
-  sel.innerHTML = '';
-  if (!cachedCats.length){
-    sel.innerHTML = `<option value="">（請先建立類別）</option>`;
-    return;
   }
-  cachedCats.forEach(c=>{
-    const opt = document.createElement('option');
-    opt.value = c.id; opt.textContent = c.name + (c.type==='income'?'（收入）':'（支出）');
-    sel.appendChild(opt);
-  });
+
+  if (screen === 'budget'){
+    $('#btn-save-budget')?.addEventListener('click', ()=>{
+      const v = Number($('#in-month-budget').value||0);
+      alert('（示意）已儲存每月總預算：NT$ '+ v.toLocaleString());
+    });
+  }
+
+  if (screen === 'chat'){
+    $('#btn-save-chat')?.addEventListener('click', ()=>{
+      const role = $('#in-role').value.trim();
+      const cmd  = $('#in-command').value.trim();
+      alert(`（示意）已儲存聊天設定：\n角色：${role || '未填'}\n指令：${cmd || '未填'}`);
+    });
+  }
+
+  if (screen === 'general'){
+    $('#btn-enable-remind')?.addEventListener('click', ()=>{
+      const t = $('#in-remind-at').value || '21:00';
+      alert('（示意）已啟用每日提醒，時間：'+t);
+    });
+    $('#btn-disable-remind')?.addEventListener('click', ()=>{
+      alert('（示意）已停用每日提醒');
+    });
+    $('#btn-export')?.addEventListener('click', ()=>{
+      alert('（示意）匯出帳本… 之後會輸出 CSV/JSON 檔案');
+    });
+    $('#file-import')?.addEventListener('change', (e)=>{
+      const f = e.target.files?.[0];
+      if (!f) return;
+      alert('（示意）已選擇匯入檔案：'+f.name);
+      e.target.value = '';
+    });
+  }
 }
 
-// ======= 輔助 =======
-function escapeHTML(s){
-  return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
-}
-
-// ======= 掛載 =======
+// 初始掛載
 (function mount(){
   const root = $('#app');
   renderShell(root);
 
+  // 左側按鈕點擊
   $$('#menu .list-group-item').forEach(btn=>{
     btn.addEventListener('click', ()=> show(btn.dataset.screen));
   });
 
+  // Hash 路由
   const go = ()=> show((location.hash||'').replace('#','') || 'ledgers');
   window.addEventListener('hashchange', go);
+
+  // 第一次進入
   go();
+
+  // 標記成功載入（給你之前的備援檢查用，如果還保留）
+  window.__ACC_SETTINGS_LOADED__ = true;
 })();
