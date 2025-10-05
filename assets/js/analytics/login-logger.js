@@ -9,19 +9,19 @@ import { addDoc, collection, serverTimestamp }
  * @param {import('firebase/auth').User} user
  */
 export async function recordLogin(kind, user){
-  try{
+  try {
     const p = (user?.providerData && user.providerData[0]) || {};
     await addDoc(collection(db, 'login_logs'), {
-      kind,                          // 'user' | 'admin'
+      kind,  // ★ user 或 admin
       uid: user?.uid || '',
       email: user?.email || '',
       name: user?.displayName || '',
       providerId: p.providerId || 'unknown',
       userAgent: navigator.userAgent || '',
-      ts: serverTimestamp()
+      createdAt: serverTimestamp()  // ★ 改成 createdAt，後台已使用這個欄位排序
     });
-  }catch(e){
-    // 不影響登入流程，失敗就靜默
+  } catch(e) {
+    // 失敗不影響登入流程
     console.warn('[login-logger] add fail:', e);
   }
 }
