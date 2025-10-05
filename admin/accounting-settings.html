@@ -14,18 +14,3 @@
   <!-- 從 /admin/ 回上一層到 /assets/ -->
   <script type="module" src="/Website-Development/assets/js/pages/accounting-settings.js?v=1"></script>
 
-  <!-- 小小除錯：若上面載入失敗，3秒後顯示提示 -->
-  <script>
-    setTimeout(() => {
-      if (!document.querySelector('#app [data-mounted]')) {
-        const app = document.getElementById('app');
-        app.innerHTML = `
-          <div class="alert alert-warning">
-            無法載入 <code>../assets/js/pages/accounting-settings.js</code>。<br>
-            請確認檔案存在且路徑大小寫完全一致，並清除快取再試（Ctrl+F5）。
-          </div>`;
-      }
-    }, 3000);
-  </script>
-</body>
-</html>
