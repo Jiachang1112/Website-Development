@@ -1,7 +1,5 @@
 // assets/js/pages/admin.js
-// 首頁三選項：用戶記帳｜用戶登入｜訂單管理
-// - 用戶登入：可看誰在何時登入（寫入 login_logs 並可即時查看）
-// - 訂單管理：沿用你提供的原程式（未改動 UI/邏輯）
+// 首頁三選項：用戶記帳｜用戶登入（用戶 / 管理員 兩選項）｜訂單管理
 
 import { auth, db } from '../firebase.js';
 import {
@@ -28,6 +26,16 @@ const toTW = ts => {
     return d ? d.toLocaleString('zh-TW',{hour12:false}) : '-';
   } catch { return '-'; }
 };
+
+/* ───────── 管理員白名單 ───────── */
+const ADMIN_EMAILS = ['bruce9811123@gmail.com'].map(s=>s.trim().toLowerCase());
+const ADMIN_UIDS   = []; // 如需以 UID 白名單，可補上
+
+function isAdmin(user){
+  if(!user) return false;
+  const email = (user.email||'').trim().toLowerCase();
+  return ADMIN_EMAILS.includes(email) || ADMIN_UIDS.includes(user.uid||'');
+}
 
 /* ───────── 首頁樣式（簡潔、不要把整站變黑） ───────── */
 function ensureHomeStyles(){
@@ -56,6 +64,9 @@ function ensureHomeStyles(){
   table{width:100%;border-collapse:collapse}
   th,td{border-bottom:1px solid #2a2f37;padding:8px 10px;text-align:left}
   th{color:#9aa3af;font-weight:700}
+  .tabs{display:flex;gap:8px}
+  .tab{border:1px solid var(--border);border-radius:999px;padding:.35rem .8rem;cursor:pointer}
+  .tab.active{outline:2px solid rgba(255,255,255,.25)}
   `;
   document.head.appendChild(css);
 }
@@ -109,7 +120,7 @@ function renderHome(root){
 
       <div class="card" id="loginLogCard">
         <h4>用戶登入</h4>
-        <div class="muted">查看誰在何時登入此平台</div>
+        <div class="muted">查看誰在何時登入此平台（用戶 / 管理員）</div>
       </div>
 
       <div class="card" id="ordersCard">
@@ -144,10 +155,11 @@ function renderHome(root){
   root.replaceChildren(el);
 }
 
-/* ───────── 登入紀錄：寫入 ───────── */
-async function logUserLogin(user){
+/* ───────── 登入紀錄：寫入（新增 kind） ───────── */
+async function logUserLogin(user, kind='admin'){
   try{
     const payload = {
+      kind, // 'user' | 'admin'
       uid: user?.uid || '',
       email: user?.email || '',
       displayName: user?.displayName || '',
@@ -157,12 +169,11 @@ async function logUserLogin(user){
     };
     await addDoc(collection(db,'login_logs'), payload);
   }catch(e){
-    // 靜默失敗，不影響後台
     console.warn('login log write failed', e);
   }
 }
 
-/* ───────── 登入紀錄：瀏覽模組 ───────── */
+/* ───────── 登入紀錄：瀏覽模組（兩選項） ───────── */
 function mountLoginLogModule(root){
   ensureHomeStyles();
   const el = document.createElement('div');
@@ -177,7 +188,10 @@ function mountLoginLogModule(root){
         <h5>用戶登入紀錄</h5>
         <div class="muted">即時顯示最近登入的使用者（最多 500 筆）</div>
       </div>
-      <div class="chip">login_logs</div>
+      <div class="tabs">
+        <div class="tab active" data-kind="user">用戶登入</div>
+        <div class="tab" data-kind="admin">管理員登入</div>
+      </div>
     </div>
 
     <div class="table-wrap">
@@ -218,18 +232,29 @@ function mountLoginLogModule(root){
     to:   $('#to', el),
     btnReset: $('#btnReset', el),
     btnCSV:   $('#btnCSV', el),
-    rows: $('#rows', el)
+    rows: $('#rows', el),
+    tabs: $$('.tab', el),
   };
 
   let cache = []; // {id, v}
+  let currentKind = 'user';
+  let unsub = null;
 
-  const qBase = query(collection(db,'login_logs'), orderBy('createdAt','desc'), limit(500));
-  onSnapshot(qBase, (snap)=>{
-    cache = snap.docs.map(d=>({id:d.id, v:d.data()||{}}));
-    render();
-  }, (err)=>{
-    refs.rows.innerHTML = `<tr><td colspan="6" style="color:#ef4444">讀取失敗：${err.message}</td></tr>`;
-  });
+  function bind(){
+    if (unsub){ unsub(); unsub = null; }
+    refs.rows.innerHTML = `<tr><td colspan="6" class="muted">載入中…</td></tr>`;
+
+    // 依 kind 查詢
+    const wheres = [ where('kind','==', currentKind) ];
+    const qBase = query(collection(db,'login_logs'), ...wheres, orderBy('createdAt','desc'), limit(500));
+
+    unsub = onSnapshot(qBase, (snap)=>{
+      cache = snap.docs.map(d=>({id:d.id, v:d.data()||{}}));
+      render();
+    }, (err)=>{
+      refs.rows.innerHTML = `<tr><td colspan="6" style="color:#ef4444">讀取失敗：${err.message}</td></tr>`;
+    });
+  }
 
   function render(){
     let arr = cache;
@@ -241,9 +266,8 @@ function mountLoginLogModule(root){
                (v.uid||'').toLowerCase().includes(kw);
       });
     }
-    // 日期篩選（前端）
     const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
-    const to   = refs.to.value   ? new Date(refs.to.value+'T23:59:59') : null;
+    const to   = refs.to.value   ? new Date(refs.to.value  +'T23:59:59') : null;
     if (from) arr = arr.filter(({v})=> (v.createdAt?.toDate?.()||new Date(0)) >= from);
     if (to)   arr = arr.filter(({v})=> (v.createdAt?.toDate?.()||new Date(0)) <= to);
 
@@ -268,9 +292,9 @@ function mountLoginLogModule(root){
   }
 
   function exportCSV(rows){
-    const header = ['時間','姓名','Email','UID','Provider','UserAgent'];
+    const header = ['時間','姓名','Email','UID','Provider','UserAgent','Kind'];
     const data = rows.map(({v})=>[
-      toTW(v.createdAt), v.displayName||'', v.email||'', v.uid||'', v.providerId||'', v.userAgent||''
+      toTW(v.createdAt), v.displayName||'', v.email||'', v.uid||'', v.providerId||'', v.userAgent||'', v.kind||''
     ]);
     const csv = [header, ...data].map(r=>r.map(x=>{
       const s = (x===undefined||x===null) ? '' : String(x);
@@ -282,7 +306,7 @@ function mountLoginLogModule(root){
     const a = document.createElement('a');
     a.href = url;
     const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-    a.download = 'login-logs-' + ts + '.csv';
+    a.download = `login-logs-${currentKind}-${ts}.csv`;
     document.body.appendChild(a);
     a.click();
     URL.revokeObjectURL(url);
@@ -293,6 +317,7 @@ function mountLoginLogModule(root){
     return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
   }
 
+  // 事件
   refs.kw.addEventListener('input', render);
   refs.from.addEventListener('change', render);
   refs.to.addEventListener('change', render);
@@ -302,11 +327,21 @@ function mountLoginLogModule(root){
     refs.to.value = '';
     render();
   });
+  refs.tabs.forEach(t=>{
+    t.addEventListener('click', ()=>{
+      refs.tabs.forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      currentKind = t.dataset.kind;
+      bind();
+    });
+  });
+
+  bind(); // 預設顯示用戶登入(user)
 }
 
 /* ───────── 訂單管理模組（保留你的原程式）───────── */
 function mountOrdersModule(root){
-  // 你的原「訂單管理」完整程式碼已嵌入（未更動 UI/邏輯）
+  // === 你的原「訂單管理」完整程式碼（維持不動） ===
   const money = n => 'NT$ ' + (n || 0).toLocaleString();
   const zh   = { pending:'待付款', paid:'已付款', shipped:'已出貨', canceled:'已取消' };
   const shortId = id => (id||'').slice(0,10);
@@ -367,8 +402,6 @@ function mountOrdersModule(root){
     .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
     .hd-title{font-weight:800}
     .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-    .toolbar .form-control, .toolbar .form-select{min-width:160px}
-    .toolbar .btn{white-space:nowrap}
     .olist{display:flex;flex-direction:column;gap:12px}
     .orow{display:flex;align-items:center;justify-content:space-between; padding:16px;border:1px solid var(--border);border-radius:14px;cursor:pointer; transition:transform .15s ease, box-shadow .2s ease}
     .orow:hover{transform:translateY(-1px); box-shadow:0 10px 28px rgba(0,0,0,.3)}
@@ -381,23 +414,15 @@ function mountOrdersModule(root){
     .o-badge.shipped  {background:var(--chip-shipped)}
     .o-badge.canceled {background:var(--chip-canceled)}
     .o-sub{color:var(--muted);font-size:13px}
-    .o-time{font-size:12px;border:1px solid var(--border);background:var(--chip);color:var(--muted); padding:.25rem .6rem; border-radius:999px}
+    .o-time{font-size:12px;border:1px solid var(--border);background:#0b1220;color:var(--muted); padding:.25rem .6rem; border-radius:999px}
     .detail-title{font-weight:800;margin-bottom:6px}
     .kv{display:grid;grid-template-columns:120px 1fr; gap:6px 12px; margin-bottom:8px}
     .kv .k{color:var(--muted)}
     .table{margin-top:8px}
     .chips{display:flex;gap:8px;flex-wrap:wrap}
-    .chip{
-      border:1px solid var(--border);border-radius:999px;
-      padding:.25rem .7rem; cursor:pointer; user-select:none; font-size:13px;
-      background:var(--chip); color:var(--fg); transition:transform .06s ease;
-    }
+    .chip{border:1px solid var(--border);border-radius:999px;padding:.25rem .7rem; cursor:pointer; user-select:none; font-size:13px;background:#0b1220; color:var(--fg)}
     .chip:hover{transform:translateY(-1px)}
-    .chip.active{outline:2px solid var(--chip-ring)}
-    .chip.pending  {background:var(--chip-pending)}
-    .chip.paid     {background:var(--chip-paid)}
-    .chip.shipped  {background:var(--chip-shipped)}
-    .chip.canceled {background:var(--chip-canceled)}
+    .chip.active{outline:2px solid rgba(255,255,255,.25)}
     `;
     document.head.appendChild(css);
   }
@@ -541,7 +566,7 @@ function mountOrdersModule(root){
     users:  n => $('#statUsers', el).textContent   = `${n} 位`
   }).catch(()=>{});
 
-  // 下面這段沿用你的訂單列表/詳細 + 匯出 + 篩選（與你給的程式一致）
+  // 下面：訂單列表/詳細 + CSV（原邏輯）
   const detailEl = $('#orderDetail', el);
   const listEl   = $('#orderList', el);
   const refs = {
@@ -739,7 +764,6 @@ function mountOrdersModule(root){
   bindOrders();
   root.replaceChildren(el);
 
-  // 匯出（共用）
   function exportCSV(rows){
     const header = ['訂單ID','建立時間','狀態','客戶','Email','電話','品項數','合計'];
     const data = rows.map(({id,v})=>{
@@ -768,7 +792,7 @@ function mountOrdersModule(root){
   }
 }
 
-/* ───────── 導出頁面 ───────── */
+/* ───────── 導出頁面（含：白名單 + 寫入 admin 登入紀錄） ───────── */
 export function AdminPage(){
   ensureHomeStyles();
   const root = document.createElement('div');
@@ -778,8 +802,15 @@ export function AdminPage(){
 
   onAuthStateChanged(auth, async (user)=>{
     if(!user){ showLogin(root); return; }
-    // 記錄登入（讓你能在「用戶登入」查看）
-    await logUserLogin(user);
+    // 白名單驗證
+    if(!isAdmin(user)){
+      alert('非管理員帳號，無法進入後台。');
+      try{ await signOut(auth); }catch{}
+      showLogin(root);
+      return;
+    }
+    // 記錄後台登入 → kind: 'admin'
+    await logUserLogin(user, 'admin');
     // 顯示三選項首頁
     renderHome(root);
   });
