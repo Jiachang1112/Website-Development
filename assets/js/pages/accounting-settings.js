@@ -5,7 +5,31 @@
 const $  = (s, r=document)=>r.querySelector(s);
 const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
 
-// 簡單的佔位內容（之後把 Firestore/功能接上）
+// CSS 動態樣式（改善亮度與對比）
+const style = document.createElement("style");
+style.textContent = `
+  body { color: #f5f5f5; background:#0e0f11; }
+  .muted, .text-muted, small, .small { color: #ccc !important; }
+  h5, label, .form-label { color: #f1f1f1 !important; }
+  .card { background: #181a1e; border: 1px solid #2a2d33; color: #eaeaea; }
+  .list-group-item { background: #1c1f24; border-color: #2b2e35; color: #eaeaea; }
+  .list-group-item.active {
+    background: #0d6efd;
+    color: #fff;
+    border-color: #0d6efd;
+  }
+  .btn-outline-light { border-color: #888; color: #ddd; }
+  .btn-outline-light:hover { background: #ddd; color: #000; }
+  input, select, textarea {
+    background: #111418 !important;
+    color: #eaeaea !important;
+    border-color: #333 !important;
+  }
+  input::placeholder { color: #888 !important; }
+`;
+document.head.appendChild(style);
+
+// 各頁模板
 const templates = {
   ledgers: `
     <div class="card p-3">
@@ -39,7 +63,7 @@ const templates = {
         <div class="col-md-6">
           <label class="form-label">每月總預算</label>
           <div class="input-group">
-            <span class="input-group-text">NT$</span>
+            <span class="input-group-text bg-dark text-light">NT$</span>
             <input class="form-control" id="in-month-budget" type="number" min="0" placeholder="30000"/>
             <button class="btn btn-primary" id="btn-save-budget">儲存</button>
           </div>
@@ -140,7 +164,6 @@ const templates = {
     <div class="card p-3">
       <h5 class="mb-2">一般設定</h5>
       <p class="muted">每日提醒、匯入帳本、匯出帳本（示意）。</p>
-
       <div class="row g-2">
         <div class="col-md-4">
           <label class="form-label">每日提醒時間</label>
@@ -151,9 +174,7 @@ const templates = {
           <button class="btn btn-outline-secondary" id="btn-disable-remind">停用提醒</button>
         </div>
       </div>
-
       <hr class="border-secondary">
-
       <div class="d-flex gap-2">
         <button class="btn btn-outline-primary" id="btn-export">匯出帳本（CSV / JSON）</button>
         <label class="btn btn-outline-success mb-0">
@@ -165,16 +186,13 @@ const templates = {
   `
 };
 
-// 版面骨架
+// --- 以下略同前版：renderShell、show、bindScreenEvents、mount ---
 function renderShell(root){
   root.innerHTML = `
-    <div class="mb-3 d-flex align-items-center justify-content-between">
-      <div>
-        <h3 class="m-0">記帳設定</h3>
-        <div class="muted">請選擇左側功能進行設定</div>
-      </div>
+    <div class="mb-3">
+      <h3 class="m-0">記帳設定</h3>
+      <div class="muted">請選擇左側功能進行設定</div>
     </div>
-
     <div class="row g-3">
       <aside class="col-md-3">
         <div class="list-group" id="menu">
@@ -186,102 +204,72 @@ function renderShell(root){
           <button class="list-group-item list-group-item-action" data-screen="general">一般設定</button>
         </div>
       </aside>
-
       <main class="col-md-9">
         <div id="screen"></div>
       </main>
-    </div>
-  `;
+    </div>`;
 }
 
-// 切換畫面
 function show(screen){
   const valid = ['ledgers','budget','currency','categories','chat','general'];
   if (!valid.includes(screen)) screen = 'ledgers';
-
-  // 左側 active
   $$('#menu .list-group-item').forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.screen === screen);
+    btn.classList.toggle('active', btn.dataset.screen===screen);
   });
-
-  // 右側內容
   $('#screen').innerHTML = templates[screen] || '<div class="card p-3">N/A</div>';
-
-  // 設定網址 hash
-  if (location.hash !== '#'+screen) {
-    history.replaceState(null, '', '#'+screen);
-  }
-
-  // 這裡綁定各畫面的事件（示意）
+  if (location.hash !== '#'+screen) history.replaceState(null,'','#'+screen);
   bindScreenEvents(screen);
 }
 
-// 綁定各畫面按鈕（示意）
 function bindScreenEvents(screen){
-  if (screen === 'ledgers'){
-    $('#btn-add-ledger')?.addEventListener('click', ()=>{
-      const name = $('#in-ledger-name').value.trim();
-      if (!name) return alert('請輸入帳本名稱');
-      const li = document.createElement('li');
-      li.className = 'list-group-item';
-      li.textContent = name + '（本地示意）';
+  if (screen==='ledgers'){
+    $('#btn-add-ledger')?.addEventListener('click',()=>{
+      const name=$('#in-ledger-name').value.trim();
+      if(!name)return alert('請輸入帳本名稱');
+      const li=document.createElement('li');
+      li.className='list-group-item';
+      li.textContent=name+'（本地示意）';
       $('#list-ledgers').appendChild(li);
-      $('#in-ledger-name').value = '';
+      $('#in-ledger-name').value='';
     });
   }
-
-  if (screen === 'budget'){
-    $('#btn-save-budget')?.addEventListener('click', ()=>{
-      const v = Number($('#in-month-budget').value||0);
-      alert('（示意）已儲存每月總預算：NT$ '+ v.toLocaleString());
+  if (screen==='budget'){
+    $('#btn-save-budget')?.addEventListener('click',()=>{
+      const v=Number($('#in-month-budget').value||0);
+      alert('（示意）已儲存每月總預算：NT$ '+v.toLocaleString());
     });
   }
-
-  if (screen === 'chat'){
-    $('#btn-save-chat')?.addEventListener('click', ()=>{
-      const role = $('#in-role').value.trim();
-      const cmd  = $('#in-command').value.trim();
-      alert(`（示意）已儲存聊天設定：\n角色：${role || '未填'}\n指令：${cmd || '未填'}`);
+  if (screen==='chat'){
+    $('#btn-save-chat')?.addEventListener('click',()=>{
+      const role=$('#in-role').value.trim();
+      const cmd=$('#in-command').value.trim();
+      alert(`（示意）已儲存聊天設定：\\n角色：${role||'未填'}\\n指令：${cmd||'未填'}`);
     });
   }
-
-  if (screen === 'general'){
-    $('#btn-enable-remind')?.addEventListener('click', ()=>{
-      const t = $('#in-remind-at').value || '21:00';
+  if (screen==='general'){
+    $('#btn-enable-remind')?.addEventListener('click',()=>{
+      const t=$('#in-remind-at').value||'21:00';
       alert('（示意）已啟用每日提醒，時間：'+t);
     });
-    $('#btn-disable-remind')?.addEventListener('click', ()=>{
-      alert('（示意）已停用每日提醒');
-    });
-    $('#btn-export')?.addEventListener('click', ()=>{
-      alert('（示意）匯出帳本… 之後會輸出 CSV/JSON 檔案');
-    });
-    $('#file-import')?.addEventListener('change', (e)=>{
-      const f = e.target.files?.[0];
-      if (!f) return;
+    $('#btn-disable-remind')?.addEventListener('click',()=>alert('（示意）已停用每日提醒'));
+    $('#btn-export')?.addEventListener('click',()=>alert('（示意）匯出帳本…'));
+    $('#file-import')?.addEventListener('change',(e)=>{
+      const f=e.target.files?.[0];
+      if(!f)return;
       alert('（示意）已選擇匯入檔案：'+f.name);
-      e.target.value = '';
+      e.target.value='';
     });
   }
 }
 
-// 初始掛載
 (function mount(){
-  const root = $('#app');
+  const root=$('#app');
   renderShell(root);
-
-  // 左側按鈕點擊
   $$('#menu .list-group-item').forEach(btn=>{
-    btn.addEventListener('click', ()=> show(btn.dataset.screen));
+    btn.addEventListener('click',()=>show(btn.dataset.screen));
   });
-
-  // Hash 路由
-  const go = ()=> show((location.hash||'').replace('#','') || 'ledgers');
-  window.addEventListener('hashchange', go);
-
-  // 第一次進入
+  const go=()=>show((location.hash||'').replace('#','')||'ledgers');
+  window.addEventListener('hashchange',go);
   go();
-
-  // 標記成功載入（給你之前的備援檢查用，如果還保留）
-  window.__ACC_SETTINGS_LOADED__ = true;
+  window.__ACC_SETTINGS_LOADED__=true;
 })();
