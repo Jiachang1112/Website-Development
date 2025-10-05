@@ -162,3 +162,14 @@ window.addEventListener('hashchange', () => {
     if (!user) { google.accounts.id.prompt(); }
   } catch {}
 });
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
+import { auth } from '../firebase.js';
+import { recordLogin } from '../analytics/login-logger.js';
+
+// 前台帳號登入 → 記錄到 Firestore（kind=user）
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    recordLogin('user', user);
+  }
+});
+
