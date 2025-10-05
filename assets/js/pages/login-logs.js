@@ -1,121 +1,216 @@
 // assets/js/pages/login-logs.js
-// 這版會先出現兩個選項：「用戶登入」與「管理員登入」
-
 import { db } from '../firebase.js';
 import {
-  collection, query, where, orderBy, limit, onSnapshot
+  collection, query, where, orderBy, onSnapshot,
+  getDocs, startAfter, limit, Timestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-const $ = (s, r=document)=>r.querySelector(s);
-const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
-const toTW = ts=>{
+const $  = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+const toTW = ts => {
   try{
-    const d=ts?.toDate?ts.toDate():new Date();
-    return d.toLocaleString('zh-TW',{hour12:false});
-  }catch{return'-';}
+    const d = ts?.toDate ? ts.toDate() : (ts instanceof Date ? ts : null);
+    return d ? d.toLocaleString('zh-TW',{hour12:false}) : '-';
+  }catch{ return '-'; }
 };
 
-function ensureStyle(){
-  if($('#loginlogs-css'))return;
-  const css=document.createElement('style');
-  css.id='loginlogs-css';
-  css.textContent=`
-  .shell{max-width:900px;margin:24px auto;padding:0 16px}
-  .kcard{background:#151a21;border:1px solid #2a2f37;border-radius:16px;margin-bottom:16px;padding:20px;color:#e6e6e6}
-  .title{font-size:1.3rem;font-weight:700;margin-bottom:6px}
-  .muted{color:#9aa3af}
-  .grid2{display:grid;gap:16px;grid-template-columns:1fr; }
-  @media(min-width:768px){.grid2{grid-template-columns:1fr 1fr}}
-  .opt{cursor:pointer;transition:0.2s;user-select:none}
-  .opt:hover{transform:translateY(-3px);box-shadow:0 4px 20px rgba(0,0,0,.3)}
-  table{width:100%;font-size:14px}
-  th,td{border-top:1px solid #2a2f37;padding:8px}
-  th{color:#9aa3af}
+function stylesOnce(){
+  if ($('#login-logs-css')) return;
+  const css = document.createElement('style');
+  css.id = 'login-logs-css';
+  css.textContent = `
+    .logs-wrap{max-width:1200px;margin:20px auto;padding:0 16px}
+    .kcard{background:var(--card,#151a21);border:1px solid var(--border,#2a2f37);
+           border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.2)}
+    .kpad{padding:16px}
+    .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .tabs{display:flex;gap:8px}
+    .tab{border:1px solid var(--border,#2a2f37);border-radius:999px;padding:.35rem .8rem;cursor:pointer}
+    .tab.active{outline:2px solid rgba(255,255,255,.25)}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+    .table{width:100%}
+    .table th,.table td{padding:.6rem .75rem;border-bottom:1px solid var(--border,#2a2f37)}
+    .muted{color:var(--muted,#9aa3af)}
+    .btn{white-space:nowrap}
   `;
   document.head.appendChild(css);
 }
 
-function renderUI(root){
-  root.innerHTML=`
-  <div class="shell">
-    <div id="selectBlock" class="kcard">
-      <div class="title">選擇登入類型</div>
-      <div class="muted mb-3">請選擇要查看的登入紀錄類別</div>
-      <div class="grid2">
-        <div class="kcard opt" data-kind="user">
-          <div class="title">用戶登入</div>
-          <div class="muted">查看從首頁帳號登入的用戶紀錄</div>
+export function LoginLogsPage(){
+  stylesOnce();
+  const el = document.createElement('div');
+  el.className = 'logs-wrap';
+
+  el.innerHTML = `
+    <button class="btn btn-outline-light mb-3" id="backBtn">← 返回選單</button>
+
+    <div class="kcard kpad">
+      <div class="hd">
+        <div>
+          <div class="h5 m-0">用戶登入紀錄</div>
+          <div class="muted">即時顯示登入的使用者（無上限）</div>
         </div>
-        <div class="kcard opt" data-kind="admin">
-          <div class="title">管理員登入</div>
-          <div class="muted">查看後台管理員登入紀錄</div>
+        <div class="tabs">
+          <div class="tab active" data-kind="user">用戶登入</div>
+          <div class="tab" data-kind="admin">管理員登入</div>
         </div>
       </div>
+
+      <div class="toolbar">
+        <input id="kw" class="form-control form-control-sm" placeholder="搜尋：姓名 / Email / UID">
+        <input id="from" type="date" class="form-control form-control-sm">
+        <span class="align-self-center">～</span>
+        <input id="to"   type="date" class="form-control form-control-sm">
+        <button id="clear" class="btn btn-sm btn-outline-secondary">清除</button>
+        <div class="flex-grow-1"></div>
+        <button id="csvAll" class="btn btn-sm btn-outline-light">匯出 CSV（全部）</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th style="width:180px">時間</th>
+              <th style="width:160px">姓名</th>
+              <th>Email</th>
+              <th style="width:320px">UID</th>
+              <th style="width:140px">Provider</th>
+              <th>User-Agent</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"><tr><td colspan="6" class="muted">載入中…</td></tr></tbody>
+        </table>
+      </div>
     </div>
+  `;
 
-    <div id="listBlock" class="kcard" style="display:none">
-      <div class="title" id="logTitle">登入紀錄</div>
-      <div class="muted" id="subText">載入中...</div>
-      <table>
-        <thead><tr><th>時間</th><th>姓名</th><th>Email</th><th>UID</th><th>Provider</th><th>User-Agent</th></tr></thead>
-        <tbody id="tbody"><tr><td colspan="6">尚未載入</td></tr></tbody>
-      </table>
-    </div>
-  </div>`;
-}
+  $('#backBtn', el).onclick = ()=> location.hash = '#home';
 
-(async()=>{
-  ensureStyle();
-  const root = document.getElementById('app') || document.body;
-  renderUI(root);
+  const refs = {
+    tabs: $$('.tab', el),
+    kw:   $('#kw', el),
+    from: $('#from', el),
+    to:   $('#to', el),
+    clear:$('#clear', el),
+    csv:  $('#csvAll', el),
+    body: $('#tbody', el),
+  };
 
-  const selBlock = $('#selectBlock');
-  const listBlock = $('#listBlock');
-  const title = $('#logTitle');
-  const sub = $('#subText');
-  const tbody = $('#tbody');
+  let kind = 'user';
+  let unsub = null;
+  let cache = [];
 
-  let currentKind=null;
-  let unsub=null;
-
-  function show(kind){
-    currentKind=kind;
-    selBlock.style.display='none';
-    listBlock.style.display='';
-    title.textContent = kind==='admin'?'管理員登入紀錄':'用戶登入紀錄';
-    sub.textContent = '即時顯示最近登入的使用者';
-    loadData(kind);
+  function buildQuery(_kind, range){
+    const col = collection(db, 'login_logs');
+    const wheres = [ where('kind','==',_kind) ];
+    // 日期範圍
+    if (range?.from) wheres.push(where('ts','>=', Timestamp.fromDate(range.from)));
+    if (range?.to)   wheres.push(where('ts','<=', Timestamp.fromDate(range.to)));
+    return query(col, ...wheres, orderBy('ts','desc'));
   }
 
-  async function loadData(kind){
-    if(unsub){unsub();unsub=null;}
-    tbody.innerHTML='<tr><td colspan="6">載入中...</td></tr>';
-    const q=query(
-      collection(db,'login_logs'),
-      where('kind','==',kind),
-      orderBy('ts','desc'),
-      limit(500)
-    );
-    unsub=onSnapshot(q,snap=>{
-      const arr=snap.docs.map(d=>d.data());
-      if(!arr.length){
-        tbody.innerHTML='<tr><td colspan="6" class="muted">無紀錄</td></tr>';
-        return;
-      }
-      tbody.innerHTML=arr.map(v=>`
+  function bind(){
+    // 解析日期
+    const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
+    const to   = refs.to.value   ? new Date(refs.to.value  +'T23:59:59') : null;
+
+    if (unsub) { unsub(); unsub = null; }
+    refs.body.innerHTML = `<tr><td colspan="6" class="muted">載入中…</td></tr>`;
+
+    try{
+      const q = buildQuery(kind, {from, to});
+      unsub = onSnapshot(q, snap=>{
+        cache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
+        render();
+      });
+    }catch(e){
+      refs.body.innerHTML = `<tr><td colspan="6" class="text-danger">讀取失敗：${e.message}</td></tr>`;
+    }
+  }
+
+  function render(){
+    const kw = refs.kw.value.trim().toLowerCase();
+    let arr = cache;
+    if (kw){
+      arr = arr.filter(({v})=>{
+        return (v.name||'').toLowerCase().includes(kw) ||
+               (v.email||'').toLowerCase().includes(kw) ||
+               (v.uid||'').toLowerCase().includes(kw);
+      });
+    }
+    if (!arr.length){
+      refs.body.innerHTML = `<tr><td colspan="6" class="muted">沒有資料</td></tr>`;
+      return;
+    }
+    refs.body.innerHTML = arr.map(({v})=>`
       <tr>
         <td>${toTW(v.ts)}</td>
-        <td>${v.name||''}</td>
-        <td>${v.email||''}</td>
-        <td>${v.uid||''}</td>
-        <td>${v.providerId||''}</td>
-        <td style="word-break:break-all">${v.userAgent||''}</td>
-      </tr>`).join('');
-    });
+        <td>${v.name||'-'}</td>
+        <td>${v.email||'-'}</td>
+        <td class="small">${v.uid||'-'}</td>
+        <td class="small">${v.providerId||'-'}</td>
+        <td class="small">${(v.userAgent||'').slice(0,180)}</td>
+      </tr>
+    `).join('');
   }
 
-  $$('.opt',root).forEach(btn=>{
-    btn.addEventListener('click',()=>show(btn.dataset.kind));
+  // 事件
+  refs.tabs.forEach(t=>{
+    t.onclick = ()=>{
+      refs.tabs.forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      kind = t.dataset.kind;
+      bind();
+    };
   });
+  refs.kw.oninput  = render;
+  refs.clear.onclick = ()=>{
+    refs.kw.value=''; refs.from.value=''; refs.to.value='';
+    bind();
+  };
 
-})();
+  // 匯出「全部」（自動分頁抓完）
+  refs.csv.onclick = async ()=>{
+    refs.csv.disabled = true;
+    try{
+      const header = ['時間','姓名','Email','UID','Provider','UserAgent'];
+      const rows = [header];
+
+      const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
+      const to   = refs.to.value   ? new Date(refs.to.value  +'T23:59:59') : null;
+
+      let q = buildQuery(kind, {from, to});
+      let last = null;
+      while (true){
+        const page = last ? await getDocs(query(q, startAfter(last), limit(1000)))
+                          : await getDocs(query(q, limit(1000)));
+        if (page.empty) break;
+        page.forEach(d=>{
+          const v = d.data()||{};
+          rows.push([
+            toTW(v.ts), v.name||'', v.email||'', v.uid||'', v.providerId||'', v.userAgent||''
+          ]);
+        });
+        last = page.docs[page.docs.length-1];
+        if (page.size < 1000) break;
+      }
+
+      const csv = rows.map(r=>r.map(x=>{
+        const s = (x===undefined||x===null)? '' : String(x);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+      }).join(',')).join('\n');
+
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+      a.href = url; a.download = `login-logs-${kind}-${ts}.csv`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    }finally{
+      refs.csv.disabled = false;
+    }
+  };
+
+  bind(); // 首次載入（用戶）
+  return el;
+}
