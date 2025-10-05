@@ -1,6 +1,5 @@
 // assets/js/pages/admin.js
-// 後台入口：先顯示三個選項（用戶記帳 / 用戶登入 / 訂單管理）。
-// 點「訂單管理」後載入你原封不動的訂單管理頁。
+// 後台：歡迎 / 今日概況 + 訂單管理（搜尋/篩選/日期/匯出CSV），右側狀態改為彩色 Chips
 // 依賴：assets/js/firebase.js（同一個 app 實例輸出 auth / db）
 
 import { auth, db } from '../firebase.js';
@@ -19,154 +18,8 @@ import {
   where, getDocs, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-/* ───────── 小工具（不要動訂單管理那段，以免撞名） ───────── */
+/* ───────── 小工具 ───────── */
 const $  = (sel, root=document) => root.querySelector(sel);
-
-/* ───────── 只給選單用的極小樣式（不改 body） ───────── */
-function ensureMenuStyles(){
-  if (document.getElementById('admin-menu-css')) return;
-  const css = document.createElement('style');
-  css.id = 'admin-menu-css';
-  css.textContent = `
-  .admin-shell{max-width:1200px;margin-inline:auto;padding:20px}
-  .kcard{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 6px 18px rgba(17,24,39,.06)}
-  .dark .kcard{background:#151a21;border-color:#2a2f37;box-shadow:0 6px 24px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.2);color:#e6e6e6}
-  .hero{border:1px solid #e5e7eb;border-radius:16px;padding:18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,rgba(59,130,246,.06),rgba(168,85,247,.04))}
-  .dark .hero{border-color:#2a2f37;background:linear-gradient(135deg,rgba(59,130,246,.15),rgba(168,85,247,.10))}
-  .hero h5{margin:0;font-weight:800}
-  .hero .sub{opacity:.8}
-  .menu-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-  @media (max-width:900px){.menu-grid{grid-template-columns:1fr}}
-  .menu-card{padding:18px;cursor:pointer;transition:transform .12s ease, box-shadow .18s ease}
-  .menu-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.15)}
-  .menu-title{font-weight:800;font-size:18px;margin-bottom:4px}
-  .menu-sub{opacity:.8;font-size:14px}
-  `;
-  document.head.appendChild(css);
-}
-
-/* ───────── 後台主選單（3 大項） ───────── */
-function renderAdminMenu(){
-  ensureMenuStyles();
-  const el = document.createElement('div');
-  el.className = 'admin-shell';
-  el.innerHTML = `
-    <div class="hero kcard">
-      <div>
-        <h5>後台管理</h5>
-        <div class="sub">請選擇要使用的功能</div>
-      </div>
-      <div class="d-flex gap-2">
-        <a class="btn btn-outline-secondary" href="#admin/home">重新整理</a>
-        <button class="btn btn-outline-danger" id="btnLogout">登出</button>
-      </div>
-    </div>
-
-    <div class="menu-grid">
-      <div class="kcard menu-card" data-go="#admin/accounts">
-        <div class="menu-title">用戶記帳</div>
-        <div class="menu-sub">新增/查詢用戶記帳（之後可擴充功能）</div>
-      </div>
-      <div class="kcard menu-card" data-go="#admin/logs">
-        <div class="menu-title">用戶登入</div>
-        <div class="menu-sub">查看誰在何時登入本平台（帳號與姓名）</div>
-      </div>
-      <div class="kcard menu-card" data-go="#admin/orders">
-        <div class="menu-title">訂單管理</div>
-        <div class="menu-sub">搜尋 / 篩選 / 改狀態 / 匯出 CSV</div>
-      </div>
-    </div>
-  `;
-  el.addEventListener('click', e=>{
-    const card = e.target.closest('[data-go]');
-    if (card) location.hash = card.dataset.go;
-  });
-  $('#btnLogout', el)?.addEventListener('click', async ()=>{
-    if (!confirm('確定要登出嗎？')) return;
-    try{ await signOut(auth); }catch(err){ alert('登出失敗：' + err.message); }
-  });
-  return el;
-}
-
-/* ───────── 兩個占位頁（之後你要我再補實作） ───────── */
-function renderPlaceholder(title){
-  ensureMenuStyles();
-  const el = document.createElement('div');
-  el.className = 'admin-shell';
-  el.innerHTML = `
-    <div class="hero kcard">
-      <div>
-        <h5>${title}</h5>
-        <div class="sub">此頁目前為占位頁，等你給細節我再接上實作。</div>
-      </div>
-      <div class="d-flex gap-2">
-        <a class="btn btn-outline-secondary" href="#admin/home">回功能選單</a>
-        <button class="btn btn-outline-danger" id="btnLogout">登出</button>
-      </div>
-    </div>
-    <div class="kcard p-4">
-      <div class="text-secondary">（占位）將來這裡會顯示「${title}」的真實內容。</div>
-    </div>
-  `;
-  $('#btnLogout', el)?.addEventListener('click', async ()=>{
-    if (!confirm('確定要登出嗎？')) return;
-    try{ await signOut(auth); }catch(err){ alert('登出失敗：' + err.message); }
-  });
-  return el;
-}
-
-/* ───────── 登入畫面（保持極簡、不動你原本的樣式） ───────── */
-function showLogin(el, msg='請先使用 Google 登入才能進入後台', currentUser=null){
-  ensureMenuStyles();
-  const email = (currentUser?.email || '').trim();
-  const uid = currentUser?.uid || '';
-  el.innerHTML = `
-    <div class="admin-shell">
-      <div class="kcard p-4" style="max-width:520px">
-        <div class="mb-2 fw-bold">後台登入</div>
-        <div class="text-secondary mb-2">${msg}</div>
-        ${email || uid ? `<div class="text-secondary small">目前登入：${email || '(無 email)'}　UID：${uid}</div>` : ''}
-        <div class="mt-3 d-flex gap-2">
-          <button id="googleLogin" class="btn btn-primary">使用 Google 登入</button>
-        </div>
-        <div id="loginErr" class="text-danger small mt-2"></div>
-      </div>
-    </div>
-  `;
-  const provider = new GoogleAuthProvider();
-  $('#googleLogin', el)?.addEventListener('click', async ()=>{
-    $('#loginErr', el).textContent = '';
-    try{
-      await signInWithPopup(auth, provider);
-    }catch(err){
-      if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/cancelled-popup-request') {
-        try { await signInWithRedirect(auth, provider); }
-        catch (e2) { $('#loginErr', el).textContent = e2.message || '登入失敗'; }
-      } else {
-        $('#loginErr', el).textContent = err.message || '登入失敗';
-      }
-    }
-  });
-}
-
-/* ───────── 路由（選單 / 占位頁 / 訂單管理） ───────── */
-function mountRoute(root, route, renderOrdersUI){
-  if (route === '#admin/orders') {
-    root.replaceChildren(renderOrdersUI());      // 進訂單管理（下方「原封不動」函式）
-  } else if (route === '#admin/accounts') {
-    root.replaceChildren(renderPlaceholder('用戶記帳'));
-  } else if (route === '#admin/logs') {
-    root.replaceChildren(renderPlaceholder('用戶登入'));
-  } else {
-    root.replaceChildren(renderAdminMenu());     // 預設：功能選單
-  }
-}
-
-/* ===================================================================== */
-/* ==================  以下是你的「訂單管理」原封不動  ================== */
-/* ===================================================================== */
-
-/* ───────── 小工具（訂單管理專用，沿用你提供的） ───────── */
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 const money = n => 'NT$ ' + (n || 0).toLocaleString();
 const zh   = { pending:'待付款', paid:'已付款', shipped:'已出貨', canceled:'已取消' };
@@ -183,7 +36,8 @@ const endOfToday   = () => { const d = new Date(); d.setHours(23,59,59,999); ret
 
 /* ───────── 白名單 ───────── */
 const ADMIN_EMAILS = ['bruce9811123@gmail.com'].map(s => s.trim().toLowerCase());
-const ADMIN_UIDS = [];
+const ADMIN_UIDS = []; // 需要可填 uid
+
 function isAdminUser(user) {
   if (!user) return false;
   const email = (user.email || '').trim().toLowerCase();
@@ -191,7 +45,7 @@ function isAdminUser(user) {
   return ADMIN_UIDS.includes(uid) || ADMIN_EMAILS.includes(email);
 }
 
-/* ───────── 樣式（你原本的 ensureAdminStyles 保留） ───────── */
+/* ───────── 樣式（一次） ───────── */
 function ensureAdminStyles(){
   if ($('#admin-css')) return;
   const css = document.createElement('style');
@@ -282,9 +136,9 @@ function ensureAdminStyles(){
   document.head.appendChild(css);
 }
 
-/* 亮/暗切換（訂單管理頁用） */
+/* 亮/暗切換 */
 function initThemeToggle(root){
-  const btn = root?.querySelector?.('#themeToggle');
+  const btn = $('#themeToggle', root);
   const apply = mode => {
     document.body.classList.toggle('light', mode==='light');
     document.documentElement.classList.toggle('light', mode==='light');
@@ -362,8 +216,8 @@ async function computeTodayStats(setters){
   setters.users(uniq.size);
 }
 
-/* 登入畫面（Google）—這段順著你的訂單管理原文 */
-function showLoginForOrders(el, msg='請先使用 Google 登入才能進入後台', currentUser=null){
+/* 登入畫面（Google） */
+function showLogin(el, msg='請先使用 Google 登入才能進入後台', currentUser=null){
   const email = (currentUser?.email || '').trim();
   const uid = currentUser?.uid || '';
   el.innerHTML = `
@@ -375,12 +229,13 @@ function showLoginForOrders(el, msg='請先使用 Google 登入才能進入後�
           <button id="googleLogin" class="btn btn-primary">
             <i class="bi bi-google me-1"></i> 使用 Google 登入
           </button>
-          <a class="btn btn-outline-light" href="#admin/home">回選單</a>
+          <a class="btn btn-outline-light" href="#dashboard">回首頁</a>
         </div>
         <div id="loginErr" class="text-danger small mt-2"></div>
       </div>
     </div>
   `;
+
   const provider = new GoogleAuthProvider();
   $('#googleLogin', el)?.addEventListener('click', async ()=>{
     $('#loginErr', el).textContent = '';
@@ -397,7 +252,7 @@ function showLoginForOrders(el, msg='請先使用 Google 登入才能進入後�
   });
 }
 
-/* 後台主畫面（通過驗證才渲染）—你的訂單管理主函式 */
+/* 後台主畫面（通過驗證才渲染） */
 function renderUI(){
   ensureAdminStyles();
 
@@ -412,7 +267,7 @@ function renderUI(){
       </div>
       <div class="act">
         <button class="btn btn-outline-light me-2" id="themeToggle"><i class="bi bi-brightness-high me-1"></i>切換亮/暗</button>
-        <a class="btn btn-outline-light me-2" href="#admin/home"><i class="bi bi-grid me-1"></i> 回選單</a>
+        <button class="btn btn-outline-light me-2" data-go="#dashboard"><i class="bi bi-grid me-1"></i> 回首頁</button>
         <button class="btn btn-outline-danger" id="btnLogout"><i class="bi bi-box-arrow-right me-1"></i> 登出</button>
       </div>
     </div>
@@ -483,34 +338,34 @@ function renderUI(){
   });
 
   initThemeToggle(el);
-  el.querySelector('#dashTime').textContent = new Date().toLocaleString('zh-TW',{hour12:false});
+  $('#dashTime', el).textContent = new Date().toLocaleString('zh-TW',{hour12:false});
 
-  // 登出
-  el.querySelector('#btnLogout')?.addEventListener('click', async ()=>{
+  // 登出（交由 onAuthStateChanged 切回登入畫面）
+  $('#btnLogout', el)?.addEventListener('click', async ()=>{
     if (!confirm('確定要登出嗎？')) return;
     try{ await signOut(auth); }catch(err){ alert('登出失敗：' + err.message); }
   });
 
   // 今日統計
   computeTodayStats({
-    orders: n => el.querySelector('#statOrders').textContent  = `${n} 筆`,
-    revenue:n => el.querySelector('#statRevenue').textContent = money(n),
-    ship:   n => el.querySelector('#statShip').textContent    = `${n} 筆`,
-    users:  n => el.querySelector('#statUsers').textContent   = `${n} 位`
+    orders: n => $('#statOrders', el).textContent  = `${n} 筆`,
+    revenue:n => $('#statRevenue', el).textContent = money(n),
+    ship:   n => $('#statShip', el).textContent    = `${n} 筆`,
+    users:  n => $('#statUsers', el).textContent   = `${n} 位`
   }).catch(()=>{});
 
-  const listEl   = el.querySelector('#orderList');
-  const detailEl = el.querySelector('#orderDetail');
+  const listEl   = $('#orderList', el);
+  const detailEl = $('#orderDetail', el);
 
   // ── 工具列控制 ──
   const refs = {
-    kw: el.querySelector('#kw'),
-    fStatus: el.querySelector('#fStatus'),
-    from: el.querySelector('#dateFrom'),
-    to: el.querySelector('#dateTo'),
-    btnApply: el.querySelector('#btnApply'),
-    btnReset: el.querySelector('#btnReset'),
-    btnCSV: el.querySelector('#btnCSV'),
+    kw: $('#kw', el),
+    fStatus: $('#fStatus', el),
+    from: $('#dateFrom', el),
+    to: $('#dateTo', el),
+    btnApply: $('#btnApply', el),
+    btnReset: $('#btnReset', el),
+    btnCSV: $('#btnCSV', el),
   };
 
   let unsub = null;
@@ -602,7 +457,7 @@ function renderUI(){
         </div>`;
     }).join('');
 
-    Array.from(listEl.querySelectorAll('.orow')).forEach(r=>{
+    $$('.orow', listEl).forEach(r=>{
       r.addEventListener('click', ()=> showDetail(r.dataset.id));
     });
 
@@ -674,19 +529,19 @@ function renderUI(){
 
       // Chips 互斥選擇
       let chosen = state;
-      Array.from(detailEl.querySelectorAll('#stateChips .chip')).forEach(c=>{
+      $$('#stateChips .chip', detailEl).forEach(c=>{
         c.addEventListener('click', ()=>{
-          Array.from(detailEl.querySelectorAll('#stateChips .chip')).forEach(x=>x.classList.remove('active'));
+          $$('#stateChips .chip', detailEl).forEach(x=>x.classList.remove('active'));
           c.classList.add('active');
           chosen = c.dataset.state;
         });
       });
 
       // 儲存
-      detailEl.querySelector('#saveState').addEventListener('click', async ()=>{
+      $('#saveState', detailEl).addEventListener('click', async ()=>{
         try{
           await updateDoc(ref, { status:chosen, updatedAt: serverTimestamp() });
-          const row = el.querySelector(`.orow[data-id="${id}"]`);
+          const row = $(`.orow[data-id="${id}"]`, listEl);
           if (row){
             const badge = row.querySelector('.o-badge');
             badge.className = `o-badge ${chosen}`;
@@ -720,33 +575,25 @@ function renderUI(){
   return el;
 }
 
-/* 導出頁面：處理 Google 登入與白名單 + 路由到選單 */
+/* 導出頁面：處理 Google 登入與白名單 */
 export function AdminPage(){
-  ensureMenuStyles(); // 先載選單樣式（不動全站背景）
+  ensureAdminStyles();
   const root = document.createElement('div');
-  root.innerHTML = '<div class="admin-shell"><div class="kcard p-4">載入中…</div></div>';
+  root.innerHTML = '<div class="admin-shell"><div class="kcard kpad">載入中…</div></div>';
 
   getRedirectResult(auth).catch(()=>{});
 
   onAuthStateChanged(auth, (user)=>{
-    if (!user) { showLogin(root, '請先使用 Google 登入才能進入後台'); return; }
-
-    // 若不在白名單，仍可看到登入頁
-    const email = (user.email || '').trim().toLowerCase();
-    if (!(ADMIN_UIDS.includes(user.uid || '') || ADMIN_EMAILS.includes(email))) {
+    if (!user) {
+      showLogin(root, '請先使用 Google 登入才能進入後台');
+      return;
+    }
+    if (!isAdminUser(user)) {
       showLogin(root, '你不符合管理員帳號', user);
       return;
     }
-
-    if (!location.hash || !location.hash.startsWith('#admin/')) {
-      location.hash = '#admin/home';
-    }
-    mountRoute(root, location.hash, renderUI);
-
-    window.addEventListener('hashchange', ()=>{
-      if (!location.hash.startsWith('#admin/')) location.hash = '#admin/home';
-      mountRoute(root, location.hash, renderUI);
-    });
+    const ui = renderUI();
+    root.replaceChildren(ui);
   });
 
   return root;
