@@ -1,30 +1,49 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>記帳設定</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- 你的 Bootstrap CSS，如已有可保留 -->
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+
+  <!-- 把樣式確實包在 <style> 內，避免被當文字輸出 -->
   <style>
-    <style>
-  :root{
-    --pill-bg:#12161c; --pill-bd:#2a2f36; --pill-fg:#dfe6ee;
-  }
-  .topbar{
-    display:flex; align-items:center; gap:16px;
-    padding:10px 16px; border-bottom:1px solid #1f2329;
-    background:#0e1217; position:sticky; top:0; z-index:1000;
-  }
-  .topbar .brand{ color:#fff; font-weight:700; font-size:22px; }
-  .pill-nav{ display:flex; gap:8px; flex-wrap:wrap; }
-  .pill{
-    padding:8px 14px; border:1px solid var(--pill-bd);
-    border-radius:14px; background:var(--pill-bg);
-    color:var(--pill-fg); text-decoration:none; display:inline-block;
-  }
-  .pill:hover{ filter:brightness(1.1); }
-  .pill.active{ outline:2px solid #82a3ff; }
-</style>
+    /* 整體深色主題（可依你站上的版型微調） */
+    body { background:#0f1318; color:#e6e6e6; }
+
+    .card { background:#151a21; border:1px solid #2a2f37; }
+    .list-group-item { background:transparent; color:#e6e6e6; border-color:#2a2f37; }
+    .list-group-item.active {
+      background:#0d6efd; color:#fff; border-color:#0d6efd;
+    }
+    .muted { color:#9aa3af; }
+
+    /* 頂部 Pills 導覽列 */
+    :root{
+      --pill-bg:#12161c; --pill-bd:#2a2f36; --pill-fg:#dfe6ee;
+    }
+    .topbar{
+      display:flex; align-items:center; gap:16px;
+      padding:10px 16px; border-bottom:1px solid #1f2329;
+      background:#0e1217; position:sticky; top:0; z-index:1000;
+    }
+    .topbar .brand{ color:#fff; font-weight:700; font-size:22px; }
+    .pill-nav{ display:flex; gap:8px; flex-wrap:wrap; }
+    .pill{
+      padding:8px 14px; border:1px solid var(--pill-bd);
+      border-radius:14px; background:var(--pill-bg);
+      color:var(--pill-fg); text-decoration:none; display:inline-block;
+    }
+    .pill:hover{ filter:brightness(1.1); }
+    .pill.active{ outline:2px solid #82a3ff; }
+
+    /* 內文置中、最大寬 */
+    .page-shell{ max-width:1320px; margin:40px auto; padding:0 16px; }
+  </style>
+</head>
+
 
     body{ background:#0f1318; color:#e6e6e6; }
     .card{ background:#151a21; border:1px solid #2a2f37; }
@@ -34,23 +53,34 @@
   </style>
 </head>
 <body>
+  <!-- 頂部 Pills 導覽列：我的 設為 active -->
   <header class="topbar">
-  <div class="brand">SuperTool</div>
-  <nav class="pill-nav">
-    <a class="pill" href="/Website-Development/index.html#dashboard">首頁</a>
-    <a class="pill" href="/Website-Development/index.html#auth">帳號</a>
-    <a class="pill" href="/Website-Development/index.html#expense">支出</a>
-    <a class="pill active" href="/Website-Development/admin/accounting-settings.html#ledgers">我的</a>
-    <a class="pill" href="/Website-Development/index.html#detail">明細</a>
-    <a class="pill" href="/Website-Development/index.html#analysis">分析</a>
-    <a class="pill" href="/Website-Development/index.html#chatbook">聊天記帳</a>
-    <a class="pill" href="/Website-Development/index.html#camera">拍照記帳</a>
-    <a class="pill" href="/Website-Development/index.html#shop">購物</a>
-    <a class="pill" href="/Website-Development/index.html#admin">後台</a>
-    <a class="pill" href="/Website-Development/index.html#settings">設定</a>
-    <a class="pill" href="/Website-Development/index.html#backup">備份</a>
-  </nav>
-</header>
+    <div class="brand">SuperTool</div>
+    <nav class="pill-nav">
+      <a class="pill" href="/Website-Development/index.html#dashboard">首頁</a>
+      <a class="pill" href="/Website-Development/index.html#auth">帳號</a>
+      <a class="pill" href="/Website-Development/index.html#expense">支出</a>
+      <a class="pill active" href="/Website-Development/admin/accounting-settings.html#ledgers">我的</a>
+      <a class="pill" href="/Website-Development/index.html#detail">明細</a>
+      <a class="pill" href="/Website-Development/index.html#analysis">分析</a>
+      <a class="pill" href="/Website-Development/index.html#chatbook">聊天記帳</a>
+      <a class="pill" href="/Website-Development/index.html#camera">拍照記帳</a>
+      <a class="pill" href="/Website-Development/index.html#shop">購物</a>
+      <a class="pill" href="/Website-Development/index.html#admin">後台</a>
+      <a class="pill" href="/Website-Development/index.html#settings">設定</a>
+      <a class="pill" href="/Website-Development/index.html#backup">備份</a>
+    </nav>
+  </header>
+
+  <!-- 置中內容：你的記帳設定會掛載在 #app -->
+  <main class="page-shell">
+    <div id="app"></div>
+  </main>
+
+  <!-- 你的記帳設定 JS（已經能自動掛載到 #app） -->
+  <script type="module" src="/Website-Development/assets/js/pages/accounting-settings.js"></script>
+</body>
+
 
   <div id="app" class="container py-4"></div>
 
