@@ -1,35 +1,41 @@
 // /assets/js/pages/accounting-settings.js
-// 記帳設定：左側功能清單 + 右側內容區（可獨立頁，也可嵌入其他頁）
+// 記帳設定頁（提供 mountAccountingSettings() 給其他頁面呼叫）
 
-// 小工具
+// ---------- 小工具 ----------
 const $  = (s, r=document)=>r.querySelector(s);
 const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
 
-// 深色系樣式（與你現有風格一致）
-const style = document.createElement("style");
-style.textContent = `
-  .acc-settings-root { color: #f5f5f5; }
-  .acc-settings-root .muted, .acc-settings-root .text-muted, .acc-settings-root small, .acc-settings-root .small { color: #ccc !important; }
-  .acc-settings-root h5, .acc-settings-root label, .acc-settings-root .form-label { color: #f1f1f1 !important; }
-  .acc-settings-root .card { background: #181a1e; border: 1px solid #2a2d33; color: #eaeaea; }
-  .acc-settings-root .list-group-item { background: #1c1f24; border-color: #2b2e35; color: #eaeaea; }
-  .acc-settings-root .list-group-item.active {
+// ---------- 動態樣式（只插一次） ----------
+const __ACC_STYLE__ = `
+  body { color: #f5f5f5; background:#0e0f11; }
+  .muted, .text-muted, small, .small { color: #ccc !important; }
+  h5, label, .form-label { color: #f1f1f1 !important; }
+  .card { background: #181a1e; border: 1px solid #2a2d33; color: #eaeaea; }
+  .list-group-item { background: #1c1f24; border-color: #2b2e35; color: #eaeaea; }
+  .list-group-item.active {
     background: #0d6efd;
     color: #fff;
     border-color: #0d6efd;
   }
-  .acc-settings-root .btn-outline-light { border-color: #888; color: #ddd; }
-  .acc-settings-root .btn-outline-light:hover { background: #ddd; color: #000; }
-  .acc-settings-root input, .acc-settings-root select, .acc-settings-root textarea {
+  .btn-outline-light { border-color: #888; color: #ddd; }
+  .btn-outline-light:hover { background: #ddd; color: #000; }
+  input, select, textarea {
     background: #111418 !important;
     color: #eaeaea !important;
     border-color: #333 !important;
   }
-  .acc-settings-root input::placeholder { color: #888 !important; }
+  input::placeholder { color: #888 !important; }
 `;
-document.head.appendChild(style);
+function ensureStyleInserted() {
+  if (!window.__ACC_STYLE_INSERTED__) {
+    const style = document.createElement('style');
+    style.textContent = __ACC_STYLE__;
+    document.head.appendChild(style);
+    window.__ACC_STYLE_INSERTED__ = true;
+  }
+}
 
-// 各頁模板（先前你確認過的內容）
+// ---------- 各畫面模板 ----------
 const templates = {
   ledgers: `
     <div class="card p-3">
@@ -181,9 +187,8 @@ const templates = {
   `
 };
 
-// 版面骨架
+// ---------- 畫面骨架 ----------
 function renderShell(root){
-  root.classList.add('acc-settings-root');
   root.innerHTML = `
     <div class="mb-3">
       <h3 class="m-0">記帳設定</h3>
@@ -206,86 +211,81 @@ function renderShell(root){
     </div>`;
 }
 
-// 切換畫面
-function show(screen, root=document){
-  const valid = ['ledgers','budget','currency','categories','chat','general'];
-  if (!valid.includes(screen)) screen = 'ledgers';
-  $$('#menu .list-group-item', root).forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.screen===screen);
-  });
-  $('#screen', root).innerHTML = templates[screen] || '<div class="card p-3">N/A</div>';
-  // 若是獨立頁才動 url hash；嵌入其他頁就不要動
-  if ((root === document.getElementById('app')) && location.hash !== '#'+screen) {
-    history.replaceState(null,'','#'+screen);
-  }
-  bindScreenEvents(screen, root);
-}
-
-// 綁事件
-function bindScreenEvents(screen, root=document){
-  if (screen==='ledgers'){
-    $('#btn-add-ledger', root)?.addEventListener('click',()=>{
-      const name=$('#in-ledger-name', root).value.trim();
-      if(!name)return alert('請輸入帳本名稱');
-      const li=document.createElement('li');
-      li.className='list-group-item';
-      li.textContent=name+'（本地示意）';
-      $('#list-ledgers', root).appendChild(li);
-      $('#in-ledger-name', root).value='';
+// ---------- 畫面切換/事件 ----------
+function bindScreenEvents(screen){
+  if (screen === 'ledgers'){
+    $('#btn-add-ledger')?.addEventListener('click', ()=>{
+      const name = $('#in-ledger-name').value.trim();
+      if (!name) return alert('請輸入帳本名稱');
+      const li = document.createElement('li');
+      li.className = 'list-group-item';
+      li.textContent = name + '（本地示意）';
+      $('#list-ledgers').appendChild(li);
+      $('#in-ledger-name').value = '';
     });
   }
-  if (screen==='budget'){
-    $('#btn-save-budget', root)?.addEventListener('click',()=>{
-      const v=Number($('#in-month-budget', root).value||0);
-      alert('（示意）已儲存每月總預算：NT$ '+v.toLocaleString());
+  if (screen === 'budget'){
+    $('#btn-save-budget')?.addEventListener('click', ()=>{
+      const v = Number($('#in-month-budget').value||0);
+      alert('（示意）已儲存每月總預算：NT$ '+ v.toLocaleString());
     });
   }
-  if (screen==='chat'){
-    $('#btn-save-chat', root)?.addEventListener('click',()=>{
-      const role=$('#in-role', root).value.trim();
-      const cmd=$('#in-command', root).value.trim();
-      alert(`（示意）已儲存聊天設定：\n角色：${role||'未填'}\n指令：${cmd||'未填'}`);
+  if (screen === 'chat'){
+    $('#btn-save-chat')?.addEventListener('click', ()=>{
+      const role = $('#in-role').value.trim();
+      const cmd  = $('#in-command').value.trim();
+      alert(`（示意）已儲存聊天設定：\n角色：${role || '未填'}\n指令：${cmd || '未填'}`);
     });
   }
-  if (screen==='general'){
-    $('#btn-enable-remind', root)?.addEventListener('click',()=>{
-      const t=$('#in-remind-at', root).value||'21:00';
+  if (screen === 'general'){
+    $('#btn-enable-remind')?.addEventListener('click', ()=>{
+      const t = $('#in-remind-at').value || '21:00';
       alert('（示意）已啟用每日提醒，時間：'+t);
     });
-    $('#btn-disable-remind', root)?.addEventListener('click',()=>alert('（示意）已停用每日提醒'));
-    $('#btn-export', root)?.addEventListener('click',()=>alert('（示意）匯出帳本…'));
-    $('#file-import', root)?.addEventListener('change',(e)=>{
-      const f=e.target.files?.[0];
-      if(!f)return;
+    $('#btn-disable-remind')?.addEventListener('click', ()=> alert('（示意）已停用每日提醒'));
+    $('#btn-export')?.addEventListener('click', ()=> alert('（示意）匯出帳本…'));
+    $('#file-import')?.addEventListener('change', (e)=>{
+      const f = e.target.files?.[0];
+      if (!f) return;
       alert('（示意）已選擇匯入檔案：'+f.name);
-      e.target.value='';
+      e.target.value = '';
     });
   }
 }
 
-/** 對外：掛載記帳設定
- *  @param {HTMLElement|string} host 容器（元素或元素 id）
- */
-export function mountAccountingSettings(host){
-  const root = (typeof host==='string') ? document.getElementById(host) : host;
-  if (!root) return console.warn('[accounting-settings] host not found');
-  renderShell(root);
-  $$('#menu .list-group-item', root).forEach(btn=>{
-    btn.addEventListener('click',()=>show(btn.dataset.screen, root));
+function show(screen){
+  const valid = ['ledgers','budget','currency','categories','chat','general'];
+  if (!valid.includes(screen)) screen = 'ledgers';
+
+  $$('#menu .list-group-item').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.screen === screen);
   });
-  const go=()=> show((location.hash||'').replace('#','')||'ledgers', root);
-  // 獨立頁才監聽 hash
-  if (root === document.getElementById('app')) {
-    window.addEventListener('hashchange', go);
-  }
-  go();
-  root.dataset.mounted = '1';
+  $('#screen').innerHTML = templates[screen] || '<div class="card p-3">N/A</div>';
+  if (location.hash !== '#'+screen) history.replaceState(null, '', '#'+screen);
+  bindScreenEvents(screen);
 }
 
-// 若用 /admin/accounting-settings.html 單獨開啟則自動掛載到 #app
-document.addEventListener('DOMContentLoaded', ()=>{
-  const standalone = document.getElementById('app');
-  if (standalone && !standalone.dataset.mounted) {
-    mountAccountingSettings(standalone);
+// ---------- 對外：掛載入口 ----------
+export function mountAccountingSettings(rootId = 'app') {
+  ensureStyleInserted();
+
+  const root = document.getElementById(rootId);
+  if (!root) {
+    console.error('[accounting-settings] 找不到根節點 #' + rootId);
+    return;
   }
-});
+
+  renderShell(root);
+
+  // 左側點擊
+  $$('#menu .list-group-item').forEach(btn=>{
+    btn.addEventListener('click', ()=> show(btn.dataset.screen));
+  });
+
+  // Hash 路由
+  const go = ()=> show((location.hash||'').replace('#','') || 'ledgers');
+  window.addEventListener('hashchange', go);
+  go();
+
+  window.__ACC_SETTINGS_LOADED__ = true;
+}
