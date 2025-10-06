@@ -1,10 +1,40 @@
-import { getAll, put } from '../db.js';
-export function ExpenseMinePage(){
-  const el=document.createElement('div'); el.className='container';
-  el.innerHTML=`<section class="card"><h3>記帳｜我的</h3>
-  <div class="row"><a class="ghost" href="#settings">設定</a><a class="ghost" href="#chatbook">聊天記帳</a><a class="ghost" href="#camera">拍照記帳</a><a class="ghost" href="#expense">傳統輸入</a></div>
-  <div class="row" style="margin-top:8px"><label class="small">月份</label><input id="ym" type="month"/><label class="small">本月預算</label><input id="budget" type="number"/><button class="primary" id="save">儲存</button></div></section>`;
-  const ym=el.querySelector('#ym'), budget=el.querySelector('#budget'); ym.value=new Date().toISOString().slice(0,7);
-  el.querySelector('#save').addEventListener('click', async ()=>{ const all=await getAll('settings'); let set=all.find(s=>s.id==='expense-settings')||{id:'expense-settings',budgets:{}}; set.budgets[ym.value]=parseFloat(budget.value||'0'); await put('settings',set); alert('已儲存'); });
-  return el;
-}
+// /assets/js/pages/expense-mine.js
+// 「我的」頁面直接顯示「記帳設定」
+
+(function () {
+  // 1) 保證有 #app 容器可以掛載
+  let root = document.querySelector('#app');
+  if (!root) {
+    // 嘗試把舊容器清掉改成 #app
+    const host = document.querySelector('#app, main, .container, #root, body');
+    if (host) {
+      // 若不是 body，就把它的內容改成 #app；若是 body 就直接塞
+      if (host !== document.body) {
+        host.innerHTML = '<div id="app" class="container py-4"></div>';
+      } else {
+        const el = document.createElement('div');
+        el.id = 'app';
+        el.className = 'container py-4';
+        document.body.innerHTML = '';
+        document.body.appendChild(el);
+      }
+    }
+  }
+  // 再拿一次
+  root = document.querySelector('#app');
+  if (!root) {
+    // 最後保險一次
+    const el = document.createElement('div');
+    el.id = 'app';
+    el.className = 'container py-4';
+    document.body.appendChild(el);
+  }
+
+  // 2) 載入「記帳設定」的 UI（它會自動掛到 #app）
+  import('./accounting-settings.js').then(() => {
+    // 3) 第一次進來沒有 hash，就預設到「管理帳本」
+    if (!location.hash) {
+      history.replaceState(null, '', '#ledgers');
+    }
+  });
+})();
