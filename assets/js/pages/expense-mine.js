@@ -1,10 +1,10 @@
-import { getAll, put } from '../db.js';
-export function ExpenseMinePage(){
-  const el=document.createElement('div'); el.className='container';
-  el.innerHTML=`<section class="card"><h3>記帳｜我的</h3>
-  <div class="row"><a class="ghost" href="#settings">設定</a><a class="ghost" href="#chatbook">聊天記帳</a><a class="ghost" href="#camera">拍照記帳</a><a class="ghost" href="#expense">傳統輸入</a></div>
-  <div class="row" style="margin-top:8px"><label class="small">月份</label><input id="ym" type="month"/><label class="small">本月預算</label><input id="budget" type="number"/><button class="primary" id="save">儲存</button></div></section>`;
-  const ym=el.querySelector('#ym'), budget=el.querySelector('#budget'); ym.value=new Date().toISOString().slice(0,7);
-  el.querySelector('#save').addEventListener('click', async ()=>{ const all=await getAll('settings'); let set=all.find(s=>s.id==='expense-settings')||{id:'expense-settings',budgets:{}}; set.budgets[ym.value]=parseFloat(budget.value||'0'); await put('settings',set); alert('已儲存'); });
-  return el;
+// /assets/js/pages/mine.js
+// 我的 => 完全改成顯示「記帳設定」
+
+// 直接載入記帳設定（它會自動把 UI 掛到 #app）
+import './accounting-settings.js';
+
+// 可選：第一次打開「我的」時，沒有 hash 就帶去「管理帳本」
+if (!location.hash) {
+  history.replaceState(null, '', '#ledgers');
 }
