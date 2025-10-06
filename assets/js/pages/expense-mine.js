@@ -1,35 +1,41 @@
-// /assets/js/pages/accounting-settings.js
-// 記帳設定：左側功能清單 + 右側內容區（可獨立頁，也可嵌入其他頁）
+// /assets/js/pages/expense-mine.js
+// 「我的」頁：原封不動顯示「記帳設定」（獨立單檔版本）
+// 不需 import 其他檔；路由只要呼叫 ExpenseMinePage('app') 即可。
 
-// 小工具
+/* ---------- 小工具 ---------- */
 const $  = (s, r=document)=>r.querySelector(s);
 const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
 
-// 深色系樣式（與你現有風格一致）
-const style = document.createElement("style");
-style.textContent = `
-  .acc-settings-root { color: #f5f5f5; }
-  .acc-settings-root .muted, .acc-settings-root .text-muted, .acc-settings-root small, .acc-settings-root .small { color: #ccc !important; }
-  .acc-settings-root h5, .acc-settings-root label, .acc-settings-root .form-label { color: #f1f1f1 !important; }
-  .acc-settings-root .card { background: #181a1e; border: 1px solid #2a2d33; color: #eaeaea; }
-  .acc-settings-root .list-group-item { background: #1c1f24; border-color: #2b2e35; color: #eaeaea; }
-  .acc-settings-root .list-group-item.active {
-    background: #0d6efd;
-    color: #fff;
-    border-color: #0d6efd;
-  }
-  .acc-settings-root .btn-outline-light { border-color: #888; color: #ddd; }
-  .acc-settings-root .btn-outline-light:hover { background: #ddd; color: #000; }
-  .acc-settings-root input, .acc-settings-root select, .acc-settings-root textarea {
-    background: #111418 !important;
-    color: #eaeaea !important;
-    border-color: #333 !important;
-  }
-  .acc-settings-root input::placeholder { color: #888 !important; }
-`;
-document.head.appendChild(style);
+/* ---------- 深色系樣式（含 reset，避免全站樣式把清單變成一排） ---------- */
+(function injectStyles(){
+  const style = document.createElement("style");
+  style.textContent = `
+    .acc-settings-root { color: #f5f5f5; }
+    .acc-settings-root .muted, .acc-settings-root .text-muted, .acc-settings-root small, .acc-settings-root .small { color: #ccc !important; }
+    .acc-settings-root h5, .acc-settings-root label, .acc-settings-root .form-label { color: #f1f1f1 !important; }
+    .acc-settings-root .card { background: #181a1e; border: 1px solid #2a2d33; color: #eaeaea; }
+    /* 左側清單要垂直、佔滿寬度 */
+    .acc-settings-root .list-group { display: block; }
+    .acc-settings-root .list-group .list-group-item {
+      display: block; width:100%; text-align: left;
+      background: #1c1f24; border-color: #2b2e35; color: #eaeaea;
+      border-radius: 0; /* 保持清單感 */
+    }
+    .acc-settings-root .list-group .list-group-item + .list-group-item { border-top-width: 0; }
+    .acc-settings-root .list-group-item.active {
+      background: #0d6efd; color: #fff; border-color: #0d6efd;
+    }
+    .acc-settings-root .btn-outline-light { border-color: #888; color: #ddd; }
+    .acc-settings-root .btn-outline-light:hover { background: #ddd; color: #000; }
+    .acc-settings-root input, .acc-settings-root select, .acc-settings-root textarea {
+      background: #111418 !important; color: #eaeaea !important; border-color: #333 !important;
+    }
+    .acc-settings-root input::placeholder { color: #888 !important; }
+  `;
+  document.head.appendChild(style);
+})();
 
-// 各頁模板（先前你確認過的內容）
+/* ---------- 各頁模板 ---------- */
 const templates = {
   ledgers: `
     <div class="card p-3">
@@ -181,32 +187,34 @@ const templates = {
   `
 };
 
-// 版面骨架
+/* ---------- 版面骨架 ---------- */
 function renderShell(root){
   root.classList.add('acc-settings-root');
   root.innerHTML = `
-    <div class="mb-3">
-      <h3 class="m-0">記帳設定</h3>
-      <div class="muted">請選擇左側功能進行設定</div>
-    </div>
-    <div class="row g-3">
-      <aside class="col-md-3">
-        <div class="list-group" id="menu">
-          <button class="list-group-item list-group-item-action" data-screen="ledgers">管理帳本</button>
-          <button class="list-group-item list-group-item-action" data-screen="budget">管理預算</button>
-          <button class="list-group-item list-group-item-action" data-screen="currency">管理貨幣</button>
-          <button class="list-group-item list-group-item-action" data-screen="categories">管理類型</button>
-          <button class="list-group-item list-group-item-action" data-screen="chat">聊天設定</button>
-          <button class="list-group-item list-group-item-action" data-screen="general">一般設定</button>
-        </div>
-      </aside>
-      <main class="col-md-9">
-        <div id="screen"></div>
-      </main>
+    <div class="container py-4">
+      <div class="mb-3">
+        <h3 class="m-0">記帳設定</h3>
+        <div class="muted">請選擇左側功能進行設定</div>
+      </div>
+      <div class="row g-3">
+        <aside class="col-md-3">
+          <div class="list-group" id="menu">
+            <button class="list-group-item" data-screen="ledgers">管理帳本</button>
+            <button class="list-group-item" data-screen="budget">管理預算</button>
+            <button class="list-group-item" data-screen="currency">管理貨幣</button>
+            <button class="list-group-item" data-screen="categories">管理類型</button>
+            <button class="list-group-item" data-screen="chat">聊天設定</button>
+            <button class="list-group-item" data-screen="general">一般設定</button>
+          </div>
+        </aside>
+        <main class="col-md-9">
+          <div id="screen"></div>
+        </main>
+      </div>
     </div>`;
 }
 
-// 切換畫面
+/* ---------- 切換 / 綁定 ---------- */
 function show(screen, root=document){
   const valid = ['ledgers','budget','currency','categories','chat','general'];
   if (!valid.includes(screen)) screen = 'ledgers';
@@ -214,78 +222,78 @@ function show(screen, root=document){
     btn.classList.toggle('active', btn.dataset.screen===screen);
   });
   $('#screen', root).innerHTML = templates[screen] || '<div class="card p-3">N/A</div>';
-  // 若是獨立頁才動 url hash；嵌入其他頁就不要動
-  if ((root === document.getElementById('app')) && location.hash !== '#'+screen) {
-    history.replaceState(null,'','#'+screen);
-  }
   bindScreenEvents(screen, root);
 }
 
-// 綁事件
 function bindScreenEvents(screen, root=document){
   if (screen==='ledgers'){
-    $('#btn-add-ledger', root)?.addEventListener('click',()=>{
-      const name=$('#in-ledger-name', root).value.trim();
-      if(!name)return alert('請輸入帳本名稱');
-      const li=document.createElement('li');
-      li.className='list-group-item';
-      li.textContent=name+'（本地示意）';
+    $('#btn-add-ledger', root)?.addEventListener('click', ()=>{
+      const name = $('#in-ledger-name', root).value.trim();
+      if (!name) return alert('請輸入帳本名稱');
+      const li = document.createElement('li');
+      li.className = 'list-group-item';
+      li.textContent = name + '（本地示意）';
       $('#list-ledgers', root).appendChild(li);
-      $('#in-ledger-name', root).value='';
+      $('#in-ledger-name', root).value = '';
     });
   }
   if (screen==='budget'){
-    $('#btn-save-budget', root)?.addEventListener('click',()=>{
-      const v=Number($('#in-month-budget', root).value||0);
-      alert('（示意）已儲存每月總預算：NT$ '+v.toLocaleString());
+    $('#btn-save-budget', root)?.addEventListener('click', ()=>{
+      const v = Number($('#in-month-budget', root).value || 0);
+      alert('（示意）已儲存每月總預算：NT$ ' + v.toLocaleString());
     });
   }
   if (screen==='chat'){
-    $('#btn-save-chat', root)?.addEventListener('click',()=>{
-      const role=$('#in-role', root).value.trim();
-      const cmd=$('#in-command', root).value.trim();
-      alert(`（示意）已儲存聊天設定：\n角色：${role||'未填'}\n指令：${cmd||'未填'}`);
+    $('#btn-save-chat', root)?.addEventListener('click', ()=>{
+      const role = $('#in-role', root).value.trim();
+      const cmd  = $('#in-command', root).value.trim();
+      alert(`（示意）已儲存聊天設定：\n角色：${role || '未填'}\n指令：${cmd || '未填'}`);
     });
   }
   if (screen==='general'){
-    $('#btn-enable-remind', root)?.addEventListener('click',()=>{
-      const t=$('#in-remind-at', root).value||'21:00';
-      alert('（示意）已啟用每日提醒，時間：'+t);
+    $('#btn-enable-remind', root)?.addEventListener('click', ()=>{
+      const t = $('#in-remind-at', root).value || '21:00';
+      alert('（示意）已啟用每日提醒，時間：' + t);
     });
-    $('#btn-disable-remind', root)?.addEventListener('click',()=>alert('（示意）已停用每日提醒'));
-    $('#btn-export', root)?.addEventListener('click',()=>alert('（示意）匯出帳本…'));
-    $('#file-import', root)?.addEventListener('change',(e)=>{
-      const f=e.target.files?.[0];
-      if(!f)return;
-      alert('（示意）已選擇匯入檔案：'+f.name);
-      e.target.value='';
+    $('#btn-disable-remind', root)?.addEventListener('click', ()=> alert('（示意）已停用每日提醒'));
+    $('#btn-export', root)?.addEventListener('click', ()=> alert('（示意）匯出帳本…'));
+    $('#file-import', root)?.addEventListener('change', (e)=>{
+      const f = e.target.files?.[0];
+      if (!f) return;
+      alert('（示意）已選擇匯入檔案：' + f.name);
+      e.target.value = '';
     });
   }
 }
 
-/** 對外：掛載記帳設定
- *  @param {HTMLElement|string} host 容器（元素或元素 id）
- */
-export function mountAccountingSettings(host){
-  const root = (typeof host==='string') ? document.getElementById(host) : host;
-  if (!root) return console.warn('[accounting-settings] host not found');
-  renderShell(root);
-  $$('#menu .list-group-item', root).forEach(btn=>{
-    btn.addEventListener('click',()=>show(btn.dataset.screen, root));
+/* ---------- 對外：路由呼叫這個 ---------- */
+export function ExpenseMinePage(rootId='app'){
+  const app = document.getElementById(rootId);
+  if (!app) return;
+
+  // 直接渲染完整骨架（跟獨立頁相同）
+  app.innerHTML = '';
+  renderShell(app);
+
+  // 沒帶 hash 時預設 ledgers（避免空白）
+  const valid = ['ledgers','budget','currency','categories','chat','general'];
+  const h = (location.hash || '').replace('#', '');
+  if (!valid.includes(h)) {
+    history.replaceState(null, '', '#ledgers');
+  }
+
+  // 左側清單點擊
+  $$('#menu .list-group-item', app).forEach(btn=>{
+    btn.addEventListener('click', ()=> show(btn.dataset.screen, app));
   });
-  const go=()=> show((location.hash||'').replace('#','')||'ledgers', root);
-  // 獨立頁才監聽 hash
-  if (root === document.getElementById('app')) {
-    window.addEventListener('hashchange', go);
-  }
-  go();
-  root.dataset.mounted = '1';
-}
 
-// 若用 /admin/accounting-settings.html 單獨開啟則自動掛載到 #app
-document.addEventListener('DOMContentLoaded', ()=>{
-  const standalone = document.getElementById('app');
-  if (standalone && !standalone.dataset.mounted) {
-    mountAccountingSettings(standalone);
-  }
-});
+  // 初次顯示
+  show((location.hash || '').replace('#','') || 'ledgers', app);
+
+  // 在「我的」頁也可以跟著 hash 切換（可要可不要）
+  const onHashChange = ()=> show((location.hash || '').replace('#','') || 'ledgers', app);
+  window.addEventListener('hashchange', onHashChange, { passive:true });
+
+  // 可選：離開頁面時移除監聽（若你有頁面卸載機制）
+  // return ()=> window.removeEventListener('hashchange', onHashChange);
+}
