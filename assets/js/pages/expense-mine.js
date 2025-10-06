@@ -1,9 +1,12 @@
 // /assets/js/pages/expense-mine.js
-// 「我的」頁面 → 改成直接載入「記帳設定」的完整 UI
+// 「我的」頁 → 直接掛載 記帳設定 到 #app
 
-import './accounting-settings.js';
+import { mountAccountingSettings } from './accounting-settings.js';
 
-// 預設直接打開「管理帳本」畫面（第一次開啟用）
+// 第一次開、若沒有 hash，導向「管理帳本」
 if (!location.hash) {
   history.replaceState(null, '', '#ledgers');
 }
+
+// 掛載
+mountAccountingSettings('app');
