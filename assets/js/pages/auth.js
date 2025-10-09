@@ -1,112 +1,164 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+// assets/js/pages/auth.js
+
+// 1. 匯入 Firebase 相關功能
+import { db } from '../firebase.js';
 import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
-  onAuthStateChanged,
-  setPersistence,
-  browserLocalPersistence,
-  signOut,
-} from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+  doc, setDoc, serverTimestamp,
+  collection, addDoc
+} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-// ⚠️ 換成你的 Firebase 設定
-const firebaseConfig = {
-  apiKey: "你的_API_KEY",
-  authDomain: "你的專案ID.firebaseapp.com",
-  projectId: "你的專案ID",
-  appId: "你的_APP_ID",
-};
+// 2. 這裡放你的 session 工具（readSession、writeSession、clearSession...）
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
+// 3. 這裡放 handleCredentialResponse（Google 登入回傳的地方）
+//    在裡面呼叫 upsertUser(user)
 
-// 建議：維持登入狀態
-await setPersistence(auth, browserLocalPersistence);
+// 4. export function AuthPage() { ... }   ← UI 畫面
 
-// 登入按鈕點擊：先嘗試 Popup，失敗再改 Redirect
-async function loginWithGoogle() {
+// 5. window.addEventListener('load', ...) ← 初始化 Google Identity
+
+// 小工具：安全讀取/寫入 session_user
+function readSession() {
+  try { return JSON.parse(localStorage.getItem('session_user') || 'null'); }
+  catch { return null; }
+}
+function writeSession(user) {
+  localStorage.setItem('session_user', JSON.stringify(user));
+}
+function clearSession() {
+  localStorage.removeItem('session_user');
+}
+
+// 產生歡迎小膠囊（頁面左上角）
+function showWelcomeChip(name) {
+  const anchor = document.getElementById('onetap-anchor');
+  if (!anchor) return;
+  anchor.innerHTML =
+    `<div class="welcome-chip">👋 歡迎 ${name || ''}</div>`;
+}
+
+// Google 回傳憑證（JWT）→ 解析出使用者（含中文姓名正確解碼）
+function handleCredentialResponse(response) {
   try {
-    await signInWithPopup(auth, provider);
-    location.href = "./index.html";
-  } catch (err) {
-    console.warn("Popup 失敗，改用 Redirect：", err.code, err.message);
+    const token = response.credential;
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const json = decodeURIComponent(
+      atob(base64).split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(json);
 
-    // 這幾種情境常見：彈窗被阻擋、環境不支援 popup、iOS Safari
-    const fallbackCodes = [
-      "auth/popup-blocked",
-      "auth/popup-closed-by-user",
-      "auth/operation-not-supported-in-this-environment",
-      "auth/internal-error",
-    ];
-    if (fallbackCodes.includes(err.code)) {
-      await signInWithRedirect(auth, provider);
-      return;
-    }
+    const user = {
+      email:   payload.email,
+      name:    payload.name,
+      picture: payload.picture,
+      sub:     payload.sub
+    };
 
-    // 未授權網域：去 Firebase Console 加入 jiachang1112.github.io
-    if (err.code === "auth/unauthorized-domain") {
-      alert("未授權網域：請到 Firebase > Authentication > Settings > Authorized domains 加入 jiachang1112.github.io");
-      return;
-    }
+    writeSession(user);
 
-    // 其他錯誤：顯示 code 方便排查
-    alert(`登入失敗（${err.code}）：${err.message}`);
+    // 關閉 One Tap 並顯示歡迎
+    try { google.accounts.id.cancel(); } catch {}
+    showWelcomeChip(user.name);
+
+    // 讓你的 app 重新載入，切到有登入狀態（可改成只刷新區塊）
+    location.hash = '#dashboard';
+    location.reload();
+  } catch (e) {
+    console.error('解析 Google Token 失敗：', e);
+    alert('Google 登入解析失敗，請再試一次。');
   }
 }
 
-// Redirect 回來後，這裡會拿到結果
-getRedirectResult(auth).then((result) => {
-  if (result?.user) {
-    location.href = "./index.html";
+// ✅ 主畫面：帳號頁
+export function AuthPage() {
+  const el = document.createElement('div');
+  el.className = 'container card';
+
+  let user = readSession();
+
+  if (user) {
+    // 已登入畫面
+    el.innerHTML = `
+      <h3>帳號</h3>
+      <div class="row">
+        <img src="${user.picture || ''}" alt=""
+             style="width:40px;height:40px;border-radius:50%;
+             object-fit:cover;margin-right:8px">
+        <div>
+          <div><b>${user.name || ''}</b></div>
+          <div class="small">${user.email || ''}</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button class="ghost" id="logout">登出</button>
+        <a class="ghost" href="#dashboard">回首頁</a>
+      </div>
+    `;
+
+    // 登出：清 session → 叫出 One Tap → 刷新
+    el.querySelector('#logout').addEventListener('click', () => {
+      clearSession();
+      try { google.accounts.id.prompt(); } catch {}
+      location.reload();
+    });
+
+    // 也在左上角顯示歡迎膠囊（避免刷新後沒顯示）
+    showWelcomeChip(user.name);
+
+  } else {
+    // 未登入畫面：顯示 Google 登入按鈕容器（由 GSI 自動渲染）
+    el.innerHTML = `
+      <h3>帳號</h3>
+      <p class="small">請下方的 Google 登入按鈕登入。</p>
+
+      <div class="g_id_signin"
+           data-type="standard"
+           data-shape="rectangular"
+           data-theme="outline"
+           data-text="signin_with"
+           data-size="large"
+           data-logo_alignment="left"></div>
+
+      <a class="ghost" href="#dashboard">回首頁</a>
+    `;
   }
-}).catch((err) => {
-  console.error("Redirect 登入失敗：", err.code, err.message);
-  if (err.code === "auth/unauthorized-domain") {
-    alert("未授權網域：請到 Firebase > Authentication > Settings > Authorized domains 加入 jiachang1112.github.io");
+
+  return el;
+}
+
+/* ---------------------------- 初始化區塊 ---------------------------- */
+/* 這段建議放在 index.html 的 <script type="module" src="assets/js/app.js"> 之前或同檔，
+   只要在載入 AuthPage 之前執行一次即可 */
+
+window.addEventListener('load', () => {
+  // 先把自動選取登入關掉，避免殘留舊帳號
+  try { google.accounts.id.disableAutoSelect(); } catch {}
+
+  // 初始化 Google Identity Services
+  google.accounts.id.initialize({
+    client_id: "YOUR_GOOGLE_CLIENT_ID", // ← 改成你的 Client ID
+    callback: handleCredentialResponse,
+    auto_select: false,
+    cancel_on_tap_outside: true
+  });
+
+  const user = readSession();
+  if (user && user.name) {
+    // 已登入：顯示歡迎徽章，不叫 One Tap
+    showWelcomeChip(user.name);
+  } else {
+    // 未登入：叫出 One Tap 小膠囊
+    google.accounts.id.prompt();
   }
 });
 
-// ====== 簡單的 UI（沿用你現在那顆圓角按鈕） ======
-const style = document.createElement("style");
-style.textContent = `
-  .btn-google{display:inline-block;padding:.6rem 1.2rem;border:1px solid #e6e6e6;color:#e6e6e6;background:transparent;border-radius:999px;font-size:16px;line-height:1;transition:.2s}
-  .btn-google:hover{background:#e6e6e6;color:#0f1318}
-  .auth-card{max-width:460px;margin:40px auto}
-`;
-document.head.appendChild(style);
-
-function render(root){
-  root.innerHTML = `
-    <div class="card p-4 auth-card">
-      <h4 class="mb-3">帳號</h4>
-      <p class="text-muted">請點擊按鈕以 Google 登入。</p>
-      <div id="auth-area">
-        <button id="btn-google" class="btn-google">使用 Google 登入</button>
-      </div>
-      <a href="./index.html" class="btn btn-outline-secondary mt-3">回首頁</a>
-    </div>
-  `;
-  root.querySelector('#btn-google')?.addEventListener('click', loginWithGoogle);
-  onAuthStateChanged(auth, user=>{
-    if(user){
-      root.querySelector('#auth-area').innerHTML = `
-        <div class="alert alert-success d-flex align-items-center gap-2">
-          <span>已以 <strong>${user.displayName||user.email}</strong> 登入</span>
-          <button id="btn-logout" class="btn btn-sm btn-outline-light ms-auto">登出</button>
-        </div>`;
-      root.querySelector('#btn-logout')?.addEventListener('click', ()=>signOut(auth).then(()=>location.reload()));
-    }
-  });
-}
-
-export function AuthPage(host = document.getElementById('app')) {
-  if (!host) return;
-  render(host);
-}
-document.addEventListener('DOMContentLoaded', ()=>{
-  const root = document.getElementById('app');
-  if(root) AuthPage(root);
+// 只要 hash 換頁且未登入，就再嘗試叫出 One Tap（例如剛登出後轉跳頁籤）
+window.addEventListener('hashchange', () => {
+  try {
+    const user = readSession();
+    if (!user) { google.accounts.id.prompt(); }
+  } catch {}
 });
