@@ -1,22 +1,17 @@
 // assets/js/pages/auth.js
 
-// 1. 匯入 Firebase 相關功能
+// 1) Firestore
 import { db } from '../firebase.js';
 import {
-  doc, setDoc, serverTimestamp,
-  collection, addDoc
+  collection, addDoc, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-// 2. 這裡放你的 session 工具（readSession、writeSession、clearSession...）
+/* ------------------------------------------------------------------ */
+/* 你可以在這裡調整：只要出現在這個清單裡的 email，就視為 admin                   */
+/* ------------------------------------------------------------------ */
+const ADMIN_EMAILS = ['bruce9811123@gmail.com'];   // ← 換成你的清單（可多個）
 
-// 3. 這裡放 handleCredentialResponse（Google 登入回傳的地方）
-//    在裡面呼叫 upsertUser(user)
-
-// 4. export function AuthPage() { ... }   ← UI 畫面
-
-// 5. window.addEventListener('load', ...) ← 初始化 Google Identity
-
-// 小工具：安全讀取/寫入 session_user
+/* ------------------------- Session 小工具 -------------------------- */
 function readSession() {
   try { return JSON.parse(localStorage.getItem('session_user') || 'null'); }
   catch { return null; }
@@ -28,16 +23,40 @@ function clearSession() {
   localStorage.removeItem('session_user');
 }
 
-// 產生歡迎小膠囊（頁面左上角）
+/* ---------------------- UI：歡迎小膠囊（左上） --------------------- */
 function showWelcomeChip(name) {
   const anchor = document.getElementById('onetap-anchor');
   if (!anchor) return;
-  anchor.innerHTML =
-    `<div class="welcome-chip">👋 歡迎 ${name || ''}</div>`;
+  anchor.innerHTML = `<div class="welcome-chip">👋 歡迎 ${name || ''}</div>`;
 }
 
-// Google 回傳憑證（JWT）→ 解析出使用者（含中文姓名正確解碼）
-function handleCredentialResponse(response) {
+/* ------------------------- 寫入 Firestore ------------------------- */
+/** 將登入事件寫到 Firestore：login_logs + (admin_logs | user_logs) */
+async function logLoginToFirestore(user) {
+  const kind = ADMIN_EMAILS.includes(String(user.email || '').toLowerCase())
+    ? 'admin' : 'user';
+
+  const payload = {
+    uid:        user.sub || user.uid || '',       // GSI 的 sub 當成 uid
+    name:       user.name || '',
+    email:      user.email || '',
+    providerId: 'google.com',
+    ts:         serverTimestamp(),
+    userAgent:  navigator.userAgent || '',
+    kind,
+  };
+
+  // 統一記錄：login_logs
+  await addDoc(collection(db, 'login_logs'), payload);
+
+  // 依身份記錄：admin_logs 或 user_logs
+  const target = kind === 'admin' ? 'admin_logs' : 'user_logs';
+  await addDoc(collection(db, target), payload);
+}
+
+/* --------------------- Google One Tap 回呼 ------------------------ */
+/** Google 回傳憑證（JWT）→ 解析出使用者（含中文姓名正確解碼） */
+async function handleCredentialResponse(response) {
   try {
     const token = response.credential;
     const base64Url = token.split('.')[1];
@@ -49,37 +68,45 @@ function handleCredentialResponse(response) {
     );
     const payload = JSON.parse(json);
 
+    // GSI 使用者物件
     const user = {
       email:   payload.email,
       name:    payload.name,
       picture: payload.picture,
-      sub:     payload.sub
+      sub:     payload.sub,     // 當作 uid 使用
     };
 
+    // 寫 session、關閉 One Tap、顯示歡迎
     writeSession(user);
-
-    // 關閉 One Tap 並顯示歡迎
     try { google.accounts.id.cancel(); } catch {}
     showWelcomeChip(user.name);
+
+    // ✨ 寫入 Firestore（login_logs + admin/user_logs）
+    try {
+      await logLoginToFirestore(user);
+    } catch (err) {
+      console.warn('寫入登入紀錄失敗（不影響登入）：', err);
+    }
 
     // 讓你的 app 重新載入，切到有登入狀態（可改成只刷新區塊）
     location.hash = '#dashboard';
     location.reload();
+
   } catch (e) {
     console.error('解析 Google Token 失敗：', e);
     alert('Google 登入解析失敗，請再試一次。');
   }
 }
 
-// ✅ 主畫面：帳號頁
+/* --------------------------- 帳號頁 UI ---------------------------- */
 export function AuthPage() {
   const el = document.createElement('div');
   el.className = 'container card';
 
-  let user = readSession();
+  const user = readSession();
 
   if (user) {
-    // 已登入畫面
+    // 已登入
     el.innerHTML = `
       <h3>帳號</h3>
       <div class="row">
@@ -98,18 +125,18 @@ export function AuthPage() {
       </div>
     `;
 
-    // 登出：清 session → 叫出 One Tap → 刷新
+    // 登出
     el.querySelector('#logout').addEventListener('click', () => {
       clearSession();
       try { google.accounts.id.prompt(); } catch {}
       location.reload();
     });
 
-    // 也在左上角顯示歡迎膠囊（避免刷新後沒顯示）
+    // 避免刷新後沒顯示
     showWelcomeChip(user.name);
 
   } else {
-    // 未登入畫面：顯示 Google 登入按鈕容器（由 GSI 自動渲染）
+    // 未登入（由 GSI 自動渲染按鈕）
     el.innerHTML = `
       <h3>帳號</h3>
       <p class="small">請下方的 Google 登入按鈕登入。</p>
@@ -129,36 +156,30 @@ export function AuthPage() {
   return el;
 }
 
-/* ---------------------------- 初始化區塊 ---------------------------- */
-/* 這段建議放在 index.html 的 <script type="module" src="assets/js/app.js"> 之前或同檔，
-   只要在載入 AuthPage 之前執行一次即可 */
-
+/* --------------------------- 初始化 ------------------------------- */
+/* 這段建議放在載入 AuthPage 之前只要執行一次即可 */
 window.addEventListener('load', () => {
-  // 先把自動選取登入關掉，避免殘留舊帳號
   try { google.accounts.id.disableAutoSelect(); } catch {}
 
-  // 初始化 Google Identity Services
   google.accounts.id.initialize({
-    client_id: "YOUR_GOOGLE_CLIENT_ID", // ← 改成你的 Client ID
+    client_id: "YOUR_GOOGLE_CLIENT_ID", // ← 改成你的 GSI Client ID
     callback: handleCredentialResponse,
     auto_select: false,
-    cancel_on_tap_outside: true
+    cancel_on_tap_outside: true,
   });
 
   const user = readSession();
   if (user && user.name) {
-    // 已登入：顯示歡迎徽章，不叫 One Tap
     showWelcomeChip(user.name);
   } else {
-    // 未登入：叫出 One Tap 小膠囊
     google.accounts.id.prompt();
   }
 });
 
-// 只要 hash 換頁且未登入，就再嘗試叫出 One Tap（例如剛登出後轉跳頁籤）
+// 路由切換時，若未登入就再嘗試叫出 One Tap（例如剛登出後轉跳頁籤）
 window.addEventListener('hashchange', () => {
   try {
     const user = readSession();
-    if (!user) { google.accounts.id.prompt(); }
+    if (!user) google.accounts.id.prompt();
   } catch {}
 });
