@@ -1,4 +1,7 @@
 // assets/js/pages/auth.js
+// ----------------------------------------------------
+// 這版直接用 GIS 的 JWT 寫入 Firestore（不依賴 Firebase Auth）
+// ----------------------------------------------------
 
 // -------------------- Firebase --------------------
 import { db } from '../firebase.js';
@@ -7,7 +10,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
 // -------------------- 管理員白名單 --------------------
-const ADMIN_EMAILS = ['bruce9811123@gmail.com']; // ← 需要的話可多放幾個
+const ADMIN_EMAILS = ['bruce9811123@gmail.com']; // 需要的話可加更多
 
 // -------------------- session 小工具 --------------------
 function readSession() {
@@ -66,11 +69,14 @@ async function writeLoginLog(kind, u) {
 // -------------------- GIS callback：解析 JWT 並寫入 --------------------
 async function handleCredentialResponse(response) {
   try {
+    // 解析 Google JWT
     const token = response.credential;
     const base64Url = token.split('.')[1];
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const json = decodeURIComponent(
-      atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+      atob(base64).split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
     );
     const payload = JSON.parse(json);
 
@@ -85,7 +91,7 @@ async function handleCredentialResponse(response) {
     // 存到 session（讓 UI 顯示）
     writeSession(user);
 
-    // 決定寫到哪個集合
+    // 判斷 user / admin
     const email = (user.email || '').trim().toLowerCase();
     const kind  = ADMIN_EMAILS.includes(email) ? 'admin' : 'user';
 
@@ -100,6 +106,7 @@ async function handleCredentialResponse(response) {
     // 跳回首頁或你要的頁籤
     location.hash = '#dashboard';
     location.reload();
+
   } catch (e) {
     console.error('Google 登入解析/寫入失敗：', e);
     alert('登入失敗，請再試一次。詳細請看主控台 Console。');
@@ -113,6 +120,7 @@ export function AuthPage() {
 
   const user = readSession();
   if (user) {
+    // 已登入畫面
     el.innerHTML = `
       <h3>帳號</h3>
       <div class="row">
@@ -139,6 +147,7 @@ export function AuthPage() {
 
     showWelcomeChip(user.name);
   } else {
+    // 未登入畫面
     el.innerHTML = `
       <h3>帳號</h3>
       <p class="small">請下方的 Google 登入按鈕登入。</p>
