@@ -14,11 +14,12 @@
     .chip.down{background:#fce8e6;color:#c5221f}
     .mini-chart{width:100%;height:80px}
     .section-title{font-weight:600;color:#475569}
+    .news-item:hover{background:#f8fafc}
   </style>
 </head>
 <body class="p-4">
   <header class="d-flex justify-content-between align-items-center mb-4">
-    <h3 class="mb-0">📈 股票中心</h3>
+    <h3 class="mb-0">📈 股票中心（即時＋新聞＋CSV）</h3>
     <a href="https://jiachang1112.github.io/Website-Development/index.html" class="btn btn-outline-secondary">返回首頁</a>
   </header>
 
@@ -38,6 +39,18 @@
         <option value="changeAsc">漲跌幅↑</option>
       </select>
       <button id="refreshAll" class="btn btn-outline-primary">全部更新</button>
+    </div>
+  </div>
+
+  <!-- CSV 區塊 -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+      <div class="fw-semibold">📦 CSV 匯入/匯出</div>
+      <input id="csvFile" type="file" accept=".csv" class="form-control" style="max-width:300px;">
+      <button id="importCsvBtn" class="btn btn-success">匯入 CSV</button>
+      <button id="exportCsvBtn" class="btn btn-outline-secondary">匯出自選 CSV</button>
+      <a id="sampleCsvBtn" class="btn btn-link" download="symbols-sample.csv">下載範例</a>
+      <small class="text-muted">支援：<code>symbol,name</code>（含標題或不含皆可；每行一檔）</small>
     </div>
   </div>
 
@@ -77,27 +90,43 @@
     </div>
   </div>
 
-  <!-- 詳細視窗（全螢幕圖表） -->
+  <!-- 詳細視窗（全螢幕圖表＋即時 1m ＋ 新聞） -->
   <div id="stockModal" class="modal fade" tabindex="-1">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-fullscreen-lg-down">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="modalTitle">股票詳情</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
             <div>
               <h4 id="modalPrice" class="fw-bold mb-0">--</h4>
               <div id="modalChange" class="small text-muted"></div>
             </div>
-            <div class="btn-group">
-              <button class="btn btn-outline-secondary btn-sm" data-range="1d">1天</button>
-              <button class="btn btn-outline-secondary btn-sm" data-range="5d">1週</button>
-              <button class="btn btn-outline-secondary btn-sm active" data-range="1mo">1月</button>
+            <div class="d-flex gap-2 align-items-center">
+              <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-sm" data-range="1d" data-intv="1m">即時 1分</button>
+                <button class="btn btn-outline-secondary btn-sm" data-range="5d" data-intv="5m">1週</button>
+                <button class="btn btn-outline-secondary btn-sm active" data-range="1mo" data-intv="1d">1月</button>
+                <button class="btn btn-outline-secondary btn-sm" data-range="6mo" data-intv="1d">6月</button>
+                <button class="btn btn-outline-secondary btn-sm" data-range="1y" data-intv="1d">1年</button>
+              </div>
+              <div class="form-check ms-2">
+                <input class="form-check-input" type="checkbox" id="liveToggle">
+                <label class="form-check-label small" for="liveToggle">自動更新(30s)</label>
+              </div>
             </div>
           </div>
           <canvas id="modalChart" height="340"></canvas>
+
+          <hr class="my-4">
+
+          <div class="d-flex align-items-center mb-2">
+            <div class="section-title me-3 mb-0">最新新聞</div>
+            <small class="text-muted" id="newsHint">來源：Yahoo Finance</small>
+          </div>
+          <div id="newsList" class="list-group"></div>
         </div>
       </div>
     </div>
