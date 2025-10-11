@@ -1,6 +1,5 @@
 // assets/js/pages/login-logs.js
-// 進入頁面先檢查是否為管理員；通過才渲染「用戶登入 / 管理員登入」兩個分頁與表格
-// ✅ 已改成：用戶分頁讀取 user_logs、管理員分頁讀取 admin_logs
+// 只有管理員可看；分頁直接讀 user_logs / admin_logs 兩個集合
 
 import { auth, db } from '../firebase.js';
 import {
@@ -9,8 +8,8 @@ import {
   signInWithPopup,
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 import {
-  collection, query, where, orderBy, onSnapshot,
-  getDocs, startAfter, limit, Timestamp
+  collection, query, orderBy, onSnapshot,
+  getDocs, startAfter, limit, Timestamp, where
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
 const $  = (s,r=document)=>r.querySelector(s);
@@ -22,9 +21,9 @@ const toTW = ts => {
   }catch{ return '-'; }
 };
 
-/* ========= 你的管理員白名單（依需要增補） ========= */
-const ADMIN_EMAILS = ['bruce9811123@gmail.com'];   // ← 改成你的管理員 email 列表
-const ADMIN_UIDS   = [];                           // ← 如果要用 uid 也可填在這
+/* ========= 管理員白名單 ========= */
+const ADMIN_EMAILS = ['bruce9811123@gmail.com'];   // 需要就加
+const ADMIN_UIDS   = [];                            // 需要就加
 
 function isAdminUser(user){
   if (!user) return false;
@@ -64,7 +63,7 @@ export function LoginLogsPage(){
   root.className = 'logs-wrap';
   root.innerHTML = `
     <div class="kcard kpad" id="gate">
-      <div class="h5 m-0">登入紀錄</div>
+      <div class="h5 m-0">帳號</div>
       <div class="muted" id="gateTip">載入中…</div>
       <div class="mt-3 d-flex gap-2">
         <button class="btn btn-primary" id="btnGoogle" style="display:none">使用 Google 登入</button>
@@ -88,7 +87,7 @@ export function LoginLogsPage(){
     catch(e){ gateTip.textContent = e.message || '登入失敗'; }
   };
 
-  // 先做權限檢查
+  // 權限檢查
   onAuthStateChanged(auth, (user)=>{
     if (!user){
       gateTip.textContent = '請先使用 Google 登入才能查看此頁';
@@ -115,7 +114,7 @@ export function LoginLogsPage(){
   return root;
 }
 
-/* ========= 真正的紀錄頁 UI（分兩個集合） ========= */
+/* ========= 真正的紀錄頁 UI（直接讀 user_logs / admin_logs） ========= */
 function renderLogsUI(host){
   host.innerHTML = `
     <button class="btn btn-outline-light mb-3" id="backBtn">← 返回選單</button>
@@ -123,8 +122,8 @@ function renderLogsUI(host){
     <div class="kcard kpad">
       <div class="hd">
         <div>
-          <div class="h5 m-0">登入紀錄</div>
-          <div class="muted">即時顯示最近登入的使用者（最多 500 筆）</div>
+          <div class="h5 m-0" id="title">用戶登入紀錄</div>
+          <div class="muted">即時顯示登入的使用者（無上限）</div>
         </div>
         <div class="tabs">
           <div class="tab active" data-coll="user_logs">用戶登入</div>
@@ -163,25 +162,27 @@ function renderLogsUI(host){
   $('#backBtn', host).onclick = ()=> location.hash = '#home';
 
   const refs = {
-    tabs: $$('.tab', host),
-    kw:   $('#kw', host),
-    from: $('#from', host),
-    to:   $('#to', host),
-    clear:$('#clear', host),
-    csv:  $('#csvAll', host),
-    body: $('#tbody', host),
+    tabs:  $$('.tab', host),
+    title: $('#title', host),
+    kw:    $('#kw', host),
+    from:  $('#from', host),
+    to:    $('#to', host),
+    clear: $('#clear', host),
+    csv:   $('#csvAll', host),
+    body:  $('#tbody', host),
   };
 
-  // 🔁 這裡改成以「集合名稱」切換：'user_logs' | 'admin_logs'
-  let coll = 'user_logs';
+  let currentColl = 'user_logs';
   let unsub = null;
   let cache = [];
 
-  function buildQuery(_coll, range){
-    const col = collection(db, _coll);
+  // 依集合與日期範圍建立查詢
+  function buildQuery(coll, range){
+    const col = collection(db, coll);
     const wheres = [];
     if (range?.from) wheres.push(where('ts','>=', Timestamp.fromDate(range.from)));
     if (range?.to)   wheres.push(where('ts','<=', Timestamp.fromDate(range.to)));
+    // 注意：要用 ts 做篩選同時 orderBy('ts')，否則會報索引錯誤
     return query(col, ...wheres, orderBy('ts','desc'));
   }
 
@@ -193,7 +194,7 @@ function renderLogsUI(host){
     refs.body.innerHTML = `<tr><td colspan="6" class="muted">載入中…</td></tr>`;
 
     try{
-      const q = buildQuery(coll, {from, to});
+      const q = buildQuery(currentColl, {from, to});
       unsub = onSnapshot(q, snap=>{
         cache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
         render();
@@ -233,14 +234,20 @@ function renderLogsUI(host){
     t.onclick = ()=>{
       refs.tabs.forEach(x=>x.classList.remove('active'));
       t.classList.add('active');
-      coll = t.dataset.coll;   // 切換到 'user_logs' 或 'admin_logs'
+      currentColl = t.dataset.coll; // 'user_logs' | 'admin_logs'
+      refs.title.textContent = currentColl === 'admin_logs' ? '管理員登入紀錄' : '用戶登入紀錄';
       bind();
     };
   });
-  refs.kw.oninput   = render;
-  refs.clear.onclick = ()=>{ refs.kw.value=''; refs.from.value=''; refs.to.value=''; bind(); };
 
-  // 匯出全部（依目前分頁的集合）
+  refs.kw.oninput = render;
+
+  refs.clear.onclick = ()=>{
+    refs.kw.value=''; refs.from.value=''; refs.to.value='';
+    bind();
+  };
+
+  // 匯出全部
   refs.csv.onclick = async ()=>{
     refs.csv.disabled = true;
     try{
@@ -250,7 +257,7 @@ function renderLogsUI(host){
       const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
       const to   = refs.to.value   ? new Date(refs.to.value  +'T23:59:59') : null;
 
-      let q = buildQuery(coll, {from, to});
+      let q = buildQuery(currentColl, {from, to});
       let last = null;
       while (true){
         const page = last ? await getDocs(query(q, startAfter(last), limit(1000)))
@@ -273,12 +280,13 @@ function renderLogsUI(host){
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-      a.href = url; a.download = `login-logs-${coll}-${ts}.csv`;
+      const file = currentColl === 'admin_logs' ? 'admin' : 'user';
+      a.href = url; a.download = `login-logs-${file}-${ts}.csv`;
       document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }finally{
       refs.csv.disabled = false;
     }
   };
 
-  bind(); // 預設載入 user_logs（用戶登入）
+  bind(); // 預設載入「用戶登入」(user_logs)
 }
