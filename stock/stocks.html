@@ -3,148 +3,195 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SuperTool｜股票中心（Pro）</title>
-
-  <!-- 主題色（供圖表讀取） -->
+  <title>股票中心 Pro+</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     :root{
-      --color-bg:#f8fafc;
-      --color-card:#ffffff;
-      --color-text:#111827;
-      --color-muted:#6b7280;
-      --color-primary:#0069ff;
-      --color-primary-weak:rgba(0,105,255,.12);
-      --color-up:#34c759;
-      --color-down:#ff3b30;
-      --color-neutral:#a1a1aa;
-      --grid-line:#e5e7eb;
+      --bg:#f8fafc; --card:#fff; --text:#0f172a; --muted:#64748b;
+      --primary:#0ea5e9; --primary-weak:rgba(14,165,233,.15);
+      --up:#22c55e; --down:#ef4444; --neutral:#a1a1aa; --grid:#e5e7eb;
     }
     html[data-theme="dark"]{
-      --color-bg:#0b0f19;
-      --color-card:#0f172a;
-      --color-text:#f8fafc;
-      --color-muted:#94a3b8;
-      --color-primary:#3b82f6;
-      --color-primary-weak:rgba(59,130,246,.15);
-      --color-up:#22c55e;
-      --color-down:#ef4444;
-      --color-neutral:#6b7280;
-      --grid-line:#1f2937;
+      --bg:#0b0f19; --card:#0f172a; --text:#e5e7eb; --muted:#94a3b8;
+      --primary:#3b82f6; --primary-weak:rgba(59,130,246,.18);
+      --up:#22c55e; --down:#ef4444; --neutral:#6b7280; --grid:#1f2937;
     }
-    body { font-family: system-ui,"PingFang TC","Microsoft JhengHei",Arial; background:var(--color-bg); color:var(--color-text); }
-    .stock-card{border:1px solid #e5e7eb;border-radius:12px;padding:12px;height:100%;background:var(--color-card)}
-    .stock-symbol{font-weight:700}
-    .chip{padding:2px 8px;border-radius:999px;font-size:12px}
-    .chip.up{background:rgba(34,197,94,.15);color:var(--color-up)}
-    .chip.down{background:rgba(239,68,68,.15);color:var(--color-down)}
-    .mini-chart{width:100%;height:80px}
+    body{background:var(--bg);color:var(--text);font-family:system-ui,"PingFang TC","Microsoft JhengHei",Arial}
+    .topbar{gap:.5rem}
+    .stock-card{background:var(--card);border:1px solid #e5e7eb;border-radius:14px;padding:12px}
+    .stock-card .chip{padding:2px 8px;border-radius:999px;font-size:12px}
+    .chip.up{background:rgba(34,197,94,.12);color:var(--up)}
+    .chip.down{background:rgba(239,68,68,.12);color:var(--down)}
+    .mini{width:100%;height:80px}
     .section-title{font-weight:600;color:#475569}
-    .news-item:hover{background:rgba(148,163,184,.08)}
+    .nav-pills .nav-link.active{background:var(--primary)}
+    .dragging{opacity:.5}
+    .news-item:hover{background:rgba(148,163,184,.1)}
+    .tag{background:rgba(148,163,184,.15);color:var(--muted);border-radius:999px;padding:2px 8px;font-size:12px}
   </style>
-
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
 </head>
-<body class="p-4">
+<body class="p-3 p-md-4">
 
-  <header class="d-flex justify-content-between align-items-center mb-4">
-    <h3 class="mb-0">📈 股票中心（Pro）</h3>
-    <div class="d-flex gap-2">
-      <select id="themeSelect" class="form-select form-select-sm" style="width:120px;">
+  <header class="d-flex flex-wrap align-items-center justify-content-between mb-3 topbar">
+    <div class="d-flex align-items-center gap-2">
+      <h4 class="mb-0">📈 股票中心 Pro+</h4>
+      <span id="marketStatus" class="badge text-bg-secondary">—</span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <select id="theme" class="form-select form-select-sm" style="width:130px">
         <option value="light">亮色主題</option>
         <option value="dark">深色主題</option>
       </select>
-      <a href="https://jiachang1112.github.io/Website-Development/index.html" class="btn btn-outline-secondary btn-sm">返回首頁</a>
+      <a href="../index.html" class="btn btn-outline-secondary btn-sm">返回首頁</a>
     </div>
   </header>
 
-  <!-- 搜尋 & 工具列 -->
-  <div class="d-flex flex-wrap gap-2 mb-3">
-    <div class="input-group" style="max-width:520px;">
-      <input id="stockSearch" type="text" class="form-control" placeholder="搜尋：名稱或代號（例如 2330.TW / AAPL）">
-      <button id="stockSearchBtn" class="btn btn-outline-secondary">搜尋</button>
-    </div>
-    <div class="ms-auto d-flex gap-2">
-      <select id="sortSelect" class="form-select">
-        <option value="symbol">依代號</option>
-        <option value="name">依名稱</option>
-        <option value="priceDesc">價格↓</option>
-        <option value="priceAsc">價格↑</option>
-        <option value="changeDesc">漲跌幅↓</option>
-        <option value="changeAsc">漲跌幅↑</option>
-      </select>
-      <button id="refreshAll" class="btn btn-outline-primary">全部更新</button>
-    </div>
-  </div>
+  <!-- 分頁 -->
+  <ul class="nav nav-pills mb-3" id="tabs" role="tablist">
+    <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-overview">總覽</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-watch">自選</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-screener">掃描器</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-stats">統計</button></li>
+  </ul>
 
-  <!-- CSV / XLSX 區塊 -->
-  <div class="card shadow-sm mb-3" style="background:var(--color-card);">
-    <div class="card-body d-flex flex-wrap gap-3 align-items-center">
-      <div class="fw-semibold">📦 批次匯入/匯出</div>
-      <input id="csvFile" type="file" accept=".csv,.xlsx,.xls" class="form-control" style="max-width:320px;">
-      <button id="importCsvBtn" class="btn btn-success">匯入 CSV / XLSX</button>
-      <button id="exportCsvBtn" class="btn btn-outline-secondary">匯出自選 CSV</button>
-      <a id="sampleCsvBtn" class="btn btn-link" download="symbols-sample.csv">下載範例</a>
-      <small class="text-muted">
-        欄位：<code>symbol,name,logo</code>（<em>logo 可放圖片網址，選填</em>）
-      </small>
-    </div>
-  </div>
-
-  <!-- 搜尋結果 -->
-  <div class="mb-2 section-title">搜尋結果</div>
-  <div id="searchResults" class="row g-3"></div>
-
-  <hr class="my-4">
-
-  <!-- 自選清單 -->
-  <div class="d-flex align-items-center mb-2">
-    <div class="section-title me-3 mb-0">自選清單</div>
-    <small class="text-muted">資料儲存在本機（localStorage）</small>
-  </div>
-  <div id="watchlist" class="row g-3"></div>
-
-  <!-- 自選統計 -->
-  <div id="statsSection" class="mt-4" style="display:none;">
-    <div class="section-title mb-2">自選整體概況</div>
-    <div class="row g-3">
-      <div class="col-12 col-lg-5">
-        <div class="card shadow-sm" style="background:var(--color-card);">
-          <div class="card-body">
-            <div class="card-title fw-semibold">上漲 / 下跌 / 持平</div>
-            <canvas id="distChart" height="240"></canvas>
+  <div class="tab-content">
+    <!-- 總覽 -->
+    <div class="tab-pane fade show active" id="tab-overview">
+      <div class="row g-3">
+        <div class="col-lg-8">
+          <div class="card" style="background:var(--card)">
+            <div class="card-body">
+              <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <div class="input-group" style="max-width:560px">
+                  <input id="q" class="form-control" placeholder="搜尋名稱或代號（Ex: 2330.TW / AAPL）">
+                  <button id="btnSearch" class="btn btn-outline-secondary">搜尋</button>
+                </div>
+                <div class="d-flex gap-2">
+                  <select id="sort" class="form-select form-select-sm">
+                    <option value="symbol">依代號</option>
+                    <option value="name">依名稱</option>
+                    <option value="priceDesc">價格↓</option>
+                    <option value="priceAsc">價格↑</option>
+                    <option value="changeDesc">漲跌幅↓</option>
+                    <option value="changeAsc">漲跌幅↑</option>
+                  </select>
+                  <button id="refreshAll" class="btn btn-outline-primary btn-sm">全部更新</button>
+                </div>
+              </div>
+              <div id="searchResults" class="row g-3"></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <!-- 快速新增/批次匯入 -->
+          <div class="card mb-3" style="background:var(--card)">
+            <div class="card-body">
+              <div class="fw-semibold mb-2">📥 批次匯入 / 快速新增</div>
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <input id="file" type="file" accept=".csv,.xlsx,.xls" class="form-control" style="max-width:260px">
+                <button id="btnImport" class="btn btn-success btn-sm">匯入 CSV/XLSX</button>
+                <button id="btnExport" class="btn btn-outline-secondary btn-sm">匯出 CSV</button>
+                <a id="btnSample" class="btn btn-link btn-sm" download="symbols-sample.csv">範例</a>
+              </div>
+              <textarea id="bulkAdd" rows="3" class="form-control mb-2" placeholder="貼上：2330.TW AAPL MSFT ...（空白/逗號/換行皆可）"></textarea>
+              <div class="d-flex gap-2">
+                <input id="bulkTag" class="form-control form-control-sm" placeholder="給這批加上標籤（選填，如：長線）" style="max-width:240px">
+                <button id="btnBulkAdd" class="btn btn-primary btn-sm">加入自選</button>
+              </div>
+              <small class="text-muted">CSV/XLSX 欄位：<code>symbol,name,logo,tag</code></small>
+            </div>
+          </div>
+          <!-- 到價提醒 -->
+          <div class="card" style="background:var(--card)">
+            <div class="card-body">
+              <div class="fw-semibold mb-2">🔔 到價提醒</div>
+              <div class="row g-2">
+                <div class="col-5"><input id="alertSymbol" class="form-control form-control-sm" placeholder="代碼（AAPL / 2330.TW）"></div>
+                <div class="col-4"><input id="alertPrice" class="form-control form-control-sm" placeholder="價格"></div>
+                <div class="col-3 d-grid"><button id="btnAddAlert" class="btn btn-outline-primary btn-sm">新增</button></div>
+              </div>
+              <div class="mt-2 small text-muted">瀏覽器將每 30 秒刷新一次；允許通知可彈窗提醒。</div>
+              <ul id="alertList" class="list-group list-group-flush mt-2"></ul>
+            </div>
           </div>
         </div>
       </div>
-      <div class="col-12 col-lg-7">
-        <div class="card shadow-sm" style="background:var(--color-card);">
-          <div class="card-body">
-            <div class="card-title fw-semibold">漲跌幅 TOP 5</div>
-            <canvas id="moversChart" height="240"></canvas>
+    </div>
+
+    <!-- 自選清單 -->
+    <div class="tab-pane fade" id="tab-watch">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <span class="section-title">我的自選</span>
+        <span class="small text-muted">支援拖曳排序 / 標籤</span>
+      </div>
+      <div id="watchlist" class="row g-3"></div>
+    </div>
+
+    <!-- 掃描器 -->
+    <div class="tab-pane fade" id="tab-screener">
+      <div class="card" style="background:var(--card)">
+        <div class="card-body">
+          <div class="fw-semibold mb-2">🧪 簡易掃描器（本地）</div>
+          <div class="row g-2 mb-2">
+            <div class="col-6 col-md-3">
+              <label class="form-label small">漲跌幅 ≥</label>
+              <input id="scChange" type="number" step="0.1" class="form-control" placeholder="如 2">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small">成交量 ≥</label>
+              <input id="scVol" type="number" step="1000" class="form-control" placeholder="如 1000000">
+            </div>
+            <div class="col-12 col-md-3 d-grid">
+              <label class="form-label small invisible">_</label>
+              <button id="btnRunScan" class="btn btn-outline-primary">執行</button>
+            </div>
+          </div>
+          <div id="scanResults" class="row g-3"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 統計 -->
+    <div class="tab-pane fade" id="tab-stats">
+      <div class="row g-3">
+        <div class="col-lg-5">
+          <div class="card" style="background:var(--card)">
+            <div class="card-body">
+              <div class="fw-semibold">上漲 / 下跌 / 持平</div>
+              <canvas id="distChart" height="240"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-7">
+          <div class="card" style="background:var(--card)">
+            <div class="card-body">
+              <div class="fw-semibold">漲跌幅 TOP 5</div>
+              <canvas id="moversChart" height="240"></canvas>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 詳細視窗（全螢幕圖表＋即時 1m ＋ 新聞） -->
+  <!-- 詳細視窗（圖＋新聞） -->
   <div id="stockModal" class="modal fade" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-fullscreen-lg-down">
-      <div class="modal-content" style="background:var(--color-card);">
+      <div class="modal-content" style="background:var(--card)">
         <div class="modal-header">
-          <h5 class="modal-title" id="modalTitle">股票詳情</h5>
+          <h5 id="modalTitle" class="modal-title">詳情</h5>
           <div class="d-flex align-items-center gap-2">
-            <span id="marketBadge" class="badge text-bg-secondary">狀態</span>
+            <span id="marketBadge" class="badge text-bg-secondary">—</span>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
         </div>
         <div class="modal-body">
-          <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+          <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
             <div>
-              <h4 id="modalPrice" class="fw-bold mb-0">--</h4>
-              <div id="modalChange" class="small text-muted"></div>
+              <div id="modalPrice" class="fs-3 fw-bold">—</div>
+              <div id="modalChange" class="small text-muted">—</div>
             </div>
-            <div class="d-flex gap-2 align-items-center">
+            <div class="d-flex gap-2">
               <div class="btn-group">
                 <button class="btn btn-outline-secondary btn-sm" data-range="1d" data-intv="1m">即時 1分</button>
                 <button class="btn btn-outline-secondary btn-sm" data-range="5d" data-intv="5m">1週</button>
@@ -159,12 +206,10 @@
             </div>
           </div>
           <canvas id="modalChart" height="340"></canvas>
-
           <hr class="my-4">
-
-          <div class="d-flex align-items-center mb-2">
-            <div class="section-title me-3 mb-0">最新新聞</div>
-            <small class="text-muted" id="newsHint">來源：Yahoo Finance</small>
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="section-title">最新新聞</span>
+            <small class="text-muted">來源：Yahoo Finance</small>
           </div>
           <div id="newsList" class="list-group"></div>
         </div>
@@ -172,7 +217,7 @@
     </div>
   </div>
 
-  <!-- Libraries -->
+  <!-- Libs -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
