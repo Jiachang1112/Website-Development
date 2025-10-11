@@ -1,15 +1,11 @@
 // assets/js/pages/login-logs.js
-// 進入頁面先檢查是否為管理員；通過才渲染「用戶登入 / 管理員登入」兩個分頁與表格
+// 目標：行為與 UI 風格都與「訂單頁」一致，僅資料來源不同
+// 用戶登入 -> user_logs
+// 管理員登入 -> admin_logs
 
-import { auth, db } from '../firebase.js';
+import { db } from '../firebase.js';
 import {
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
-import {
-  collection, query, where, orderBy, onSnapshot,
-  getDocs, startAfter, limit, Timestamp
+  collection, query, where, orderBy, getDocs, Timestamp, startAfter, limit
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
 const $  = (s,r=document)=>r.querySelector(s);
@@ -18,127 +14,42 @@ const toTW = ts => {
   try{
     const d = ts?.toDate ? ts.toDate() : (ts instanceof Date ? ts : null);
     return d ? d.toLocaleString('zh-TW',{hour12:false}) : '-';
-  }catch{ return '-'; }
+  }catch{ return '-' }
 };
 
-/* ========= 你的管理員白名單（依需要增補） ========= */
-const ADMIN_EMAILS = ['bruce9811123@gmail.com'];   // ← 改成你的管理員 email 列表
-const ADMIN_UIDS   = [];                           // ← 如果要用 uid 也可填在這
-
-function isAdminUser(user){
-  if (!user) return false;
-  const email = (user.email||'').trim().toLowerCase();
-  const uid   = user.uid || '';
-  return ADMIN_EMAILS.includes(email) || ADMIN_UIDS.includes(uid);
-}
-
-/* ========= 樣式 ========= */
-function stylesOnce(){
-  if ($('#login-logs-css')) return;
-  const css = document.createElement('style');
-  css.id = 'login-logs-css';
-  css.textContent = `
-    .logs-wrap{max-width:1200px;margin:20px auto;padding:0 16px}
-    .kcard{background:var(--card,#151a21);border:1px solid var(--border,#2a2f37);
-          border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.2)}
-    .kpad{padding:16px}
-    .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-    .tabs{display:flex;gap:8px}
-    .tab{border:1px solid var(--border,#2a2f37);border-radius:999px;padding:.35rem .8rem;cursor:pointer}
-    .tab.active{outline:2px solid rgba(255,255,255,.25)}
-    .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
-    .table{width:100%}
-    .table th,.table td{padding:.6rem .75rem;border-bottom:1px solid var(--border,#2a2f37)}
-    .muted{color:var(--muted,#9aa3af)}
-    .btn{white-space:nowrap}
-  `;
-  document.head.appendChild(css);
-}
-
-/* ========= 主頁面（包含身分檢查） ========= */
+// --------- UI（和訂單頁同樣節奏） ---------
 export function LoginLogsPage(){
-  stylesOnce();
-
   const root = document.createElement('div');
-  root.className = 'logs-wrap';
+  root.className = 'container py-3';
+
   root.innerHTML = `
-    <div class="kcard kpad" id="gate">
-      <div class="h5 m-0">帳號</div>
-      <div class="muted" id="gateTip">載入中…</div>
-      <div class="mt-3 d-flex gap-2">
-        <button class="btn btn-primary" id="btnGoogle" style="display:none">使用 Google 登入</button>
-        <button class="btn btn-outline-light" id="btnBack" style="display:none">回首頁</button>
-      </div>
-    </div>
-    <div id="page" style="display:none"></div>
-  `;
-
-  const gate     = $('#gate', root);
-  const gateTip  = $('#gateTip', root);
-  const btnLogin = $('#btnGoogle', root);
-  const btnBack  = $('#btnBack', root);
-  const pageHost = $('#page', root);
-
-  btnBack.onclick = ()=> location.hash = '#home';
-
-  const provider = new GoogleAuthProvider();
-  btnLogin.onclick = async ()=>{
-    try{ await signInWithPopup(auth, provider); }
-    catch(e){ gateTip.textContent = e.message || '登入失敗'; }
-  };
-
-  // 先做權限檢查
-  onAuthStateChanged(auth, (user)=>{
-    if (!user){
-      gateTip.textContent = '請先使用 Google 登入才能查看此頁';
-      btnLogin.style.display = '';
-      btnBack.style.display  = '';
-      pageHost.style.display = 'none';
-      gate.style.display     = '';
-      return;
-    }
-    if (!isAdminUser(user)){
-      gateTip.textContent = '你沒有權限查看此頁（僅限管理員）。';
-      btnLogin.style.display = 'none';
-      btnBack.style.display  = '';
-      pageHost.style.display = 'none';
-      gate.style.display     = '';
-      return;
-    }
-    // 通過管理員檢查 → 渲染真正頁面
-    gate.style.display     = 'none';
-    pageHost.style.display = '';
-    renderLogsUI(pageHost);
-  });
-
-  return root;
-}
-
-/* ========= 真正的紀錄頁 UI（你原本的內容，未登入者不會看到） ========= */
-function renderLogsUI(host){
-  host.innerHTML = `
     <button class="btn btn-outline-light mb-3" id="backBtn">← 返回選單</button>
 
-    <div class="kcard kpad">
-      <div class="hd">
+    <div class="kcard kpad mb-3">
+      <div class="d-flex justify-content-between align-items-center">
         <div>
           <div class="h5 m-0">用戶登入紀錄</div>
-          <div class="muted">即時顯示登入的使用者（無上限）</div>
+          <div class="text-muted">即時顯示最近登入的使用者（最多 500 筆）</div>
         </div>
-        <div class="tabs">
-          <div class="tab active" data-kind="user">用戶登入</div>
-          <div class="tab" data-kind="admin">管理員登入</div>
+        <div class="d-flex gap-2">
+          <button id="tabUser"  class="btn btn-outline-light active">用戶登入</button>
+          <button id="tabAdmin" class="btn btn-outline-light">管理員登入</button>
         </div>
       </div>
+    </div>
 
-      <div class="toolbar">
-        <input id="kw"   class="form-control form-control-sm" placeholder="搜尋：姓名 / Email / UID">
+    <div class="kcard kpad">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <input id="kw"   class="form-control form-control-sm" placeholder="搜尋：姓名 / Email / UID" style="max-width:260px">
         <input id="from" type="date" class="form-control form-control-sm">
         <span class="align-self-center">～</span>
         <input id="to"   type="date" class="form-control form-control-sm">
+
+        <button id="apply" class="btn btn-sm btn-outline-secondary">套用</button>
         <button id="clear" class="btn btn-sm btn-outline-secondary">清除</button>
+
         <div class="flex-grow-1"></div>
-        <button id="csvAll" class="btn btn-sm btn-outline-light">匯出 CSV（全部）</button>
+        <button id="csvAll" class="btn btn-sm btn-outline-light">匯出 CSV</button>
       </div>
 
       <div class="table-responsive">
@@ -149,7 +60,7 @@ function renderLogsUI(host){
               <th style="width:160px">姓名</th>
               <th>Email</th>
               <th style="width:320px">UID</th>
-              <th style="width:140px">Provider</th>
+              <th style="width:120px">Provider</th>
               <th>User-Agent</th>
             </tr>
           </thead>
@@ -159,50 +70,73 @@ function renderLogsUI(host){
     </div>
   `;
 
-  $('#backBtn', host).onclick = ()=> location.hash = '#home';
+  $('#backBtn', root).onclick = ()=> location.hash = '#home';
 
   const refs = {
-    tabs: $$('.tab', host),
-    kw:   $('#kw', host),
-    from: $('#from', host),
-    to:   $('#to', host),
-    clear:$('#clear', host),
-    csv:  $('#csvAll', host),
-    body: $('#tbody', host),
+    tabUser:  $('#tabUser', root),
+    tabAdmin: $('#tabAdmin', root),
+    kw:    $('#kw', root),
+    from:  $('#from', root),
+    to:    $('#to', root),
+    apply: $('#apply', root),
+    clear: $('#clear', root),
+    csv:   $('#csvAll', root),
+    body:  $('#tbody', root),
   };
 
-  let kind = 'user';
-  let unsub = null;
-  let cache = [];
+  // 狀態
+  let currentColl = 'user_logs';  // 'user_logs' | 'admin_logs'
+  let cache = [];                 // 目前頁面的快取（用於關鍵字篩選）
+  let lastPageCursor = null;      // 若要做分頁可用，這邊先保留
 
-  function buildQuery(_kind, range){
-    const col = collection(db, 'login_logs');
-    const wheres = [ where('kind','==',_kind) ];
-    if (range?.from) wheres.push(where('ts','>=', Timestamp.fromDate(range.from)));
-    if (range?.to)   wheres.push(where('ts','<=', Timestamp.fromDate(range.to)));
-    return query(col, ...wheres, orderBy('ts','desc'));
+  // 分頁切換（和訂單頁的 tab 一樣）
+  refs.tabUser.onclick = ()=>{
+    switchTab('user_logs');
+  };
+  refs.tabAdmin.onclick = ()=>{
+    switchTab('admin_logs');
+  };
+
+  function switchTab(coll){
+    if (currentColl === coll) return;
+    currentColl = coll;
+    [refs.tabUser, refs.tabAdmin].forEach(btn=>btn.classList.remove('active'));
+    (coll === 'user_logs' ? refs.tabUser : refs.tabAdmin).classList.add('active');
+    bind(); // 重新載入
   }
 
-  function bind(){
-    const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
-    const to   = refs.to.value   ? new Date(refs.to.value  +'T23:59:59') : null;
+  // 查詢構建（和訂單頁一致：依集合 + 日期區間）
+  function buildQuery(range){
+    const colRef = collection(db, currentColl);
+    const wheres = [];
+    if (range?.from) wheres.push(where('ts','>=', Timestamp.fromDate(range.from)));
+    if (range?.to)   wheres.push(where('ts','<=', Timestamp.fromDate(range.to)));
+    return query(colRef, ...wheres, orderBy('ts','desc'));
+  }
 
-    if (unsub) { unsub(); unsub = null; }
-    refs.body.innerHTML = `<tr><td colspan="6" class="muted">載入中…</td></tr>`;
-
+  // 綁定查詢 + 渲染（與訂單頁節奏相同）
+  async function bind(){
     try{
-      const q = buildQuery(kind, {from, to});
-      unsub = onSnapshot(q, snap=>{
-        cache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
-        render();
-      });
+      refs.body.innerHTML = `<tr><td colspan="6" class="muted">載入中…</td></tr>`;
+
+      const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
+      const to   = refs.to.value   ? new Date(refs.to.value  +'T23:59:59') : null;
+
+      const q = buildQuery({from, to});
+      const snap = await getDocs(q);
+
+      cache = snap.docs.map(d=>({ id:d.id, v:d.data() || {} }));
+      render();
+
     }catch(e){
-      refs.body.innerHTML = `<tr><td colspan="6" class="text-danger">讀取失敗：${e.message}</td></tr>`;
+      console.error(e);
+      refs.body.innerHTML = `<tr><td colspan="6" class="text-danger">讀取失敗：${e.message || e}</td></tr>`;
     }
   }
 
   function render(){
     const kw = refs.kw.value.trim().toLowerCase();
+
     let arr = cache;
     if (kw){
       arr = arr.filter(({v})=>{
@@ -211,10 +145,12 @@ function renderLogsUI(host){
                (v.uid||'').toLowerCase().includes(kw);
       });
     }
+
     if (!arr.length){
-      refs.body.innerHTML = `<tr><td colspan="6" class="muted">沒有資料</td></tr>`;
+      refs.body.innerHTML = `<tr><td colspan="6" class="muted">沒有符合條件的資料</td></tr>`;
       return;
     }
+
     refs.body.innerHTML = arr.map(({v})=>`
       <tr>
         <td>${toTW(v.ts)}</td>
@@ -227,43 +163,35 @@ function renderLogsUI(host){
     `).join('');
   }
 
-  refs.tabs.forEach(t=>{
-    t.onclick = ()=>{
-      refs.tabs.forEach(x=>x.classList.remove('active'));
-      t.classList.add('active');
-      kind = t.dataset.kind;
-      bind();
-    };
-  });
-  refs.kw.oninput  = render;
+  // 事件（和訂單頁一致）
+  refs.apply.onclick = bind;
   refs.clear.onclick = ()=>{
-    refs.kw.value=''; refs.from.value=''; refs.to.value='';
+    refs.kw.value = '';
+    refs.from.value = '';
+    refs.to.value = '';
     bind();
   };
+  refs.kw.oninput = render;
 
-  // 匯出全部
   refs.csv.onclick = async ()=>{
-    refs.csv.disabled = true;
     try{
+      refs.csv.disabled = true;
+
       const header = ['時間','姓名','Email','UID','Provider','UserAgent'];
       const rows = [header];
 
       const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
       const to   = refs.to.value   ? new Date(refs.to.value  +'T23:59:59') : null;
 
-      let q = buildQuery(kind, {from, to});
-      let last = null;
-      while (true){
-        const page = last ? await getDocs(query(q, startAfter(last), limit(1000)))
-                          : await getDocs(query(q, limit(1000)));
-        if (page.empty) break;
-        page.forEach(d=>{
-          const v = d.data()||{};
-          rows.push([ toTW(v.ts), v.name||'', v.email||'', v.uid||'', v.providerId||'', v.userAgent||'' ]);
-        });
-        last = page.docs[page.docs.length-1];
-        if (page.size < 1000) break;
-      }
+      const q = buildQuery({from, to});
+      const snap = await getDocs(q);
+      snap.forEach(d=>{
+        const v = d.data()||{};
+        rows.push([
+          toTW(v.ts), v.name||'', v.email||'', v.uid||'',
+          v.providerId||'', v.userAgent||''
+        ]);
+      });
 
       const csv = rows.map(r=>r.map(x=>{
         const s = (x===undefined||x===null)? '' : String(x);
@@ -274,12 +202,18 @@ function renderLogsUI(host){
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-      a.href = url; a.download = `login-logs-${kind}-${ts}.csv`;
+      const kindLabel = currentColl==='admin_logs' ? 'admin' : 'user';
+      a.href = url; a.download = `login-logs-${kindLabel}-${ts}.csv`;
       document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+
+    }catch(e){
+      alert('匯出失敗：'+(e.message||e));
     }finally{
       refs.csv.disabled = false;
     }
   };
 
-  bind(); // 預設載入「用戶」分頁
+  // 初始載入（預設「用戶登入」）
+  bind();
+  return root;
 }
