@@ -1,32 +1,30 @@
 // assets/js/pages/login-logs.js
-// 只有管理員能看。分頁切換讀取 user_logs / admin_logs（不再使用 login_logs）
+// ✅ 完整版（改為讀取 user_logs / admin_logs）
+// ✅ 可即時切換分頁、搜尋、匯出 CSV
 
 import { auth, db } from '../firebase.js';
-
 import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
-
 import {
   collection, query, where, orderBy, onSnapshot,
   getDocs, startAfter, limit, Timestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-/* -------------------- 小工具 -------------------- */
 const $  = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
 const toTW = ts => {
   try{
     const d = ts?.toDate ? ts.toDate() : (ts instanceof Date ? ts : null);
-    return d ? d.toLocaleString('zh-TW', { hour12:false }) : '-';
+    return d ? d.toLocaleString('zh-TW',{hour12:false}) : '-';
   }catch{ return '-'; }
 };
 
-/* -------------------- 管理員白名單 -------------------- */
-const ADMIN_EMAILS = ['bruce9811123@gmail.com'];   // 需要就多放幾個
-const ADMIN_UIDS   = [];                            // 若想用 UID 也可填
+/* ========= 管理員白名單 ========= */
+const ADMIN_EMAILS = ['bruce9811123@gmail.com'];   // ← 改成你的管理員信箱
+const ADMIN_UIDS   = [];                           // ← 如果想用 UID 限制也可填
 
 function isAdminUser(user){
   if (!user) return false;
@@ -35,7 +33,7 @@ function isAdminUser(user){
   return ADMIN_EMAILS.includes(email) || ADMIN_UIDS.includes(uid);
 }
 
-/* -------------------- 單檔樣式（只掛一次） -------------------- */
+/* ========= 樣式 ========= */
 function stylesOnce(){
   if ($('#login-logs-css')) return;
   const css = document.createElement('style');
@@ -58,7 +56,7 @@ function stylesOnce(){
   document.head.appendChild(css);
 }
 
-/* -------------------- 導出主頁面（含權限檢查） -------------------- */
+/* ========= 主頁面（檢查登入身份） ========= */
 export function LoginLogsPage(){
   stylesOnce();
 
@@ -85,11 +83,9 @@ export function LoginLogsPage(){
   btnBack.onclick = ()=> location.hash = '#home';
 
   const provider = new GoogleAuthProvider();
-  btnLogin.onclick = async ()=>{
-    try{ await signInWithPopup(auth, provider); }
-    catch(e){ gateTip.textContent = e.message || '登入失敗'; }
-  };
+  btnLogin.onclick = async ()=>{ try{ await signInWithPopup(auth, provider); }catch(e){ gateTip.textContent = e.message || '登入失敗'; } };
 
+  // 驗證使用者
   onAuthStateChanged(auth, (user)=>{
     if (!user){
       gateTip.textContent = '請先使用 Google 登入才能查看此頁';
@@ -100,14 +96,14 @@ export function LoginLogsPage(){
       return;
     }
     if (!isAdminUser(user)){
-      gateTip.textContent = '你沒有權限查看此頁（僅限管理員）。';
+      gateTip.textContent = '你沒有權限查看此頁（僅限管理員）';
       btnLogin.style.display = 'none';
       btnBack.style.display  = '';
       pageHost.style.display = 'none';
       gate.style.display     = '';
       return;
     }
-    // 管理員 → 渲染真正頁面
+    // 通過管理員檢查 → 顯示頁面
     gate.style.display     = 'none';
     pageHost.style.display = '';
     renderLogsUI(pageHost);
@@ -116,7 +112,7 @@ export function LoginLogsPage(){
   return root;
 }
 
-/* -------------------- 內頁 UI（查詢 + 表格 + 匯出） -------------------- */
+/* ========= 主要頁面 UI ========= */
 function renderLogsUI(host){
   host.innerHTML = `
     <button class="btn btn-outline-light mb-3" id="backBtn">← 返回選單</button>
@@ -125,11 +121,11 @@ function renderLogsUI(host){
       <div class="hd">
         <div>
           <div class="h5 m-0">登入紀錄</div>
-          <div class="muted">請切換「用戶登入 / 管理員登入」，即時顯示（最多近 500 筆）</div>
+          <div class="muted">即時顯示登入的使用者</div>
         </div>
         <div class="tabs">
-          <div class="tab active" data-kind="user">用戶登入</div>
-          <div class="tab" data-kind="admin">管理員登入</div>
+          <div class="tab active" data-kind="user_logs">用戶登入</div>
+          <div class="tab" data-kind="admin_logs">管理員登入</div>
         </div>
       </div>
 
@@ -173,24 +169,20 @@ function renderLogsUI(host){
     body: $('#tbody', host),
   };
 
-  let kind  = 'user';   // 'user' | 'admin'  ← 由分頁切換
+  let currentColl = 'user_logs';  // 預設顯示 user_logs
   let unsub = null;
   let cache = [];
 
-  /* 依分頁與日期範圍建立查詢（選對集合） */
-  function buildQuery(_kind, range){
-    // ✅ 依分頁選擇集合：admin → admin_logs；user → user_logs
-    const collName = _kind === 'admin' ? 'admin_logs' : 'user_logs';
-    const col = collection(db, collName);
-
+  /* ========= 查詢函式 ========= */
+  function buildQuery(range){
+    const colRef = collection(db, currentColl);
     const wheres = [];
-    if (range?.from) wheres.push(where('ts','>=', Timestamp.fromDate(range.from)));
-    if (range?.to)   wheres.push(where('ts','<=', Timestamp.fromDate(range.to)));
-
-    // 集合已經分開，不需要再 where('kind','==', _kind)
-    return query(col, ...wheres, orderBy('ts','desc'));
+    if (range?.from) wheres.push(where('ts', '>=', Timestamp.fromDate(range.from)));
+    if (range?.to)   wheres.push(where('ts', '<=', Timestamp.fromDate(range.to)));
+    return query(colRef, ...wheres, orderBy('ts','desc'));
   }
 
+  /* ========= 資料綁定 ========= */
   function bind(){
     const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
     const to   = refs.to.value   ? new Date(refs.to.value  +'T23:59:59') : null;
@@ -199,7 +191,7 @@ function renderLogsUI(host){
     refs.body.innerHTML = `<tr><td colspan="6" class="muted">載入中…</td></tr>`;
 
     try{
-      const q = buildQuery(kind, {from, to});
+      const q = buildQuery({from, to});
       unsub = onSnapshot(q, snap=>{
         cache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
         render();
@@ -209,18 +201,19 @@ function renderLogsUI(host){
     }
   }
 
+  /* ========= 渲染資料 ========= */
   function render(){
     const kw = refs.kw.value.trim().toLowerCase();
     let arr = cache;
     if (kw){
-      arr = arr.filter(({v})=>{
-        return (v.name||'').toLowerCase().includes(kw) ||
-               (v.email||'').toLowerCase().includes(kw) ||
-               (v.uid||'').toLowerCase().includes(kw);
-      });
+      arr = arr.filter(({v})=>
+        (v.name||'').toLowerCase().includes(kw) ||
+        (v.email||'').toLowerCase().includes(kw) ||
+        (v.uid||'').toLowerCase().includes(kw)
+      );
     }
     if (!arr.length){
-      refs.body.innerHTML = `<tr><td colspan="6" class="muted">沒有資料</td></tr>`;
+      refs.body.innerHTML = `<tr><td colspan="6" class="muted">沒有符合條件的資料</td></tr>`;
       return;
     }
     refs.body.innerHTML = arr.map(({v})=>`
@@ -235,33 +228,28 @@ function renderLogsUI(host){
     `).join('');
   }
 
-  // 分頁切換
+  /* ========= 事件綁定 ========= */
   refs.tabs.forEach(t=>{
     t.onclick = ()=>{
       refs.tabs.forEach(x=>x.classList.remove('active'));
       t.classList.add('active');
-      kind = t.dataset.kind;   // 'user' 或 'admin'
+      currentColl = t.dataset.kind; // 改變目前查詢的集合
       bind();
     };
   });
+  refs.kw.oninput  = render;
+  refs.clear.onclick = ()=>{ refs.kw.value=''; refs.from.value=''; refs.to.value=''; bind(); };
 
-  refs.kw.oninput = render;
-  refs.clear.onclick = ()=>{
-    refs.kw.value=''; refs.from.value=''; refs.to.value='';
-    bind();
-  };
-
-  // 匯出全部（分頁與日期會跟 UI 一致）
+  /* ========= 匯出 CSV ========= */
   refs.csv.onclick = async ()=>{
     refs.csv.disabled = true;
     try{
       const header = ['時間','姓名','Email','UID','Provider','UserAgent'];
       const rows = [header];
-
       const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
       const to   = refs.to.value   ? new Date(refs.to.value  +'T23:59:59') : null;
 
-      let q = buildQuery(kind, {from, to});
+      let q = buildQuery({from,to});
       let last = null;
       while (true){
         const page = last ? await getDocs(query(q, startAfter(last), limit(1000)))
@@ -284,13 +272,12 @@ function renderLogsUI(host){
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-      a.href = url; a.download = `login-logs-${kind}-${ts}.csv`;
+      a.href = url; a.download = `login-logs-${currentColl}-${ts}.csv`;
       document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }finally{
       refs.csv.disabled = false;
     }
   };
 
-  // 預設載入「用戶登入」分頁
-  bind();
+  bind(); // 預設載入 user_logs
 }
