@@ -177,14 +177,17 @@ function renderLogsUI(host){
   let cache = [];
 
   // 依集合與日期範圍建立查詢
-  function buildQuery(coll, range){
-    const col = collection(db, coll);
-    const wheres = [];
-    if (range?.from) wheres.push(where('ts','>=', Timestamp.fromDate(range.from)));
-    if (range?.to)   wheres.push(where('ts','<=', Timestamp.fromDate(range.to)));
-    // 注意：要用 ts 做篩選同時 orderBy('ts')，否則會報索引錯誤
-    return query(col, ...wheres, orderBy('ts','desc'));
-  }
+  function buildQuery(_kind, range){
+  // ✅ 依分頁選擇對應集合
+  const collName = _kind === 'admin' ? 'admin_logs' : 'user_logs';
+  const col = collection(db, collName);
+
+  const wheres = [ where('kind','==',_kind) ];
+  if (range?.from) wheres.push(where('ts','>=', Timestamp.fromDate(range.from)));
+  if (range?.to)   wheres.push(where('ts','<=', Timestamp.fromDate(range.to)));
+
+  return query(col, ...wheres, orderBy('ts','desc'));
+}
 
   function bind(){
     const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
