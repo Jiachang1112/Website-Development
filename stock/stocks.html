@@ -1,26 +1,61 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" data-theme="light">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SuperTool｜股票中心</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>SuperTool｜股票中心（Pro）</title>
+
+  <!-- 主題色（供圖表讀取） -->
   <style>
-    body { font-family: system-ui, "PingFang TC","Microsoft JhengHei", Arial; background:#f8fafc; }
-    .stock-card{border:1px solid #e5e7eb;border-radius:12px;padding:12px;height:100%;background:#fff}
+    :root{
+      --color-bg:#f8fafc;
+      --color-card:#ffffff;
+      --color-text:#111827;
+      --color-muted:#6b7280;
+      --color-primary:#0069ff;
+      --color-primary-weak:rgba(0,105,255,.12);
+      --color-up:#34c759;
+      --color-down:#ff3b30;
+      --color-neutral:#a1a1aa;
+      --grid-line:#e5e7eb;
+    }
+    html[data-theme="dark"]{
+      --color-bg:#0b0f19;
+      --color-card:#0f172a;
+      --color-text:#f8fafc;
+      --color-muted:#94a3b8;
+      --color-primary:#3b82f6;
+      --color-primary-weak:rgba(59,130,246,.15);
+      --color-up:#22c55e;
+      --color-down:#ef4444;
+      --color-neutral:#6b7280;
+      --grid-line:#1f2937;
+    }
+    body { font-family: system-ui,"PingFang TC","Microsoft JhengHei",Arial; background:var(--color-bg); color:var(--color-text); }
+    .stock-card{border:1px solid #e5e7eb;border-radius:12px;padding:12px;height:100%;background:var(--color-card)}
     .stock-symbol{font-weight:700}
     .chip{padding:2px 8px;border-radius:999px;font-size:12px}
-    .chip.up{background:#e6f4ea;color:#137333}
-    .chip.down{background:#fce8e6;color:#c5221f}
+    .chip.up{background:rgba(34,197,94,.15);color:var(--color-up)}
+    .chip.down{background:rgba(239,68,68,.15);color:var(--color-down)}
     .mini-chart{width:100%;height:80px}
     .section-title{font-weight:600;color:#475569}
-    .news-item:hover{background:#f8fafc}
+    .news-item:hover{background:rgba(148,163,184,.08)}
   </style>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
 </head>
 <body class="p-4">
+
   <header class="d-flex justify-content-between align-items-center mb-4">
-    <h3 class="mb-0">📈 股票中心（即時＋新聞＋CSV）</h3>
-    <a href="https://jiachang1112.github.io/Website-Development/index.html" class="btn btn-outline-secondary">返回首頁</a>
+    <h3 class="mb-0">📈 股票中心（Pro）</h3>
+    <div class="d-flex gap-2">
+      <select id="themeSelect" class="form-select form-select-sm" style="width:120px;">
+        <option value="light">亮色主題</option>
+        <option value="dark">深色主題</option>
+      </select>
+      <a href="https://jiachang1112.github.io/Website-Development/index.html" class="btn btn-outline-secondary btn-sm">返回首頁</a>
+    </div>
   </header>
 
   <!-- 搜尋 & 工具列 -->
@@ -42,15 +77,17 @@
     </div>
   </div>
 
-  <!-- CSV 區塊 -->
-  <div class="card shadow-sm mb-3">
+  <!-- CSV / XLSX 區塊 -->
+  <div class="card shadow-sm mb-3" style="background:var(--color-card);">
     <div class="card-body d-flex flex-wrap gap-3 align-items-center">
-      <div class="fw-semibold">📦 CSV 匯入/匯出</div>
-      <input id="csvFile" type="file" accept=".csv" class="form-control" style="max-width:300px;">
-      <button id="importCsvBtn" class="btn btn-success">匯入 CSV</button>
+      <div class="fw-semibold">📦 批次匯入/匯出</div>
+      <input id="csvFile" type="file" accept=".csv,.xlsx,.xls" class="form-control" style="max-width:320px;">
+      <button id="importCsvBtn" class="btn btn-success">匯入 CSV / XLSX</button>
       <button id="exportCsvBtn" class="btn btn-outline-secondary">匯出自選 CSV</button>
       <a id="sampleCsvBtn" class="btn btn-link" download="symbols-sample.csv">下載範例</a>
-      <small class="text-muted">支援：<code>symbol,name</code>（含標題或不含皆可；每行一檔）</small>
+      <small class="text-muted">
+        欄位：<code>symbol,name,logo</code>（<em>logo 可放圖片網址，選填</em>）
+      </small>
     </div>
   </div>
 
@@ -63,7 +100,7 @@
   <!-- 自選清單 -->
   <div class="d-flex align-items-center mb-2">
     <div class="section-title me-3 mb-0">自選清單</div>
-    <small class="text-muted">已儲存於本機（localStorage）</small>
+    <small class="text-muted">資料儲存在本機（localStorage）</small>
   </div>
   <div id="watchlist" class="row g-3"></div>
 
@@ -72,7 +109,7 @@
     <div class="section-title mb-2">自選整體概況</div>
     <div class="row g-3">
       <div class="col-12 col-lg-5">
-        <div class="card shadow-sm">
+        <div class="card shadow-sm" style="background:var(--color-card);">
           <div class="card-body">
             <div class="card-title fw-semibold">上漲 / 下跌 / 持平</div>
             <canvas id="distChart" height="240"></canvas>
@@ -80,7 +117,7 @@
         </div>
       </div>
       <div class="col-12 col-lg-7">
-        <div class="card shadow-sm">
+        <div class="card shadow-sm" style="background:var(--color-card);">
           <div class="card-body">
             <div class="card-title fw-semibold">漲跌幅 TOP 5</div>
             <canvas id="moversChart" height="240"></canvas>
@@ -93,10 +130,13 @@
   <!-- 詳細視窗（全螢幕圖表＋即時 1m ＋ 新聞） -->
   <div id="stockModal" class="modal fade" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-fullscreen-lg-down">
-      <div class="modal-content">
+      <div class="modal-content" style="background:var(--color-card);">
         <div class="modal-header">
           <h5 class="modal-title" id="modalTitle">股票詳情</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <div class="d-flex align-items-center gap-2">
+            <span id="marketBadge" class="badge text-bg-secondary">狀態</span>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
         </div>
         <div class="modal-body">
           <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
@@ -132,9 +172,11 @@
     </div>
   </div>
 
-  <!-- JS libraries -->
+  <!-- Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <!-- App -->
   <script src="stocks.js"></script>
 </body>
