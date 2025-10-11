@@ -2,11 +2,12 @@
 // -------------------- Firebase --------------------
 import { db } from '../firebase.js';
 import {
-  doc, setDoc, serverTimestamp, collection, addDoc
+  doc, setDoc, serverTimestamp, collection, addDoc,
+  waitForPendingWrites
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
 // -------------------- 管理員白名單 --------------------
-const ADMIN_EMAILS = ['bruce9811123@gmail.com']; // 可自行增減
+const ADMIN_EMAILS = ['bruce9811123@gmail.com']; // ← 這些帳號會寫入 admin_logs
 
 // -------------------- session 小工具 --------------------
 function readSession() {
@@ -69,13 +70,11 @@ async function ensureLoginLogged(currentUser) {
   const email = (currentUser.email || '').trim().toLowerCase();
   const kind  = ADMIN_EMAILS.includes(email) ? 'admin' : 'user';
   if (alreadyLogged(kind)) return;           // 避免重覆寫
-  try {
-    await upsertUserProfile(currentUser);
-    await writeLoginLog(kind, currentUser);
-    markLogged(kind);
-  } catch (e) {
-    console.error('寫入登入紀錄失敗：', e);
-  }
+
+  await upsertUserProfile(currentUser);
+  await writeLoginLog(kind, currentUser);
+  await waitForPendingWrites(db); // ✅ 等 Firestore 寫入完成再繼續
+  markLogged(kind);
 }
 
 // -------------------- GIS callback：解析 JWT 並寫入 --------------------
@@ -100,13 +99,14 @@ async function handleCredentialResponse(response) {
 
     writeSession(user);
 
-    // 直接保險寫入一次（GIS 成功時）
+    // ✅ 寫入 Firestore 並等待完成
     await ensureLoginLogged(user);
 
+    // 關掉 OneTap 並顯示歡迎
     try { google.accounts.id.cancel(); } catch {}
     showWelcomeChip(user.name);
 
-    // 轉回首頁或你要的頁籤
+    // 轉回首頁或其他頁面
     location.hash = '#dashboard';
     location.reload();
   } catch (e) {
@@ -141,14 +141,12 @@ export function AuthPage() {
       </div>
     `;
 
-    // ✅ 如果頁面載入時就已經有 session（例如上次登入、或 One-Tap 被封鎖）
-    //    這裡再保險寫一次 user/admin logs（同一 session 不重覆）
-    ensureLoginLogged(user);
+    // 若上次登入資料存在，補寫一次（不 reload）
+    ensureLoginLogged(user).catch(console.error);
 
     el.querySelector('#logout').addEventListener('click', () => {
       clearSession();
       try { google.accounts.id.prompt(); } catch {}
-      // 清掉本 session 的「已寫入」旗標
       sessionStorage.removeItem('_login_written_user');
       sessionStorage.removeItem('_login_written_admin');
       location.reload();
@@ -174,12 +172,12 @@ export function AuthPage() {
   return el;
 }
 
-// -------------------- 初始化 GIS（載入一次即可） --------------------
+// -------------------- 初始化 GIS --------------------
 window.addEventListener('load', () => {
   try { google.accounts.id.disableAutoSelect(); } catch {}
 
   google.accounts.id.initialize({
-    client_id: 'YOUR_GOOGLE_CLIENT_ID',   // ← 換成你的 GIS Client ID
+    client_id: '577771534429-csromh0ttuk718chvgh66eqf6if3r5cg.apps.googleusercontent.com', // ✅ 你的 GIS Client ID
     callback: handleCredentialResponse,
     auto_select: false,
     cancel_on_tap_outside: true,
@@ -188,10 +186,9 @@ window.addEventListener('load', () => {
   const user = readSession();
   if (user?.name) {
     showWelcomeChip(user.name);
-    // ⚠️ 若先前就已登入但 One-Tap 被封鎖，這裡也會補寫一次
-    ensureLoginLogged(user);
+    ensureLoginLogged(user).catch(console.error);
   } else {
-    google.accounts.id.prompt(); // One-Tap；若被封鎖也不影響按鈕登入
+    google.accounts.id.prompt(); // One-Tap 登入
   }
 });
 
