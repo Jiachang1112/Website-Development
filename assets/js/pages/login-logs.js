@@ -1,29 +1,32 @@
 // assets/js/pages/login-logs.js
-// 只有管理員可看；分頁直接讀 user_logs / admin_logs 兩個集合
+// 只有管理員能看。分頁切換讀取 user_logs / admin_logs（不再使用 login_logs）
 
 import { auth, db } from '../firebase.js';
+
 import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
+
 import {
-  collection, query, orderBy, onSnapshot,
-  getDocs, startAfter, limit, Timestamp, where
+  collection, query, where, orderBy, onSnapshot,
+  getDocs, startAfter, limit, Timestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
+/* -------------------- 小工具 -------------------- */
 const $  = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
 const toTW = ts => {
   try{
     const d = ts?.toDate ? ts.toDate() : (ts instanceof Date ? ts : null);
-    return d ? d.toLocaleString('zh-TW',{hour12:false}) : '-';
+    return d ? d.toLocaleString('zh-TW', { hour12:false }) : '-';
   }catch{ return '-'; }
 };
 
-/* ========= 管理員白名單 ========= */
-const ADMIN_EMAILS = ['bruce9811123@gmail.com'];   // 需要就加
-const ADMIN_UIDS   = [];                            // 需要就加
+/* -------------------- 管理員白名單 -------------------- */
+const ADMIN_EMAILS = ['bruce9811123@gmail.com'];   // 需要就多放幾個
+const ADMIN_UIDS   = [];                            // 若想用 UID 也可填
 
 function isAdminUser(user){
   if (!user) return false;
@@ -32,7 +35,7 @@ function isAdminUser(user){
   return ADMIN_EMAILS.includes(email) || ADMIN_UIDS.includes(uid);
 }
 
-/* ========= 樣式 ========= */
+/* -------------------- 單檔樣式（只掛一次） -------------------- */
 function stylesOnce(){
   if ($('#login-logs-css')) return;
   const css = document.createElement('style');
@@ -55,7 +58,7 @@ function stylesOnce(){
   document.head.appendChild(css);
 }
 
-/* ========= 主頁面（包含身分檢查） ========= */
+/* -------------------- 導出主頁面（含權限檢查） -------------------- */
 export function LoginLogsPage(){
   stylesOnce();
 
@@ -87,7 +90,6 @@ export function LoginLogsPage(){
     catch(e){ gateTip.textContent = e.message || '登入失敗'; }
   };
 
-  // 權限檢查
   onAuthStateChanged(auth, (user)=>{
     if (!user){
       gateTip.textContent = '請先使用 Google 登入才能查看此頁';
@@ -105,7 +107,7 @@ export function LoginLogsPage(){
       gate.style.display     = '';
       return;
     }
-    // 通過管理員檢查 → 渲染真正頁面
+    // 管理員 → 渲染真正頁面
     gate.style.display     = 'none';
     pageHost.style.display = '';
     renderLogsUI(pageHost);
@@ -114,7 +116,7 @@ export function LoginLogsPage(){
   return root;
 }
 
-/* ========= 真正的紀錄頁 UI（直接讀 user_logs / admin_logs） ========= */
+/* -------------------- 內頁 UI（查詢 + 表格 + 匯出） -------------------- */
 function renderLogsUI(host){
   host.innerHTML = `
     <button class="btn btn-outline-light mb-3" id="backBtn">← 返回選單</button>
@@ -122,12 +124,12 @@ function renderLogsUI(host){
     <div class="kcard kpad">
       <div class="hd">
         <div>
-          <div class="h5 m-0" id="title">用戶登入紀錄</div>
-          <div class="muted">即時顯示登入的使用者（無上限）</div>
+          <div class="h5 m-0">登入紀錄</div>
+          <div class="muted">請切換「用戶登入 / 管理員登入」，即時顯示（最多近 500 筆）</div>
         </div>
         <div class="tabs">
-          <div class="tab active" data-coll="user_logs">用戶登入</div>
-          <div class="tab" data-coll="admin_logs">管理員登入</div>
+          <div class="tab active" data-kind="user">用戶登入</div>
+          <div class="tab" data-kind="admin">管理員登入</div>
         </div>
       </div>
 
@@ -162,32 +164,32 @@ function renderLogsUI(host){
   $('#backBtn', host).onclick = ()=> location.hash = '#home';
 
   const refs = {
-    tabs:  $$('.tab', host),
-    title: $('#title', host),
-    kw:    $('#kw', host),
-    from:  $('#from', host),
-    to:    $('#to', host),
-    clear: $('#clear', host),
-    csv:   $('#csvAll', host),
-    body:  $('#tbody', host),
+    tabs: $$('.tab', host),
+    kw:   $('#kw', host),
+    from: $('#from', host),
+    to:   $('#to', host),
+    clear:$('#clear', host),
+    csv:  $('#csvAll', host),
+    body: $('#tbody', host),
   };
 
-  let currentColl = 'user_logs';
+  let kind  = 'user';   // 'user' | 'admin'  ← 由分頁切換
   let unsub = null;
   let cache = [];
 
-  // 依集合與日期範圍建立查詢
+  /* 依分頁與日期範圍建立查詢（選對集合） */
   function buildQuery(_kind, range){
-  // ✅ 依分頁選擇對應集合
-  const collName = _kind === 'admin' ? 'admin_logs' : 'user_logs';
-  const col = collection(db, collName);
+    // ✅ 依分頁選擇集合：admin → admin_logs；user → user_logs
+    const collName = _kind === 'admin' ? 'admin_logs' : 'user_logs';
+    const col = collection(db, collName);
 
-  const wheres = [ where('kind','==',_kind) ];
-  if (range?.from) wheres.push(where('ts','>=', Timestamp.fromDate(range.from)));
-  if (range?.to)   wheres.push(where('ts','<=', Timestamp.fromDate(range.to)));
+    const wheres = [];
+    if (range?.from) wheres.push(where('ts','>=', Timestamp.fromDate(range.from)));
+    if (range?.to)   wheres.push(where('ts','<=', Timestamp.fromDate(range.to)));
 
-  return query(col, ...wheres, orderBy('ts','desc'));
-}
+    // 集合已經分開，不需要再 where('kind','==', _kind)
+    return query(col, ...wheres, orderBy('ts','desc'));
+  }
 
   function bind(){
     const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
@@ -197,7 +199,7 @@ function renderLogsUI(host){
     refs.body.innerHTML = `<tr><td colspan="6" class="muted">載入中…</td></tr>`;
 
     try{
-      const q = buildQuery(currentColl, {from, to});
+      const q = buildQuery(kind, {from, to});
       unsub = onSnapshot(q, snap=>{
         cache = snap.docs.map(d=>({ id:d.id, v:d.data()||{} }));
         render();
@@ -233,24 +235,23 @@ function renderLogsUI(host){
     `).join('');
   }
 
+  // 分頁切換
   refs.tabs.forEach(t=>{
     t.onclick = ()=>{
       refs.tabs.forEach(x=>x.classList.remove('active'));
       t.classList.add('active');
-      currentColl = t.dataset.coll; // 'user_logs' | 'admin_logs'
-      refs.title.textContent = currentColl === 'admin_logs' ? '管理員登入紀錄' : '用戶登入紀錄';
+      kind = t.dataset.kind;   // 'user' 或 'admin'
       bind();
     };
   });
 
   refs.kw.oninput = render;
-
   refs.clear.onclick = ()=>{
     refs.kw.value=''; refs.from.value=''; refs.to.value='';
     bind();
   };
 
-  // 匯出全部
+  // 匯出全部（分頁與日期會跟 UI 一致）
   refs.csv.onclick = async ()=>{
     refs.csv.disabled = true;
     try{
@@ -260,7 +261,7 @@ function renderLogsUI(host){
       const from = refs.from.value ? new Date(refs.from.value+'T00:00:00') : null;
       const to   = refs.to.value   ? new Date(refs.to.value  +'T23:59:59') : null;
 
-      let q = buildQuery(currentColl, {from, to});
+      let q = buildQuery(kind, {from, to});
       let last = null;
       while (true){
         const page = last ? await getDocs(query(q, startAfter(last), limit(1000)))
@@ -283,13 +284,13 @@ function renderLogsUI(host){
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-      const file = currentColl === 'admin_logs' ? 'admin' : 'user';
-      a.href = url; a.download = `login-logs-${file}-${ts}.csv`;
+      a.href = url; a.download = `login-logs-${kind}-${ts}.csv`;
       document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }finally{
       refs.csv.disabled = false;
     }
   };
 
-  bind(); // 預設載入「用戶登入」(user_logs)
+  // 預設載入「用戶登入」分頁
+  bind();
 }
