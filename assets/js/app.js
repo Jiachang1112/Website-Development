@@ -13,7 +13,6 @@ import { AuthPage } from './pages/auth.js';
 import { ExpenseMinePage } from './pages/expense-mine.js';
 import { ExpenseDetailPage } from './pages/expense-detail.js';
 import { ExpenseAnalysisPage } from './pages/expense-analysis.js';
-import { BookPage } from './pages/book.js';
 
 
 export const fmt={
