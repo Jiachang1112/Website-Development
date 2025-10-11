@@ -1,6 +1,6 @@
 // assets/js/pages/login-logs.js
-// 讀取 Firestore 的 user_logs（用戶登入）/ admin_logs（管理員登入）兩個集合
-// 提供：用戶登入 / 管理員登入 分頁、關鍵字搜尋、日期範圍、即時監聽、CSV 匯出
+// 進入頁面先檢查是否為管理員；通過才渲染「用戶登入 / 管理員登入」兩個分頁與表格
+// ✅ 已改成：用戶分頁讀取 user_logs、管理員分頁讀取 admin_logs
 
 import { auth, db } from '../firebase.js';
 import {
@@ -22,12 +22,15 @@ const toTW = ts => {
   }catch{ return '-'; }
 };
 
-/* ========= 管理員白名單（只有管理員能看這頁；若不想限制可直接 return true） ========= */
-const ADMIN_EMAILS = ['bruce9811123@gmail.com'];     // ← 換成你的管理員 email
+/* ========= 你的管理員白名單（依需要增補） ========= */
+const ADMIN_EMAILS = ['bruce9811123@gmail.com'];   // ← 改成你的管理員 email 列表
+const ADMIN_UIDS   = [];                           // ← 如果要用 uid 也可填在這
+
 function isAdminUser(user){
   if (!user) return false;
   const email = (user.email||'').trim().toLowerCase();
-  return ADMIN_EMAILS.includes(email);
+  const uid   = user.uid || '';
+  return ADMIN_EMAILS.includes(email) || ADMIN_UIDS.includes(uid);
 }
 
 /* ========= 樣式 ========= */
@@ -37,17 +40,17 @@ function stylesOnce(){
   css.id = 'login-logs-css';
   css.textContent = `
     .logs-wrap{max-width:1200px;margin:20px auto;padding:0 16px}
-    .kcard{background:#151a21;border:1px solid #2a2f37;border-radius:16px;
-          box-shadow:0 6px 24px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.2)}
+    .kcard{background:var(--card,#151a21);border:1px solid var(--border,#2a2f37);
+          border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.2)}
     .kpad{padding:16px}
     .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
     .tabs{display:flex;gap:8px}
-    .tab{border:1px solid #2a2f37;border-radius:999px;padding:.35rem .8rem;cursor:pointer}
+    .tab{border:1px solid var(--border,#2a2f37);border-radius:999px;padding:.35rem .8rem;cursor:pointer}
     .tab.active{outline:2px solid rgba(255,255,255,.25)}
     .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
     .table{width:100%}
-    .table th,.table td{padding:.6rem .75rem;border-bottom:1px solid #2a2f37}
-    .muted{color:#9aa3af}
+    .table th,.table td{padding:.6rem .75rem;border-bottom:1px solid var(--border,#2a2f37)}
+    .muted{color:var(--muted,#9aa3af)}
     .btn{white-space:nowrap}
   `;
   document.head.appendChild(css);
@@ -65,7 +68,7 @@ export function LoginLogsPage(){
       <div class="muted" id="gateTip">載入中…</div>
       <div class="mt-3 d-flex gap-2">
         <button class="btn btn-primary" id="btnGoogle" style="display:none">使用 Google 登入</button>
-        <button class="btn btn-outline-light" id="btnBack" style="display:none">返回選單</button>
+        <button class="btn btn-outline-light" id="btnBack" style="display:none">回首頁</button>
       </div>
     </div>
     <div id="page" style="display:none"></div>
@@ -77,12 +80,15 @@ export function LoginLogsPage(){
   const btnBack  = $('#btnBack', root);
   const pageHost = $('#page', root);
 
-  btnBack.onclick = ()=> location.hash = '#admin'; // ← 返回你的後台頁籤
+  btnBack.onclick = ()=> location.hash = '#home';
 
   const provider = new GoogleAuthProvider();
-  btnLogin.onclick = async ()=>{ try{ await signInWithPopup(auth, provider); } catch(e){ gateTip.textContent = e.message || '登入失敗'; } };
+  btnLogin.onclick = async ()=>{
+    try{ await signInWithPopup(auth, provider); }
+    catch(e){ gateTip.textContent = e.message || '登入失敗'; }
+  };
 
-  // 權限檢查
+  // 先做權限檢查
   onAuthStateChanged(auth, (user)=>{
     if (!user){
       gateTip.textContent = '請先使用 Google 登入才能查看此頁';
@@ -100,7 +106,7 @@ export function LoginLogsPage(){
       gate.style.display     = '';
       return;
     }
-    // 通過檢查 → 渲染真正頁面
+    // 通過管理員檢查 → 渲染真正頁面
     gate.style.display     = 'none';
     pageHost.style.display = '';
     renderLogsUI(pageHost);
@@ -109,7 +115,7 @@ export function LoginLogsPage(){
   return root;
 }
 
-/* ========= 真正的紀錄頁 UI ========= */
+/* ========= 真正的紀錄頁 UI（分兩個集合） ========= */
 function renderLogsUI(host){
   host.innerHTML = `
     <button class="btn btn-outline-light mb-3" id="backBtn">← 返回選單</button>
@@ -154,7 +160,7 @@ function renderLogsUI(host){
     </div>
   `;
 
-  $('#backBtn', host).onclick = ()=> location.hash = '#admin';
+  $('#backBtn', host).onclick = ()=> location.hash = '#home';
 
   const refs = {
     tabs: $$('.tab', host),
@@ -166,7 +172,8 @@ function renderLogsUI(host){
     body: $('#tbody', host),
   };
 
-  let coll = 'user_logs';      // 預設先看用戶登入
+  // 🔁 這裡改成以「集合名稱」切換：'user_logs' | 'admin_logs'
+  let coll = 'user_logs';
   let unsub = null;
   let cache = [];
 
@@ -226,14 +233,14 @@ function renderLogsUI(host){
     t.onclick = ()=>{
       refs.tabs.forEach(x=>x.classList.remove('active'));
       t.classList.add('active');
-      coll = t.dataset.coll;  // 'user_logs' | 'admin_logs'
+      coll = t.dataset.coll;   // 切換到 'user_logs' 或 'admin_logs'
       bind();
     };
   });
   refs.kw.oninput   = render;
   refs.clear.onclick = ()=>{ refs.kw.value=''; refs.from.value=''; refs.to.value=''; bind(); };
 
-  // 匯出全部
+  // 匯出全部（依目前分頁的集合）
   refs.csv.onclick = async ()=>{
     refs.csv.disabled = true;
     try{
@@ -273,5 +280,5 @@ function renderLogsUI(host){
     }
   };
 
-  bind(); // 預設載入「用戶登入」分頁
+  bind(); // 預設載入 user_logs（用戶登入）
 }
