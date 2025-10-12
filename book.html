@@ -4,39 +4,80 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SuperTool｜記帳</title>
-  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="icon" href="assets/img/icon.png">
   <style>
-    body { font-family: system-ui; background: #0f141a; color: #fff; margin: 0; padding: 24px; }
-    .wrap { max-width: 1080px; margin: 0 auto; }
-    h1 { font-size: 1.8rem; margin-bottom: 4px; }
-    .muted { color: #9aa3af; margin-bottom: 24px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(250px,1fr)); gap: 16px; }
-    .card {
-      background: #1b222c; border: 1px solid #2b313a; border-radius: 16px;
-      padding: 20px; cursor: pointer; transition: transform .1s ease, box-shadow .2s;
+    body {
+      font-family: system-ui;
+      background: #0f141a;
+      color: #fff;
+      margin: 0;
+      padding: 24px;
     }
-    .card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.25); }
-    .title { font-weight: 700; margin-bottom: 8px; }
-    .desc { color: #9aa3af; font-size: .9rem; }
-    .back { margin-top: 40px; display: inline-block; color: #60a5fa; text-decoration: none; }
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 4px;
+    }
+    .muted {
+      color: #9aa3af;
+      margin-bottom: 24px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+    }
+    .card {
+      background: #1b222c;
+      border: 1px solid #2b313a;
+      border-radius: 18px;
+      padding: 24px;
+      cursor: pointer;
+      transition: transform .1s ease, box-shadow .2s;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0,0,0,.25);
+    }
+    .title {
+      font-weight: 700;
+      margin-bottom: 8px;
+      font-size: 1.2rem;
+    }
+    .desc {
+      color: #9aa3af;
+      font-size: .9rem;
+    }
+    .back {
+      margin-top: 40px;
+      display: inline-block;
+      color: #60a5fa;
+      text-decoration: none;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>記帳</h1>
-    <div class="muted">選擇記帳方式</div>
+    <div class="muted">選擇你想使用的記帳方式</div>
+
     <div class="grid">
-      <div class="card" onclick="location.href='assets/js/pages/expense.html'">
-        <div class="title">支出</div>
-        <div class="desc">輸入品項、分類與金額以新增支出</div>
+      <div class="card" onclick="location.href='https://jiachang1112.github.io/Website-Development/#expense'">
+        <div class="title">支出記帳</div>
+        <div class="desc">輸入品項、分類與金額，快速新增一筆支出</div>
       </div>
-      <div class="card" onclick="location.href='assets/js/pages/chatbook.html'">
+
+      <div class="card" onclick="location.href='https://jiachang1112.github.io/Website-Development/#chatbook'">
         <div class="title">聊天記帳</div>
-        <div class="desc">用自然語句輸入「午餐 120」快速記帳</div>
+        <div class="desc">像聊天一樣輸入：「早餐 65」，系統自動記錄</div>
       </div>
-      <div class="card" onclick="location.href='assets/js/pages/camera-expense.html'">
+
+      <div class="card" onclick="location.href='https://jiachang1112.github.io/Website-Development/#camera'">
         <div class="title">拍照記帳</div>
-        <div class="desc">拍下收據，自動辨識金額與品項</div>
+        <div class="desc">拍收據自動辨識金額與項目，省下手動輸入</div>
       </div>
     </div>
 
