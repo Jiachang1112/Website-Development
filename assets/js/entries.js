@@ -48,3 +48,17 @@ export async function getRecentEntriesForEmail(email = getSignedEmail(), n = 10)
   const snap = await getDocs(q);
   return snap.docs.map(d=>d.data());
 }
+// 取得一段日期範圍內的所有 entries（依 date 排序）
+export async function getEntriesRangeForEmail(email, from, to){
+  if (!email) return [];
+  const colRef = collection(doc(db, 'expenses', email), 'entries');
+  // date 是 "YYYY-MM-DD" 字串，可用字串比較
+  const q = query(
+    colRef,
+    where('date','>=', from),
+    where('date','<=', to),
+    orderBy('date','asc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
+}
