@@ -1,7 +1,8 @@
 // assets/js/app.js
 import { GOOGLE_CLIENT_ID, ADMIN_EMAILS } from './config.js';
+// 若之後需要用到離線資料/工具再開啟
+// import { getAll } from './db.js';
 
-// 頁面元件
 import { DashboardPage }        from './pages/dashboard.js';
 import { ExpensePage }          from './pages/expense.js';
 import { IncomePage }           from './pages/income.js';
@@ -15,7 +16,6 @@ import { AuthPage }             from './pages/auth.js';
 import { ExpenseMinePage }      from './pages/expense-mine.js';
 import { ExpenseDetailPage }    from './pages/expense-detail.js';
 import { ExpenseAnalysisPage }  from './pages/expense-analysis.js';
-import { ChartPage }            from './pages/chart.js';   // ✅ 新增統計頁
 
 // ----------------------------------------------------
 // Formatter
@@ -51,10 +51,6 @@ const routes = {
   acct_mine:       ExpenseMinePage,
   acct_detail:     ExpenseDetailPage,
   acct_analysis:   ExpenseAnalysisPage,
-
-  // ✅ 統計頁路由
-  chart:           ChartPage,
-  charts:          ChartPage,           // 別名，避免拼法不同
 };
 
 // ----------------------------------------------------
@@ -78,13 +74,11 @@ function render() {
 }
 
 window.addEventListener('hashchange', render);
-window.addEventListener('DOMContentLoaded', render);
 
 // 支援 data-route 點擊導覽（header / 按鈕）
-// ✅ 使用 closest，可點擊到按鈕內層元素也能導頁
 document.addEventListener('click', (e) => {
-  const t = e.target && e.target.closest && e.target.closest('[data-route]');
-  if (t) {
+  const t = e.target;
+  if (t && t.getAttribute && t.hasAttribute('data-route')) {
     const r = t.getAttribute('data-route');
     if (r) {
       location.hash = '#' + r;
@@ -92,6 +86,9 @@ document.addEventListener('click', (e) => {
     }
   }
 });
+
+// 首次渲染
+render();
 
 // ----------------------------------------------------
 // FAB 快捷
