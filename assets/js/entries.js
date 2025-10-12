@@ -1,61 +1,50 @@
 // assets/js/entries.js
-// 依「使用者 email」分流到 Firestore: expenses/{email}/entries
-
 import { db } from './firebase.js';
 import {
-  doc, collection, addDoc, serverTimestamp,
-  query, where, limit, getDocs
+  doc, collection, addDoc, getDocs, query, where, orderBy, limit,
+  serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
-
-// 從你的 app 讀取 session_user；抓不到就直接讀 localStorage 再兜一次
-import { currentUser } from './app.js';
 
 function getSignedEmail() {
   try {
-    const u = currentUser?.() || JSON.parse(localStorage.getItem('session_user') || 'null');
+    const u = window.session_user || JSON.parse(localStorage.getItem('session_user')||'null');
     return u?.email || null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-/**
- * 新增一筆記帳到 expenses/{email}/entries
- * @param {Object} payload
- * @param {'expense'|'income'} payload.type
- * @param {number|string} payload.amount
- * @param {string|null} payload.categoryId
- * @param {string} payload.note
- * @param {string} payload.date YYYY-MM-DD
- */
+// 新增記帳
 export async function addEntryForEmail(payload) {
   const email = getSignedEmail();
   if (!email) throw new Error('尚未登入');
-
-  const { type, amount, categoryId, note, date } = payload;
-
   const colRef = collection(doc(db, 'expenses', email), 'entries');
   await addDoc(colRef, {
-    type,
-    amount: Number(amount),
-    categoryId: categoryId || null,
-    note: note || '',
-    date,                          // YYYY-MM-DD
+    type: payload.type || 'expense',
+    amount: Number(payload.amount),
+    categoryId: payload.categoryId || '其他',
+    note: payload.note || '',
+    date: payload.date,
     createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
   });
 }
 
-/**
- * 檢查今天是否已記帳（在 expenses/{email}/entries）
- */
-export async function hasEntryTodayForEmail() {
-  const email = getSignedEmail();
-  if (!email) return false;
-
-  const today = new Date().toISOString().slice(0, 10);
+// 今日支出合計
+export async function getTodayTotalForEmail(email = getSignedEmail()) {
+  if (!email) return 0;
+  const today = new Date().toISOString().slice(0,10);
   const colRef = collection(doc(db, 'expenses', email), 'entries');
-  const q = query(colRef, where('date', '==', today), limit(1));
+  const q = query(colRef, where('date','==',today));
   const snap = await getDocs(q);
-  return !snap.empty;
+  let sum = 0;
+  snap.forEach(d=> sum += Number(d.data().amount || 0));
+  return sum;
+}
+
+// 最近 10 筆支出
+export async function getRecentEntriesForEmail(email = getSignedEmail(), n = 10) {
+  if (!email) return [];
+  const colRef = collection(doc(db, 'expenses', email), 'entries');
+  const q = query(colRef, orderBy('createdAt','desc'), limit(n));
+  const snap = await getDocs(q);
+  return snap.docs.map(d=>d.data());
 }
