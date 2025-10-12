@@ -124,33 +124,34 @@
       color: #000 !important;
     }
 
-    /* 保留按鈕原樣 */
+    /* 保留按鈕原樣（舊設定，下面會覆蓋強化外框） */
     body:not(.light) .modal-footer .btn,
     body:not(.light) .modal-footer .btn-primary {
       color: inherit !important;
       background: inherit !important;
       border: inherit !important;
-      /* ===== 調整 modal 裡的按鈕邊框 ===== */
-body:not(.light) .modal-footer .btn {
-  border: 1px solid #444 !important;   /* 深灰邊框 */
-  background: #f9fafb !important;      /* 微亮背景 */
-  color: #000 !important;              /* 黑色文字 */
-  transition: all .2s ease;
-}
-body:not(.light) .modal-footer .btn:hover {
-  background: #e5e7eb !important;      /* hover 微變亮 */
-  border-color: #000 !important;       /* 加強外框顏色 */
-}
-body:not(.light) .modal-footer .btn-primary {
-  border: 1px solid #2563eb !important; /* 藍色邊框 */
-  background: #3b82f6 !important;       /* 鮮藍背景 */
-  color: #fff !important;
-}
-body:not(.light) .modal-footer .btn-primary:hover {
-  background: #60a5fa !important;
-  border-color: #1d4ed8 !important;
-}
+    }
 
+    /* ====== 新增：強化 modal 內按鈕外框與對比 ====== */
+    body:not(.light) .modal-footer .btn {
+      border: 1px solid #444 !important;      /* 更明顯的外框 */
+      background: #f9fafb !important;
+      color: #000 !important;
+      box-shadow: 0 1px 0 rgba(0,0,0,.06);
+      transition: all .2s ease;
+    }
+    body:not(.light) .modal-footer .btn:hover {
+      background: #e5e7eb !important;
+      border-color: #000 !important;
+    }
+    body:not(.light) .modal-footer .btn-primary {
+      border: 1px solid #2563eb !important;   /* 藍色外框 */
+      background: #3b82f6 !important;         /* 藍色填色 */
+      color: #fff !important;
+    }
+    body:not(.light) .modal-footer .btn-primary:hover {
+      background: #60a5fa !important;
+      border-color: #1d4ed8 !important;
     }
   </style>
 </head>
