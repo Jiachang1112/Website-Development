@@ -108,6 +108,32 @@
     body.light .cart-item{ border-bottom:1px solid #e7e7e7 }
     body.light .cart-box{ background:#fff }
     body.light .cart-box hr{ border-color:#e7e7e7 }
+    /* ===== 深色主題 Modal 調整 ===== */
+body:not(.light) .modal-content {
+  background: #1b222c !important;   /* 深灰背景 */
+  color: #f1f5f9 !important;        /* 字體亮白 */
+  border: 1px solid #2b313a;
+  box-shadow: 0 0 20px rgba(0,0,0,0.6);
+}
+
+body:not(.light) .modal-header,
+body:not(.light) .modal-footer {
+  border-color: #2b313a !important;
+}
+
+body:not(.light) .form-control,
+body:not(.light) .form-select,
+body:not(.light) textarea {
+  background: #11161c !important;
+  border: 1px solid #364151;
+  color: #e5e9f2;
+}
+
+body:not(.light) .form-control::placeholder,
+body:not(.light) textarea::placeholder {
+  color: #9aa3af !important;
+}
+
   </style>
 </head>
 <body>
