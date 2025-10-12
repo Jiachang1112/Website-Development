@@ -1,15 +1,72 @@
-import { put } from '../db.js';
-function todayStr(offset=0){ const d=new Date(); d.setDate(d.getDate()+offset); return d.toISOString().slice(0,10); }
-function parseDate(t){ if(/今天/.test(t)) return todayStr(0); if(/昨天/.test(t)) return todayStr(-1); if(/前天/.test(t)) return todayStr(-2); const m=t.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/); if(m){return `${m[1]}-${String(+m[2]).padStart(2,'0')}-${String(+m[3]).padStart(2,'0')}`;} return todayStr(0); }
-function parseAmt(t){ const m=t.match(/(\d+(?:\.\d+)?)/); return m?parseFloat(m[1]):NaN; }
-export function ChatbookPage(){
-  const el=document.createElement('div'); el.className='container card';
-  el.innerHTML=`<h3>聊天記帳</h3><div id="chat" style="min-height:240px;max-height:50vh;overflow:auto;padding:8px;border:1px solid #ffffff22;border-radius:12px;background:#0f1520"></div>
-  <div class="row" style="margin-top:8px"><input id="msg" placeholder="昨天 星巴克 拿鐵 95 餐飲"/><button class="ghost" id="send">送出</button></div>`;
-  const chat=el.querySelector('#chat'), msg=el.querySelector('#msg');
-  function add(text,who){ const b=document.createElement('div'); b.style.margin='6px 0'; b.innerHTML=who==='me'?`<div style="text-align:right"><span class="badge" style="background:var(--accent);color:#fff;border:0">${text}</span></div>`:`<div><span class="badge">${text}</span></div>`; chat.appendChild(b); chat.scrollTop=chat.scrollHeight; }
-  async function handle(t){ add(t,'me'); const amt=parseAmt(t); if(!amt){ add('沒抓到金額，試試：今天 超商 咖啡 65 餐飲','bot'); return; } const date=parseDate(t); const cat=(t.match(/餐飲|交通|娛樂|學習|其他/)||['其他'])[0]; const item=t.replace(/今天|昨天|前天|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}|餐飲|交通|娛樂|學習|其他|\d+(?:\.\d+)?/g,' ').trim()||'未命名品項'; await put('expenses',{date,item,cat,amount:amt}); add(`已記帳：${item}｜${cat}｜${amt}｜${date}`,'bot'); }
-  el.querySelector('#send').addEventListener('click',()=>{ handle(msg.value); msg.value=''; msg.focus(); });
-  msg.addEventListener('keydown',e=>{ if(e.key==='Enter'){ el.querySelector('#send').click(); }});
-  add('嗨！說：「今天 全聯 牛奶 65 餐飲」我會幫你記帳。','bot'); return el;
+// assets/js/pages/chatbook.js
+import { requireLogin } from '../app.js';
+import { saveExpense } from '../entries.js';
+
+function el(html) {
+  const t = document.createElement('template');
+  t.innerHTML = html.trim();
+  return t.content.firstElementChild;
+}
+
+/** 將「早餐 65」/「午餐 120 便當」等句子拆成 {item, amount, category} */
+function parseLine(str) {
+  const s = (str || '').trim();
+  if (!s) return null;
+  // 取最後一個數字視為金額，其餘當品項；若句中有 #分類 也一起抓
+  const catMatch = s.match(/#([^\s#]+)/);
+  const category = catMatch ? catMatch[1] : '';
+  const withoutCat = s.replace(/#([^\s#]+)/g, '').trim();
+
+  const nums = withoutCat.match(/(\d+)(?!.*\d)/); // 最後一個整數
+  if (!nums) return null;
+
+  const amount = Number(nums[1]);
+  const item = withoutCat.replace(nums[1], '').trim().replace(/\s+/g, ' ');
+  return { item: item || '未命名', amount, category };
+}
+
+export function ChatbookPage() {
+  const $root = el(`
+    <div class="p-3">
+      <h3 class="mb-2">聊天記帳</h3>
+      <div class="text-muted mb-3">輸入範例：<code>早餐 65</code>、<code>飲料 55 #餐飲</code>，按 Enter 或「送出」即可寫入。</div>
+
+      <div class="d-flex gap-2">
+        <input id="line" class="form-control" placeholder="輸入：早餐 65 或 午餐 120 #餐飲">
+        <button id="send" class="btn btn-primary">送出</button>
+      </div>
+      <div id="msg" class="small text-muted mt-2"></div>
+    </div>
+  `);
+
+  async function send() {
+    const input = $root.querySelector('#line');
+    const msg = $root.querySelector('#msg');
+    const p = parseLine(input.value);
+    if (!p) { msg.textContent = '請輸入「品項 金額」，可加 #分類'; return; }
+
+    try {
+      const u = requireLogin();
+      await saveExpense(u, {
+        item: p.item,
+        category: p.category || '',
+        amount: p.amount,
+        source: 'chat',
+        ts: new Date(),
+      });
+      msg.textContent = `✅ 已記錄：${p.item} ${p.amount}`;
+      input.value = '';
+      setTimeout(() => (msg.textContent = ''), 1200);
+    } catch (err) {
+      console.error(err);
+      msg.textContent = '❌ 失敗：' + err.message;
+    }
+  }
+
+  $root.querySelector('#send').addEventListener('click', send);
+  $root.querySelector('#line').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); send(); }
+  });
+
+  return $root;
 }
