@@ -263,6 +263,7 @@
       saveCart(cart);
       renderCart();
     }
+    window.changeQty = changeQty;
     function changeQty(sku, delta){
       const cart = loadCart();
       const i = cart.find(x=>x.sku===sku);
