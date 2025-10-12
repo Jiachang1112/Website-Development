@@ -1,46 +1,64 @@
 // assets/js/entries.js
 import { db } from './firebase.js';
 import {
-  collection, addDoc, serverTimestamp, Timestamp
+  doc, collection, addDoc, getDocs, query, where, orderBy, limit,
+  serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-/**
- * 以使用者 email 當 docId，將一筆記帳寫入 expenses/{email}/records
- * @param {Object} user - 目前登入使用者（至少要有 email）
- * @param {Object} data - { item, category, amount, ts?, note?, source? }
- */
-export async function saveExpense(user, data) {
-  if (!user || !(user.email || user.uid)) {
-    throw new Error('login required');
-  }
-  const docId = String(user.email || user.uid).trim().toLowerCase();
-
-  const ts =
-    data.ts instanceof Date
-      ? Timestamp.fromDate(data.ts)
-      : (data.ts?.seconds ? data.ts : serverTimestamp());
-
-  const payload = {
-    item: data.item || '',
-    category: data.category || '',
-    amount: Number(data.amount) || 0,
-    note: data.note || '',
-    source: data.source || 'form',        // form | chat | camera ...
-    ts,
-    // 便利的查詢欄位（可選）
-    email: user.email || null,
-    uid: user.uid || null,
-    name: user.name || null,
-    providerId: user.providerId || null,
-    userAgent: navigator.userAgent,
-    createdAt: serverTimestamp(),
-  };
-
-  const col = collection(db, 'expenses', docId, 'records');
-  return await addDoc(col, payload);
+function getSignedEmail() {
+  try {
+    const u = window.session_user || JSON.parse(localStorage.getItem('session_user')||'null');
+    return u?.email || null;
+  } catch { return null; }
 }
 
-/** 一次寫多筆（可選） */
-export async function saveExpenseBatch(user, items = []) {
-  return Promise.all(items.map(i => saveExpense(user, i)));
+// 新增記帳
+export async function addEntryForEmail(payload) {
+  const email = getSignedEmail();
+  if (!email) throw new Error('尚未登入');
+  const colRef = collection(doc(db, 'expenses', email), 'entries');
+  await addDoc(colRef, {
+    type: payload.type || 'expense',
+    amount: Number(payload.amount),
+    categoryId: payload.categoryId || '其他',
+    note: payload.note || '',
+    date: payload.date,               // YYYY-MM-DD
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+}
+
+// 今日支出合計
+export async function getTodayTotalForEmail(email = getSignedEmail()) {
+  if (!email) return 0;
+  const today = new Date().toISOString().slice(0,10);
+  const colRef = collection(doc(db, 'expenses', email), 'entries');
+  const q = query(colRef, where('date','==',today));
+  const snap = await getDocs(q);
+  let sum = 0;
+  snap.forEach(d=> sum += Number(d.data().amount || 0));
+  return sum;
+}
+
+// 最近 10 筆支出
+export async function getRecentEntriesForEmail(email = getSignedEmail(), n = 10) {
+  if (!email) return [];
+  const colRef = collection(doc(db, 'expenses', email), 'entries');
+  const q = query(colRef, orderBy('createdAt','desc'), limit(n));
+  const snap = await getDocs(q);
+  return snap.docs.map(d=>d.data());
+}
+
+// 取得一段日期範圍內的所有 entries（依 date 排序）
+export async function getEntriesRangeForEmail(email = getSignedEmail(), from, to){
+  if (!email) return [];
+  const colRef = collection(doc(db, 'expenses', email), 'entries');
+  const q = query(
+    colRef,
+    where('date','>=', from),
+    where('date','<=', to),
+    orderBy('date','asc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
 }
