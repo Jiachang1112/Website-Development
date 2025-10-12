@@ -1,59 +1,46 @@
 // assets/js/entries.js
-// 新增記帳、檢查今天是否已記帳
-
-import { auth, db } from './firebase.js';
+import { db } from './firebase.js';
 import {
-  collection, addDoc, serverTimestamp,
-  query, where, limit, getDocs
+  collection, addDoc, serverTimestamp, Timestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
-import { bumpStreak } from './analytics/streak.js';
 
 /**
- * 新增一筆記帳
- * @param {Object} payload
- * @param {string} payload.ledgerId
- * @param {'expense'|'income'} payload.type
- * @param {number|string} payload.amount
- * @param {string} payload.currency
- * @param {string|null} payload.categoryId
- * @param {string} payload.note
- * @param {string} payload.date YYYY-MM-DD
+ * 以使用者 email 當 docId，將一筆記帳寫入 expenses/{email}/records
+ * @param {Object} user - 目前登入使用者（至少要有 email）
+ * @param {Object} data - { item, category, amount, ts?, note?, source? }
  */
-export async function addEntry(payload){
-  const uid = auth.currentUser?.uid;
-  if (!uid) throw new Error('尚未登入');
+export async function saveExpense(user, data) {
+  if (!user || !(user.email || user.uid)) {
+    throw new Error('login required');
+  }
+  const docId = String(user.email || user.uid).trim().toLowerCase();
 
-  const { ledgerId, type, amount, currency, categoryId, note, date } = payload;
+  const ts =
+    data.ts instanceof Date
+      ? Timestamp.fromDate(data.ts)
+      : (data.ts?.seconds ? data.ts : serverTimestamp());
 
-  // 寫入 entries
-  await addDoc(collection(db, 'users', uid, 'ledgers', ledgerId, 'entries'), {
-    type,
-    amount: Number(amount),
-    currency,
-    categoryId: categoryId || null,
-    note: note || '',
-    date, // YYYY-MM-DD
+  const payload = {
+    item: data.item || '',
+    category: data.category || '',
+    amount: Number(data.amount) || 0,
+    note: data.note || '',
+    source: data.source || 'form',        // form | chat | camera ...
+    ts,
+    // 便利的查詢欄位（可選）
+    email: user.email || null,
+    uid: user.uid || null,
+    name: user.name || null,
+    providerId: user.providerId || null,
+    userAgent: navigator.userAgent,
     createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
+  };
 
-  // 連續記帳（僅當日第一筆有效）
-  await bumpStreak(uid);
+  const col = collection(db, 'expenses', docId, 'records');
+  return await addDoc(col, payload);
 }
 
-/**
- * 檢查今天是否已記帳（該帳本）
- */
-export async function hasEntryToday(ledgerId){
-  const uid = auth.currentUser?.uid;
-  if (!uid) return false;
-
-  const today = new Date().toISOString().slice(0,10);
-  const q = query(
-    collection(db, 'users', uid, 'ledgers', ledgerId, 'entries'),
-    where('date', '==', today),
-    limit(1)
-  );
-  const snap = await getDocs(q);
-  return !snap.empty;
+/** 一次寫多筆（可選） */
+export async function saveExpenseBatch(user, items = []) {
+  return Promise.all(items.map(i => saveExpense(user, i)));
 }
