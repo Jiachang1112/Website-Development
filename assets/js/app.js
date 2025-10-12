@@ -13,7 +13,7 @@ import { AuthPage } from './pages/auth.js';
 import { ExpenseMinePage } from './pages/expense-mine.js';
 import { ExpenseDetailPage } from './pages/expense-detail.js';
 import { ExpenseAnalysisPage } from './pages/expense-analysis.js';
-
+import { ChartPage } from './pages/chart.js';
 
 export const fmt={
   money:(n)=> new Intl.NumberFormat(undefined,{style:'currency',currency:'TWD'}).format(+n||0)
@@ -26,6 +26,7 @@ const routes={
   chatbook:ChatbookPage, camera:CameraExpensePage, shop:ShopPage, admin:AdminPage,
   settings:SettingsPage, backup:BackupPage,
   acct_mine:ExpenseMinePage, acct_detail:ExpenseDetailPage, acct_analysis:ExpenseAnalysisPage
+  chart: ChartPage,
 };
 
 function render(){
