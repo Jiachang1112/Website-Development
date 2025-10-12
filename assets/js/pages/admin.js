@@ -26,6 +26,9 @@ const toTW = ts => {
     return d ? d.toLocaleString('zh-TW',{hour12:false}) : '-';
   } catch { return '-'; }
 };
+function escapeHTML(s){
+  return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
 
 /* ───────── 管理員白名單 ───────── */
 const ADMIN_EMAILS = ['bruce9811123@gmail.com'].map(s=>s.trim().toLowerCase());
@@ -137,9 +140,9 @@ function renderHome(root){
     }
   });
 
-  // 用戶記帳（先佔位）
+  // 用戶記帳
   $('#ledgerCard', el)?.addEventListener('click', ()=>{
-    alert('👉 用戶記帳：之後幫你接功能');
+    mountLedgerModule(root);
   });
 
   // 用戶登入紀錄
@@ -313,10 +316,6 @@ function mountLoginLogModule(root){
     a.remove();
   }
 
-  function escapeHTML(s){
-    return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
-  }
-
   // 事件
   refs.kw.addEventListener('input', render);
   refs.from.addEventListener('change', render);
@@ -336,21 +335,144 @@ function mountLoginLogModule(root){
     });
   });
 
-  bind(); // 預設顯示用戶登入(user)
+  bind(); // 預設 user
+}
+
+/* ───────── 用戶記帳：瀏覽模組（expenses/{email}/entries） ───────── */
+
+async function getAllUsers(){
+  const snap = await getDocs(collection(db,'expenses'));
+  return snap.docs.map(d=>d.id).sort((a,b)=>a.localeCompare(b));
+}
+
+function money(n){
+  return (Number(n)||0).toLocaleString('zh-TW',{style:'currency',currency:'TWD'});
+}
+
+function mountLedgerModule(root){
+  ensureHomeStyles();
+  const el = document.createElement('div');
+  el.className = 'admin-shell';
+  el.innerHTML = `
+    <div class="backbar">
+      <button id="backHome" class="btn">&larr; 返回選單</button>
+    </div>
+
+    <div class="hero">
+      <div>
+        <h5>用戶記帳</h5>
+        <div class="muted">瀏覽每位用戶的記帳紀錄（expenses/{email}/entries）</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="toolbar">
+        <div>
+          <label class="small">用戶</label>
+          <select id="userSel"></select>
+        </div>
+        <div>
+          <label class="small">載入筆數</label>
+          <select id="limitSel">
+            <option>20</option>
+            <option selected>50</option>
+            <option>100</option>
+          </select>
+        </div>
+        <div style="flex:1"></div>
+        <span id="summary" class="chip">統計載入中…</span>
+      </div>
+
+      <div style="overflow:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>類型</th>
+              <th>分類</th>
+              <th>備註</th>
+              <th style="text-align:right">金額</th>
+            </tr>
+          </thead>
+          <tbody id="rows"><tr><td colspan="5" class="muted">載入中…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  $('#backHome', el)?.addEventListener('click', ()=> renderHome(root));
+  root.replaceChildren(el);
+
+  const userSel = $('#userSel', el);
+  const limitSel = $('#limitSel', el);
+  const rows = $('#rows', el);
+  const summary = $('#summary', el);
+
+  async function loadUsers(){
+    rows.innerHTML = `<tr><td colspan="5" class="muted">載入用戶中…</td></tr>`;
+    const users = await getAllUsers();
+    if(!users.length){
+      rows.innerHTML = `<tr><td colspan="5" class="muted">目前沒有任何用戶</td></tr>`;
+      summary.textContent = '—';
+      return;
+    }
+    userSel.innerHTML = users.map(e=>`<option value="${e}">${e}</option>`).join('');
+    await loadEntries(userSel.value);
+  }
+
+  async function loadEntries(email){
+    rows.innerHTML = `<tr><td colspan="5" class="muted">載入 ${escapeHTML(email)} 的紀錄中…</td></tr>`;
+    summary.textContent = '統計載入中…';
+
+    const n = Number(limitSel.value||50);
+    const qy = query(
+      collection(doc(db,'expenses', email), 'entries'),
+      orderBy('date','desc'),
+      limit(n)
+    );
+    const snap = await getDocs(qy);
+    const arr  = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+
+    if(!arr.length){
+      rows.innerHTML = `<tr><td colspan="5" class="muted">${escapeHTML(email)} 沒有紀錄</td></tr>`;
+      summary.textContent = '—';
+      return;
+    }
+
+    // 統計
+    const out = arr.filter(x=>x.type!=='income').reduce((s,x)=>s+(Number(x.amount)||0),0);
+    const inc = arr.filter(x=>x.type==='income').reduce((s,x)=>s+(Number(x.amount)||0),0);
+    summary.textContent = `支出：${money(out)}　收入：${money(inc)}　結餘：${money(inc-out)}`;
+
+    rows.innerHTML = arr.map(r=>`
+      <tr>
+        <td>${escapeHTML(r.date||'')}</td>
+        <td>${r.type==='income'?'收入':'支出'}</td>
+        <td>${escapeHTML(r.categoryId||'')}</td>
+        <td>${escapeHTML(r.note||'')}</td>
+        <td style="text-align:right">${r.type==='income'
+          ? (Number(r.amount)||0)
+          : -Math.abs(Number(r.amount)||0)
+        }</td>
+      </tr>
+    `).join('');
+  }
+
+  userSel.addEventListener('change', ()=> loadEntries(userSel.value));
+  limitSel.addEventListener('change', ()=> loadEntries(userSel.value));
+
+  loadUsers().catch(err=>{
+    rows.innerHTML = `<tr><td colspan="5" style="color:#ef4444">讀取失敗：${escapeHTML(err.message)}</td></tr>`;
+    summary.textContent = '—';
+  });
 }
 
 /* ───────── 訂單管理模組（保留你的原程式）───────── */
 function mountOrdersModule(root){
-  // === 你的原「訂單管理」完整程式碼（維持不動） ===
-  const money = n => 'NT$ ' + (n || 0).toLocaleString();
+  // === 你的「訂單管理」原程式（未動） ===
+  const moneyFmt = n => 'NT$ ' + (n || 0).toLocaleString();
   const zh   = { pending:'待付款', paid:'已付款', shipped:'已出貨', canceled:'已取消' };
   const shortId = id => (id||'').slice(0,10);
-  const toTW = ts => {
-    try {
-      const d = ts?.toDate ? ts.toDate() : (ts instanceof Date ? ts : null);
-      return d ? d.toLocaleString('zh-TW',{hour12:false}) : '-';
-    } catch { return '-'; }
-  };
+  const toTWLocal = toTW;
   const startOfToday = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
   const endOfToday   = () => { const d = new Date(); d.setHours(23,59,59,999); return d; };
 
@@ -453,9 +575,8 @@ function mountOrdersModule(root){
     const sToday = await getDocs(qToday);
     let ordersCnt = 0, revenue = 0, waitShip = 0;
     sToday.forEach(d=>{
-      const v = d.data()||{};
-      ordersCnt += 1;
-      revenue   += (v?.amounts?.total || 0);
+      const v = d.data()||{}; ordersCnt += 1;
+      revenue += (v?.amounts?.total || 0);
       if ((v.status||'')==='paid') waitShip += 1;
     });
 
@@ -561,7 +682,7 @@ function mountOrdersModule(root){
 
   computeTodayStats({
     orders: n => $('#statOrders', el).textContent  = `${n} 筆`,
-    revenue:n => $('#statRevenue', el).textContent = money(n),
+    revenue:n => $('#statRevenue', el).textContent = moneyFmt(n),
     ship:   n => $('#statShip', el).textContent    = `${n} 筆`,
     users:  n => $('#statUsers', el).textContent   = `${n} 位`
   }).catch(()=>{});
@@ -648,7 +769,7 @@ function mountOrdersModule(root){
 
     listEl.innerHTML = arr.map(({id,v})=>{
       const itemsCount = (v.items||[]).reduce((s,i)=>s+(i.qty||0),0);
-      const total = money(v?.amounts?.total||0);
+      const total = moneyFmt(v?.amounts?.total||0);
       const state = v.status||'pending';
       return `
         <div class="orow" data-id="${id}">
@@ -660,7 +781,7 @@ function mountOrdersModule(root){
             </div>
             <div class="o-sub">${v?.customer?.name||'-'} ｜ ${itemsCount} 件</div>
           </div>
-          <span class="o-time">${toTW(v.createdAt)}</span>
+          <span class="o-time">${toTWLocal(v.createdAt)}</span>
         </div>`;
     }).join('');
 
@@ -682,14 +803,14 @@ function mountOrdersModule(root){
         <td>${i.name||''}</td>
         <td>${i.sku||''}</td>
         <td class="text-end">${i.qty||0}</td>
-        <td class="text-end">${money(i.price||0)}</td>
-        <td class="text-end">${money((i.price||0)*(i.qty||0))}</td>
+        <td class="text-end">${moneyFmt(i.price||0)}</td>
+        <td class="text-end">${moneyFmt((i.price||0)*(i.qty||0))}</td>
       </tr>`).join('');
 
     detailEl.innerHTML = `
       <div class="detail-title">#${snap.id}</div>
       <div class="kv">
-        <div class="k">建立時間</div><div>${toTW(v.createdAt)}</div>
+        <div class="k">建立時間</div><div>${toTWLocal(v.createdAt)}</div>
         <div class="k">狀態</div>
         <div>
           <div class="chips" id="stateChips">
@@ -718,9 +839,9 @@ function mountOrdersModule(root){
           </thead>
           <tbody>${itemsRows}</tbody>
           <tfoot>
-            <tr><th colspan="4" class="text-end">小計</th><th class="text-end">${money(v?.amounts?.subtotal||0)}</th></tr>
-            <tr><th colspan="4" class="text-end">運費</th><th class="text-end">${money(v?.amounts?.shipping||0)}</th></tr>
-            <tr><th colspan="4" class="text-end">合計</th><th class="text-end">${money(v?.amounts?.total||0)}</th></tr>
+            <tr><th colspan="4" class="text-end">小計</th><th class="text-end">${moneyFmt(v?.amounts?.subtotal||0)}</th></tr>
+            <tr><th colspan="4" class="text-end">運費</th><th class="text-end">${moneyFmt(v?.amounts?.shipping||0)}</th></tr>
+            <tr><th colspan="4" class="text-end">合計</th><th class="text-end">${moneyFmt(v?.amounts?.total||0)}</th></tr>
           </tfoot>
         </table>
       </div>
@@ -769,7 +890,7 @@ function mountOrdersModule(root){
     const data = rows.map(({id,v})=>{
       const items = (v.items||[]).reduce((s,i)=>s+(i.qty||0),0);
       return [
-        id, toTW(v.createdAt), zh[v.status||'pending']||'-',
+        id, toTWLocal(v.createdAt), zh[v.status||'pending']||'-',
         v?.customer?.name||'', v?.customer?.email||'', v?.customer?.phone||'',
         items, (v?.amounts?.total||0)
       ];
