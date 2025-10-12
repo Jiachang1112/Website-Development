@@ -1,11 +1,10 @@
 // assets/js/entries.js
 import { db } from './firebase.js';
 import {
-  collection, doc, addDoc, getDocs, deleteDoc,
-  serverTimestamp, Timestamp, orderBy, query, where, limit
+  doc, collection, addDoc, getDocs, query, where, orderBy, limit,
+  serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-/** 取得目前登入者 Email */
 function getSignedEmail() {
   try {
     const u = window.session_user || JSON.parse(localStorage.getItem('session_user')||'null');
@@ -13,67 +12,53 @@ function getSignedEmail() {
   } catch { return null; }
 }
 
-/**
- * ✨ 新增一筆支出（可跨裝置同步）
- * @param {Object} user - 登入使用者（至少要有 email）
- * @param {Object} data - { item, category, amount, ts?, note?, source? }
- */
-export async function saveExpense(user, data) {
-  const email = user?.email || getSignedEmail();
-  if (!email) throw new Error('login required');
-
-  const ts =
-    data.ts instanceof Date
-      ? Timestamp.fromDate(data.ts)
-      : (data.ts?.seconds ? data.ts : serverTimestamp());
-
-  const payload = {
-    item: data.item || '',
-    category: data.category || '',
-    amount: Number(data.amount) || 0,
-    note: data.note || '',
-    source: data.source || 'form', // form | chat | camera ...
-    ts,
-    email,
+// 新增記帳
+export async function addEntryForEmail(payload) {
+  const email = getSignedEmail();
+  if (!email) throw new Error('尚未登入');
+  const colRef = collection(doc(db, 'expenses', email), 'entries');
+  await addDoc(colRef, {
+    type: payload.type || 'expense',
+    amount: Number(payload.amount),
+    categoryId: payload.categoryId || '其他',
+    note: payload.note || '',
+    date: payload.date,               // YYYY-MM-DD
     createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
-
-  const col = collection(db, 'expenses', email, 'records');
-  return await addDoc(col, payload);
+    updatedAt: serverTimestamp()
+  });
 }
 
-/** ✨ 批次新增 */
-export async function saveExpenseBatch(user, items = []) {
-  return Promise.all(items.map(i => saveExpense(user, i)));
-}
-
-/** ✨ 讀取最近 N 筆 */
-export async function getRecentExpenses(n = 10, email = getSignedEmail()) {
-  if (!email) return [];
-  const col = collection(db, 'expenses', email, 'records');
-  const q = query(col, orderBy('createdAt', 'desc'), limit(n));
+// 今日支出合計
+export async function getTodayTotalForEmail(email = getSignedEmail()) {
+  if (!email) return 0;
+  const today = new Date().toISOString().slice(0,10);
+  const colRef = collection(doc(db, 'expenses', email), 'entries');
+  const q = query(colRef, where('date','==',today));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  let sum = 0;
+  snap.forEach(d=> sum += Number(d.data().amount || 0));
+  return sum;
 }
 
-/** ✨ 查詢某段日期範圍內的資料（明細頁用） */
-export async function getExpensesByRange(from, to, email = getSignedEmail()) {
+// 最近 10 筆支出
+export async function getRecentEntriesForEmail(email = getSignedEmail(), n = 10) {
   if (!email) return [];
-  const col = collection(db, 'expenses', email, 'records');
+  const colRef = collection(doc(db, 'expenses', email), 'entries');
+  const q = query(colRef, orderBy('createdAt','desc'), limit(n));
+  const snap = await getDocs(q);
+  return snap.docs.map(d=>d.data());
+}
+
+// 取得一段日期範圍內的所有 entries（依 date 排序）
+export async function getEntriesRangeForEmail(email = getSignedEmail(), from, to){
+  if (!email) return [];
+  const colRef = collection(doc(db, 'expenses', email), 'entries');
   const q = query(
-    col,
-    where('ts', '>=', new Date(from)),
-    where('ts', '<=', new Date(to)),
-    orderBy('ts', 'asc')
+    colRef,
+    where('date','>=', from),
+    where('date','<=', to),
+    orderBy('date','asc')
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-/** ✨ 刪除單筆 */
-export async function deleteExpense(id, email = getSignedEmail()) {
-  if (!email || !id) throw new Error('missing id or email');
-  const ref = doc(collection(db, 'expenses', email, 'records'), id);
-  await deleteDoc(ref);
+  return snap.docs.map(d => d.data());
 }
