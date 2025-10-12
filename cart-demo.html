@@ -14,14 +14,13 @@
       --border-dark: #2b313a;
       --panel-dark: #17202a;
       --line-dark: #3f4b5b;
+      --accent: #60a5fa;
+      --accent-2: #93c5fd;
 
       --bg-light: #f5f7fb;
       --text-light: #111;
       --card-light: #fff;
       --border-light: #ddd;
-
-      --accent: #60a5fa;
-      --accent-2: #93c5fd;
     }
 
     html{ background:var(--bg-dark); height:100% }
@@ -61,16 +60,6 @@
       color:#0a0f14;
     }
 
-    .btn-outline-light{
-      color:#e7edf5;
-      border-color:#8aa0b7;
-    }
-    .btn-outline-light:hover{
-      background:#2b3542;
-      color:#fff;
-      border-color:#9fb2c6;
-    }
-
     .aside{position:sticky;top:16px}
     @media (max-width: 991px){.aside{position:static}}
 
@@ -101,17 +90,19 @@
     body.light .cart-box{ background:#fff }
     body.light .cart-box hr{ border-color:#e7e7e7 }
 
-    /* ===== 深色主題 Modal 調整 ===== */
+    /* ===== 深色主題下的「訂購資料」Modal（玻璃質感） ===== */
     body:not(.light) .modal-content {
-      background: #f8fafc !important;
+      background: rgba(255, 255, 255, 0.08) !important; /* 半透明 */
       color: #000 !important;
-      border: 1px solid #2b313a;
-      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.15);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      box-shadow: 0 0 30px rgba(0,0,0,0.5);
     }
 
     body:not(.light) .modal-header,
     body:not(.light) .modal-footer {
-      border-color: #2b313a !important;
+      border-color: rgba(255,255,255,0.2) !important;
     }
 
     body:not(.light) .modal-content label,
@@ -241,120 +232,73 @@
     const PRODUCTS = [
       { sku:'LG-001', name:'立國工業手套 M', price:120 },
       { sku:'LG-002', name:'立國工業手套 L', price:120 },
-      { sku:'LT-010', name:'立國安全帽',    price:980 },
-      { sku:'P-004',  name:'工地雨鞋',      price:560 },
-      { sku:'P-005',  name:'商品 05',       price:500 },
-      { sku:'P-008',  name:'護目鏡',        price:199 },
+      { sku:'LT-010', name:'立國安全帽', price:980 },
+      { sku:'P-004', name:'工地雨鞋', price:560 },
+      { sku:'P-008', name:'護目鏡', price:199 }
     ];
 
-    const CART_KEY = 'cart';
-    const $ = sel => document.querySelector(sel);
-    const fmt = n => 'NT$ ' + (n||0).toLocaleString();
-
-    const loadCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY)||'[]'); } catch { return []; } };
-    const saveCart = (c) => localStorage.setItem(CART_KEY, JSON.stringify(c));
-    const clearCart = () => localStorage.removeItem(CART_KEY);
+    const CART_KEY='cart';
+    const $=sel=>document.querySelector(sel);
+    const fmt=n=>'NT$ '+(n||0).toLocaleString();
+    const loadCart=()=>{try{return JSON.parse(localStorage.getItem(CART_KEY)||'[]')}catch{return[]}};
+    const saveCart=c=>localStorage.setItem(CART_KEY,JSON.stringify(c));
+    const clearCart=()=>localStorage.removeItem(CART_KEY);
 
     function addToCart(p){
-      const cart = loadCart();
-      const f = cart.find(i=>i.sku===p.sku);
-      if (f) f.qty++;
-      else cart.push({ sku:p.sku, name:p.name, price:p.price, qty:1 });
-      saveCart(cart);
-      renderCart();
+      const c=loadCart();
+      const f=c.find(i=>i.sku===p.sku);
+      f?f.qty++:c.push({...p,qty:1});
+      saveCart(c);renderCart();
     }
-    function changeQty(sku, delta){
-      const cart = loadCart();
-      const i = cart.find(x=>x.sku===sku);
-      if (!i) return;
-      i.qty += delta;
-      if (i.qty <= 0) cart.splice(cart.indexOf(i),1);
-      saveCart(cart);
-      renderCart();
+    function changeQty(sku,d){
+      const c=loadCart(),i=c.find(x=>x.sku===sku);
+      if(!i)return;
+      i.qty+=d;
+      if(i.qty<=0)c.splice(c.indexOf(i),1);
+      saveCart(c);renderCart();
     }
-
     function renderProducts(){
-      $('#products').innerHTML = PRODUCTS.map(p=>`
+      $('#products').innerHTML=PRODUCTS.map(p=>`
         <div class="card p-3">
           <div class="fw-semibold">${p.name}</div>
           <div class="text-muted small">SKU：${p.sku}</div>
           <div class="price mt-1">NT$ ${p.price.toLocaleString()}</div>
           <button class="btn btn-sm mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
-        </div>
-      `).join('');
-      window.addToCart = addToCart;
+        </div>`).join('');
+      window.addToCart=addToCart;
     }
-
     function renderCart(){
-      const cart = loadCart();
-      const wrap = $('#cartItems');
-      wrap.innerHTML = cart.length
-        ? cart.map(i=>`
-          <div class="d-flex justify-content-between align-items-center py-1 cart-item">
-            <div>
-              <div>${i.name}</div>
-              <div class="text-muted small">SKU：${i.sku}</div>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <button class="btn btn-sm" onclick="changeQty('${i.sku}',-1)">－</button>
-              <span>${i.qty}</span>
-              <button class="btn btn-sm" onclick="changeQty('${i.sku}',+1)">＋</button>
-              <div class="ms-2">${fmt(i.price*i.qty)}</div>
-            </div>
+      const c=loadCart();
+      $('#cartItems').innerHTML=c.length?c.map(i=>`
+        <div class="d-flex justify-content-between align-items-center py-1 cart-item">
+          <div><div>${i.name}</div><div class="text-muted small">SKU：${i.sku}</div></div>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm" onclick="changeQty('${i.sku}',-1)">－</button>
+            <span>${i.qty}</span>
+            <button class="btn btn-sm" onclick="changeQty('${i.sku}',+1)">＋</button>
+            <div class="ms-2">${fmt(i.price*i.qty)}</div>
           </div>
-        `).join('')
-        : '<div class="text-muted">尚無商品</div>';
-
-      const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
-      const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
-      $('#subtotal').textContent = fmt(subtotal);
-      $('#shipping').textContent = fmt(shipping);
-      $('#total').textContent = fmt(subtotal+shipping);
+        </div>`).join(''):'<div class="text-muted">尚無商品</div>';
+      const s=c.reduce((t,i)=>t+i.price*i.qty,0),ship=(s>2000||s===0)?0:100;
+      $('#subtotal').textContent=fmt(s);
+      $('#shipping').textContent=fmt(ship);
+      $('#total').textContent=fmt(s+ship);
     }
-
-    $('#btnClear').addEventListener('click', ()=>{ clearCart(); renderCart(); });
-    $('#btnCheckout').addEventListener('click', ()=>{
-      if (!loadCart().length) { alert('購物車是空的'); return; }
-      new bootstrap.Modal('#checkoutDlg').show();
-    });
-
-    $('#checkoutForm').addEventListener('submit', async (e)=>{
+    $('#btnClear').addEventListener('click',()=>{clearCart();renderCart()});
+    $('#btnCheckout').addEventListener('click',()=>{if(!loadCart().length)return alert('購物車是空的');new bootstrap.Modal('#checkoutDlg').show()});
+    $('#checkoutForm').addEventListener('submit',async e=>{
       e.preventDefault();
-      const cart = loadCart();
-      if (!cart.length){ alert('購物車是空的'); return; }
-
-      const data = Object.fromEntries(new FormData(e.target).entries());
-      const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
-      const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
-      const total = subtotal + shipping;
-
-      const order = {
-        customer: data,
-        items: cart,
-        amounts: { subtotal, shipping, total },
-        status: 'pending',
-        createdAt: serverTimestamp()
-      };
-
+      const c=loadCart();if(!c.length)return alert('購物車是空的');
+      const d=Object.fromEntries(new FormData(e.target).entries());
+      const s=c.reduce((t,i)=>t+i.price*i.qty,0),ship=(s>2000||s===0)?0:100,total=s+ship;
+      const order={customer:d,items:c,amounts:{subtotal:s,shipping:ship,total},status:'pending',createdAt:serverTimestamp()};
       try{
-        const ref = await addDoc(collection(db,'orders'), order);
-        alert(`訂單已送出：${ref.id}`);
-        clearCart();
-        renderCart();
-        bootstrap.Modal.getInstance(document.getElementById('checkoutDlg')).hide();
-      }catch(err){
-        console.error(err);
-        alert('寫入訂單失敗：' + err.message);
-      }
+        const ref=await addDoc(collection(db,'orders'),order);
+        alert(`訂單已送出：${ref.id}`);clearCart();renderCart();bootstrap.Modal.getInstance($('#checkoutDlg')).hide();
+      }catch(err){console.error(err);alert('寫入訂單失敗：'+err.message)}
     });
-
-    $('#toggleTheme').addEventListener('click', ()=>{
-      document.body.classList.toggle('light');
-      document.documentElement.classList.toggle('light');
-    });
-
-    renderProducts();
-    renderCart();
+    $('#toggleTheme').addEventListener('click',()=>{document.body.classList.toggle('light');document.documentElement.classList.toggle('light')});
+    renderProducts();renderCart();
   </script>
 </body>
 </html>
