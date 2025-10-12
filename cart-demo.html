@@ -7,27 +7,23 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <style>
     :root{
-      /* 深色主題色系（更亮、更清楚） */
-      --bg-dark:      #0f141a;
-      --text-dark:    #eef2f7;   /* ↑ 比原本更亮 */
-      --muted-dark:   #c7d1de;   /* 次要字色更清楚 */
-      --card-dark:    #1b222c;   /* 卡片 */
-      --border-dark:  #2b313a;
-      --panel-dark:   #17202a;   /* 側欄/導覽用 */
-      --line-dark:    #3f4b5b;
+      --bg-dark: #0f141a;
+      --text-dark: #eef2f7;
+      --muted-dark: #c7d1de;
+      --card-dark: #1b222c;
+      --border-dark: #2b313a;
+      --panel-dark: #17202a;
+      --line-dark: #3f4b5b;
 
-      /* 亮色主題（維持不變） */
-      --bg-light:     #f5f7fb;
-      --text-light:   #111;
-      --card-light:   #fff;
+      --bg-light: #f5f7fb;
+      --text-light: #111;
+      --card-light: #fff;
       --border-light: #ddd;
 
-      /* 介面強調色 */
-      --accent:       #60a5fa;
-      --accent-2:     #93c5fd;   /* hover 用 */
+      --accent: #60a5fa;
+      --accent-2: #93c5fd;
     }
 
-    /* 預設深色 */
     html{ background:var(--bg-dark); height:100% }
     body{
       background:var(--bg-dark);
@@ -35,7 +31,6 @@
       min-height:100vh;
     }
 
-    /* 導覽列（更亮） */
     .navbar{
       background: var(--panel-dark) !important;
       border-bottom: 1px solid var(--border-dark) !important;
@@ -44,14 +39,12 @@
     .navbar .btn{ border-color:#8aa0b7; color:#e7edf5 }
     .navbar .btn:hover{ background:#2b3542; color:#fff; border-color:#9fb2c6 }
 
-    /* 清單/卡片 */
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
     .card{background:var(--card-dark);border:1px solid var(--border-dark);border-radius:12px}
-    .card .fw-semibold{ color:#f7f9fc }             /* 商品名稱更亮 */
+    .card .fw-semibold{ color:#f7f9fc }
     .card .text-muted{ color:var(--muted-dark) !important }
-    .price{font-weight:700;color:#e9eef5}            /* 價格提升對比 */
+    .price{font-weight:700;color:#e9eef5}
 
-    /* 按鈕（深色主題：更亮、強調色） */
     .btn{border:1px solid #556073;background:#1d2433;color:#eef2f7}
     .btn:hover{ background:#243047; border-color:#6a7892; color:#fff }
     .btn:disabled{opacity:.6;cursor:not-allowed}
@@ -78,7 +71,6 @@
       border-color:#9fb2c6;
     }
 
-    /* 側欄購物車（更亮） */
     .aside{position:sticky;top:16px}
     @media (max-width: 991px){.aside{position:static}}
 
@@ -108,32 +100,37 @@
     body.light .cart-item{ border-bottom:1px solid #e7e7e7 }
     body.light .cart-box{ background:#fff }
     body.light .cart-box hr{ border-color:#e7e7e7 }
+
     /* ===== 深色主題 Modal 調整 ===== */
-body:not(.light) .modal-content {
-  background: #1b222c !important;   /* 深灰背景 */
-  color: #f1f5f9 !important;        /* 字體亮白 */
-  border: 1px solid #2b313a;
-  box-shadow: 0 0 20px rgba(0,0,0,0.6);
-}
+    body:not(.light) .modal-content {
+      background: #f8fafc !important;
+      color: #000 !important;
+      border: 1px solid #2b313a;
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    }
 
-body:not(.light) .modal-header,
-body:not(.light) .modal-footer {
-  border-color: #2b313a !important;
-}
+    body:not(.light) .modal-header,
+    body:not(.light) .modal-footer {
+      border-color: #2b313a !important;
+    }
 
-body:not(.light) .form-control,
-body:not(.light) .form-select,
-body:not(.light) textarea {
-  background: #11161c !important;
-  border: 1px solid #364151;
-  color: #e5e9f2;
-}
+    body:not(.light) .modal-content label,
+    body:not(.light) .modal-content input,
+    body:not(.light) .modal-content select,
+    body:not(.light) .modal-content textarea,
+    body:not(.light) .modal-content .form-label,
+    body:not(.light) .modal-content .form-select option,
+    body:not(.light) .modal-content .modal-title {
+      color: #000 !important;
+    }
 
-body:not(.light) .form-control::placeholder,
-body:not(.light) textarea::placeholder {
-  color: #9aa3af !important;
-}
-
+    /* 保留按鈕原樣 */
+    body:not(.light) .modal-footer .btn,
+    body:not(.light) .modal-footer .btn-primary {
+      color: inherit !important;
+      background: inherit !important;
+      border: inherit !important;
+    }
   </style>
 </head>
 <body>
@@ -236,7 +233,6 @@ body:not(.light) textarea::placeholder {
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- 購物邏輯 + Firestore 寫入 -->
   <script type="module">
     import { db } from './assets/js/firebase.js';
     import { collection, addDoc, serverTimestamp } 
@@ -352,7 +348,6 @@ body:not(.light) textarea::placeholder {
       }
     });
 
-    // 切換主題
     $('#toggleTheme').addEventListener('click', ()=>{
       document.body.classList.toggle('light');
       document.documentElement.classList.toggle('light');
