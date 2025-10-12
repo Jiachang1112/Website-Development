@@ -1,6 +1,5 @@
 // assets/js/pages/chatbook.js
 import { addEntryForEmail } from '../entries.js';
-import { currentUser } from '../app.js';
 
 function todayStr(offset=0){
   const d=new Date(); d.setDate(d.getDate()+offset);
@@ -19,6 +18,22 @@ function parseAmt(t){
   return m?parseFloat(m[1]):NaN;
 }
 
+function getUserEmail(){
+  try{
+    // 依序嘗試所有可能來源
+    if (window.session_user?.email) return window.session_user.email;
+    const fromLocal = JSON.parse(localStorage.getItem('session_user')||'null');
+    if (fromLocal?.email) return fromLocal.email;
+    const fromSession = JSON.parse(sessionStorage.getItem('session_user')||'null');
+    if (fromSession?.email) return fromSession.email;
+    if (window.currentUser && typeof window.currentUser === 'function') {
+      const u = window.currentUser();
+      if (u?.email) return u.email;
+    }
+    return null;
+  }catch{ return null; }
+}
+
 export function ChatbookPage(){
   const el=document.createElement('div'); el.className='container card';
   el.innerHTML=`
@@ -30,7 +45,6 @@ export function ChatbookPage(){
     </div>`;
 
   const chat=el.querySelector('#chat'), msg=el.querySelector('#msg');
-
   function add(text,who){
     const b=document.createElement('div'); b.style.margin='6px 0';
     b.innerHTML = (who==='me')
@@ -41,11 +55,11 @@ export function ChatbookPage(){
 
   async function handle(t){
     add(t,'me');
+    const email = getUserEmail();
 
-    // 以你的 session_user 來判斷登入
-    const u = currentUser?.() || JSON.parse(localStorage.getItem('session_user') || 'null');
-    if(!u?.email){
+    if(!email){
       add('請先登入帳號再記帳喔。','bot');
+      console.warn('未找到登入 email，session_user 內容：', localStorage.session_user);
       return;
     }
 
@@ -63,7 +77,7 @@ export function ChatbookPage(){
         type: 'expense',
         amount: amt,
         categoryId: cat,
-        note: item,       // 這裡我把品項放 note，或你要反過來也可以
+        note: item,
         date
       });
       add(`已記帳：${item}｜${cat}｜${amt}｜${date}`,'bot');
