@@ -164,41 +164,52 @@
 </a>
 
 <style>
-  /* 不動 Navbar 原本的高度 */
+  /* ✅ Navbar 高度固定、不變 */
   .navbar {
-    height: auto;
+    min-height: 56px;
+    overflow: visible; /* 讓圖片超出可見 */
   }
 
-  /* Hover 動畫 */
+  .brand-logo {
+    display: flex;
+    align-items: center;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  /* 左邊圖保持不動 */
+  .brand-logo .icon {
+    height: 52px;
+    width: auto;
+    margin-right: 10px;
+    transform: translateY(4px);
+  }
+
+  /* ✅ 右邊 SUPER TOOL 放大兩倍，允許超出 */
+  .brand-logo .wordmark {
+    height: 120px; /* 原本 60 → 兩倍 */
+    width: auto;
+    transform: translateY(4px);
+  }
+
+  /* hover 動畫 */
   .brand-logo img {
     transition: transform 0.3s ease, filter 0.3s ease;
   }
-
   .brand-logo:hover img {
-    transform: scale(1.05);
     filter: brightness(1.1);
   }
 
-  /* ✅ 只放大兩張圖，不動上邊線 */
-  .brand-logo .icon {
-    height: 52px;   /* favicon 放大 */
-    width: auto;
-    margin-right: 10px;
-  }
-
-  .brand-logo .wordmark {
-    height: 60px;   /* SuperTool logo 放大 */
-    width: auto;
-  }
-
-  /* 📱 手機自動縮放 */
+  /* 📱 手機版自動調整比例 */
   @media (max-width: 768px) {
     .brand-logo .icon {
       height: 42px;
       margin-right: 8px;
+      transform: translateY(3px);
     }
     .brand-logo .wordmark {
-      height: 50px;
+      height: 90px; /* 手機略小，避免壓線 */
+      transform: translateY(3px);
     }
   }
 </style>
