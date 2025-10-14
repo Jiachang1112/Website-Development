@@ -158,29 +158,51 @@
 <body>
   <nav class="navbar border-bottom">
     <div class="container d-flex justify-content-between">
-     <a class="navbar-brand fw-bold d-flex align-items-center brand-logo" href="#">
-  <!-- 左邊小圖 -->
+    <a class="navbar-brand fw-bold d-flex align-items-center brand-logo" href="#">
+  <!-- 左邊小圖（放大、不貼邊） -->
   <img src="assets/img/supertool-favicon.png" alt="SuperTool Icon" class="icon">
-  <!-- 右邊文字 Logo -->
+  <!-- 右邊主 Logo（稍大） -->
   <img src="assets/img/supertool-logo.png" alt="SuperTool Logo" class="wordmark">
 </a>
 
 <style>
+  /* 整個品牌列留點上下距離 */
+  .brand-logo {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  /* hover 動畫：微放大 + 提亮 */
   .brand-logo img {
     transition: transform 0.3s ease, filter 0.3s ease;
   }
+
   .brand-logo:hover img {
     transform: scale(1.06);
     filter: brightness(1.15);
   }
+
+  /* 桌面版：放大、不貼邊 */
   .brand-logo .icon {
-    height: 26px;
-    margin-right: 6px;
+    height: 36px; /* favicon 放大 */
+    width: auto;
+    margin-right: 10px;
+  }
+
+  .brand-logo .wordmark {
+    height: 42px; /* logo 放大 */
     width: auto;
   }
-  .brand-logo .wordmark {
-    height: 30px;
-    width: auto;
+
+  /* 手機螢幕 (<=768px)：自動縮小比例 */
+  @media (max-width: 768px) {
+    .brand-logo .icon {
+      height: 28px;
+      margin-right: 6px;
+    }
+    .brand-logo .wordmark {
+      height: 32px;
+    }
   }
 </style>
       
