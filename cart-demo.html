@@ -164,12 +164,13 @@
 </a>
 
 <style>
-  /* ✅ Navbar 高度固定、不變 */
+  /* ✅ 保持原本 navbar 高度 */
   .navbar {
-    min-height: 56px;
-    overflow: visible; /* 讓圖片超出可見 */
+    min-height: 56px; /* Bootstrap 預設高度 */
+    overflow: visible; /* 讓圖片可以超出但不被裁掉 */
   }
 
+  /* 保持原邊距，不撐高 */
   .brand-logo {
     display: flex;
     align-items: center;
@@ -177,19 +178,18 @@
     padding-bottom: 0;
   }
 
-  /* 左邊圖保持不動 */
+  /* ✅ 放大的 logo 保留現在大小 */
   .brand-logo .icon {
     height: 52px;
     width: auto;
     margin-right: 10px;
-    transform: translateY(4px);
+    transform: translateY(4px); /* 向下微調置中 */
   }
 
-  /* ✅ 右邊 SUPER TOOL 放大兩倍，允許超出 */
   .brand-logo .wordmark {
-    height: 120px; /* 原本 60 → 兩倍 */
+    height: 60px;
     width: auto;
-    transform: translateY(4px);
+    transform: translateY(4px); /* 同樣向下微調 */
   }
 
   /* hover 動畫 */
@@ -200,7 +200,7 @@
     filter: brightness(1.1);
   }
 
-  /* 📱 手機版自動調整比例 */
+  /* 📱 手機版自動縮放 */
   @media (max-width: 768px) {
     .brand-logo .icon {
       height: 42px;
@@ -208,7 +208,7 @@
       transform: translateY(3px);
     }
     .brand-logo .wordmark {
-      height: 90px; /* 手機略小，避免壓線 */
+      height: 50px;
       transform: translateY(3px);
     }
   }
