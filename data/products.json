@@ -1,383 +1,702 @@
-<!doctype html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>立國實業｜線上下單 Demo</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-  <style>
-    :root{
-      --bg-dark: #0f141a;
-      --text-dark: #eef2f7;
-      --muted-dark: #c7d1de;
-      --card-dark: #1b222c;
-      --border-dark: #2b313a;
-      --panel-dark: #17202a;
-      --line-dark: #3f4b5b;
-
-      --bg-light: #f5f7fb;
-      --text-light: #111;
-      --card-light: #fff;
-      --border-light: #ddd;
-
-      --accent: #60a5fa;
-      --accent-2: #93c5fd;
-    }
-
-    html{ background:var(--bg-dark); height:100% }
-    body{
-      background:var(--bg-dark);
-      color:var(--text-dark);
-      min-height:100vh;
-    }
-
-    .navbar{
-      background: var(--panel-dark) !important;
-      border-bottom: 1px solid var(--border-dark) !important;
-    }
-    .navbar .navbar-brand{ color:#fff }
-    .navbar .btn{ border-color:#8aa0b7; color:#e7edf5 }
-    .navbar .btn:hover{ background:#2b3542; color:#fff; border-color:#9fb2c6 }
-
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-    .card{background:var(--card-dark);border:1px solid var(--border-dark);border-radius:12px}
-    .card .fw-semibold{ color:#f7f9fc }
-    .card .text-muted{ color:var(--muted-dark) !important }
-    .price{font-weight:700;color:#e9eef5}
-
-    .btn{border:1px solid #556073;background:#1d2433;color:#eef2f7}
-    .btn:hover{ background:#243047; border-color:#6a7892; color:#fff }
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-
-    .btn-primary{
-      background: var(--accent);
-      border-color: var(--accent);
-      color:#0a0f14;
-      font-weight:700;
-    }
-    .btn-primary:hover{
-      background: var(--accent-2);
-      border-color: var(--accent-2);
-      color:#0a0f14;
-    }
-
-    .btn-outline-light{
-      color:#e7edf5;
-      border-color:#8aa0b7;
-    }
-    .btn-outline-light:hover{
-      background:#2b3542;
-      color:#fff;
-      border-color:#9fb2c6;
-    }
-
-    .aside{position:sticky;top:16px}
-    @media (max-width: 991px){.aside{position:static}}
-
-    .cart-box{
-      background: var(--panel-dark);
-      border:1px solid var(--border-dark);
-      color:#e9edf3;
-    }
-    body .text-muted,
-    body .text-secondary,
-    body .text-body-secondary{ color: var(--muted-dark) !important; }
-    .cart-item{ border-bottom:1px solid var(--line-dark) }
-    .cart-box hr{ border-color:var(--line-dark); opacity:1 }
-    #subtotal, #shipping, #total{ color:#ffffff !important; font-weight:800 }
-
-    /* 亮色模式保持原樣 */
-    body.light{ background:var(--bg-light); color:var(--text-light) }
-    html.light{ background:var(--bg-light) }
-    body.light .card{ background:var(--card-light); border:1px solid var(--border-light) }
-    body.light .btn{ background:#f0f0f0; color:#111; border:1px solid #ccc }
-    body.light .btn-primary{ background:#0d6efd; border-color:#0d6efd; color:#fff }
-    body.light .btn-primary:hover{ background:#0b5ed7; border-color:#0a58ca }
-    body.light .text-muted,
-    body.light .text-secondary,
-    body.light .text-body-secondary{ color:#6b7280 !important }
-    body.light #subtotal, body.light #shipping, body.light #total{ color:#111 !important }
-    body.light .cart-item{ border-bottom:1px solid #e7e7e7 }
-    body.light .cart-box{ background:#fff }
-    body.light .cart-box hr{ border-color:#e7e7e7 }
-
-    /* ===== 深色主題 Modal 調整 ===== */
-    body:not(.light) .modal-content {
-      background: #f8fafc !important;
-      color: #000 !important;
-      border: 1px solid #2b313a;
-      box-shadow: 0 0 20px rgba(0,0,0,0.4);
-    }
-
-    body:not(.light) .modal-header,
-    body:not(.light) .modal-footer {
-      border-color: #2b313a !important;
-    }
-
-    body:not(.light) .modal-content label,
-    body:not(.light) .modal-content input,
-    body:not(.light) .modal-content select,
-    body:not(.light) .modal-content textarea,
-    body:not(.light) .modal-content .form-label,
-    body:not(.light) .modal-content .form-select option,
-    body:not(.light) .modal-content .modal-title {
-      color: #000 !important;
-    }
-
-    /* 保留按鈕原樣（舊設定，下面會覆蓋強化外框） */
-    body:not(.light) .modal-footer .btn,
-    body:not(.light) .modal-footer .btn-primary {
-      color: inherit !important;
-      background: inherit !important;
-      border: inherit !important;
-    }
-
-    /* ====== 新增：強化 modal 內按鈕外框與對比 ====== */
-    body:not(.light) .modal-footer .btn {
-      border: 1px solid #444 !important;      /* 更明顯的外框 */
-      background: #f9fafb !important;
-      color: #000 !important;
-      box-shadow: 0 1px 0 rgba(0,0,0,.06);
-      transition: all .2s ease;
-    }
-    body:not(.light) .modal-footer .btn:hover {
-      background: #e5e7eb !important;
-      border-color: #000 !important;
-    }
-    body:not(.light) .modal-footer .btn-primary {
-      border: 1px solid #2563eb !important;   /* 藍色外框 */
-      background: #3b82f6 !important;         /* 藍色填色 */
-      color: #fff !important;
-    }
-    body:not(.light) .modal-footer .btn-primary:hover {
-      background: #60a5fa !important;
-      border-color: #1d4ed8 !important;
-    }
-  </style>
-</head>
-<body>
-  <nav class="navbar border-bottom">
-    <div class="container d-flex justify-content-between">
-      <a class="navbar-brand fw-bold" href="#">立國實業</a>
-      <div class="d-flex gap-2">
-        <button id="toggleTheme" class="btn btn-outline-light btn-sm">切換亮/暗</button>
-        <a class="btn btn-outline-light" href="./index.html">回首頁</a>
-      </div>
-    </div>
-  </nav>
-
-  <main class="container py-3">
-    <div class="row g-3">
-      <div class="col-lg-8">
-        <h4 class="mb-3">商品列表</h4>
-        <div id="products" class="grid"></div>
-      </div>
-
-      <div class="col-lg-4">
-        <div class="card aside p-3 cart-box">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 class="m-0">購物車</h5>
-            <button id="btnClear" class="btn btn-sm">清空</button>
-          </div>
-          <div id="cartItems" class="small text-muted">尚無商品</div>
-          <hr>
-          <div class="d-flex justify-content-between">
-            <div class="text-muted">小計</div><div id="subtotal" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-flex justify-content-between">
-            <div class="text-muted">運費</div><div id="shipping" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-flex justify-content-between fs-5">
-            <div>合計</div><div id="total" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-grid mt-2">
-            <button id="btnCheckout" class="btn btn-primary">結帳</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- 結帳 Modal -->
-  <div class="modal fade" id="checkoutDlg" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <form id="checkoutForm" class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">訂購資料</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="row g-2">
-            <div class="col-md-6">
-              <label class="form-label">姓名</label>
-              <input name="name" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">電話</label>
-              <input name="phone" class="form-control" required>
-            </div>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">Email（收訂單）</label>
-            <input name="email" type="email" class="form-control" required>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">配送方式</label>
-            <select name="shipping" class="form-select" required>
-              <option value="宅配">宅配（黑貓/新竹）</option>
-              <option value="超商取貨（先匯款）">超商取貨（先匯款）</option>
-            </select>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">地址/門市</label>
-            <input name="address" class="form-control" required>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">付款方式</label>
-            <select name="payment" class="form-select" required>
-              <option value="銀行轉帳">銀行轉帳</option>
-              <option value="貨到付款">貨到付款</option>
-              <option value="信用卡">信用卡（綠界/藍新）</option>
-            </select>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">備註</label>
-            <textarea name="note" rows="3" class="form-control" placeholder="尺寸、發票抬頭/統編等"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">取消</button>
-          <button class="btn btn-primary" type="submit">送出訂單</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-  <script type="module">
-    import { db } from './assets/js/firebase.js';
-    import { collection, addDoc, serverTimestamp } 
-      from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
-
-    const PRODUCTS = [
-      { sku:'LG-001', name:'立國工業手套 M', price:120 },
-      { sku:'LG-002', name:'立國工業手套 L', price:120 },
-      { sku:'LT-010', name:'立國安全帽',    price:980 },
-      { sku:'P-004',  name:'工地雨鞋',      price:560 },
-      { sku:'P-005',  name:'商品 05',       price:500 },
-      { sku:'P-008',  name:'護目鏡',        price:199 },
-    ];
-
-    const CART_KEY = 'cart';
-    const $ = sel => document.querySelector(sel);
-    const fmt = n => 'NT$ ' + (n||0).toLocaleString();
-
-    const loadCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY)||'[]'); } catch { return []; } };
-    const saveCart = (c) => localStorage.setItem(CART_KEY, JSON.stringify(c));
-    const clearCart = () => localStorage.removeItem(CART_KEY);
-
-    function addToCart(p){
-      const cart = loadCart();
-      const f = cart.find(i=>i.sku===p.sku);
-      if (f) f.qty++;
-      else cart.push({ sku:p.sku, name:p.name, price:p.price, qty:1 });
-      saveCart(cart);
-      renderCart();
-    }
-    window.changeQty = changeQty;
-    function changeQty(sku, delta){
-      const cart = loadCart();
-      const i = cart.find(x=>x.sku===sku);
-      if (!i) return;
-      i.qty += delta;
-      if (i.qty <= 0) cart.splice(cart.indexOf(i),1);
-      saveCart(cart);
-      renderCart();
-    }
-
-    function renderProducts(){
-      $('#products').innerHTML = PRODUCTS.map(p=>`
-        <div class="card p-3">
-          <div class="fw-semibold">${p.name}</div>
-          <div class="text-muted small">SKU：${p.sku}</div>
-          <div class="price mt-1">NT$ ${p.price.toLocaleString()}</div>
-          <button class="btn btn-sm mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
-        </div>
-      `).join('');
-      window.addToCart = addToCart;
-    }
-
-    function renderCart(){
-      const cart = loadCart();
-      const wrap = $('#cartItems');
-      wrap.innerHTML = cart.length
-        ? cart.map(i=>`
-          <div class="d-flex justify-content-between align-items-center py-1 cart-item">
-            <div>
-              <div>${i.name}</div>
-              <div class="text-muted small">SKU：${i.sku}</div>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <button class="btn btn-sm" onclick="changeQty('${i.sku}',-1)">－</button>
-              <span>${i.qty}</span>
-              <button class="btn btn-sm" onclick="changeQty('${i.sku}',+1)">＋</button>
-              <div class="ms-2">${fmt(i.price*i.qty)}</div>
-            </div>
-          </div>
-        `).join('')
-        : '<div class="text-muted">尚無商品</div>';
-
-      const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
-      const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
-      $('#subtotal').textContent = fmt(subtotal);
-      $('#shipping').textContent = fmt(shipping);
-      $('#total').textContent = fmt(subtotal+shipping);
-    }
-
-    $('#btnClear').addEventListener('click', ()=>{ clearCart(); renderCart(); });
-    $('#btnCheckout').addEventListener('click', ()=>{
-      if (!loadCart().length) { alert('購物車是空的'); return; }
-      new bootstrap.Modal('#checkoutDlg').show();
-    });
-
-    $('#checkoutForm').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const cart = loadCart();
-      if (!cart.length){ alert('購物車是空的'); return; }
-
-      const data = Object.fromEntries(new FormData(e.target).entries());
-      const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
-      const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
-      const total = subtotal + shipping;
-
-      const order = {
-        customer: data,
-        items: cart,
-        amounts: { subtotal, shipping, total },
-        status: 'pending',
-        createdAt: serverTimestamp()
-      };
-
-      try{
-        const ref = await addDoc(collection(db,'orders'), order);
-        alert(`訂單已送出：${ref.id}`);
-        clearCart();
-        renderCart();
-        bootstrap.Modal.getInstance(document.getElementById('checkoutDlg')).hide();
-      }catch(err){
-        console.error(err);
-        alert('寫入訂單失敗：' + err.message);
-      }
-    });
-
-    $('#toggleTheme').addEventListener('click', ()=>{
-      document.body.classList.toggle('light');
-      document.documentElement.classList.toggle('light');
-    });
-
-    renderProducts();
-    renderCart();
-  </script>
-</body>
-</html>
+[
+  {
+    "id": 1,
+    "name": "商品 001",
+    "brand": "Super",
+    "category": "運動",
+    "price": 4008
+  },
+  {
+    "id": 2,
+    "name": "商品 002",
+    "brand": "Super",
+    "category": "家電",
+    "price": 1133
+  },
+  {
+    "id": 3,
+    "name": "商品 003",
+    "brand": "Super",
+    "category": "文具",
+    "price": 3041
+  },
+  {
+    "id": 4,
+    "name": "商品 004",
+    "brand": "Super",
+    "category": "運動",
+    "price": 4901
+  },
+  {
+    "id": 5,
+    "name": "商品 005",
+    "brand": "Super",
+    "category": "文具",
+    "price": 4372
+  },
+  {
+    "id": 6,
+    "name": "商品 006",
+    "brand": "Super",
+    "category": "家電",
+    "price": 4336
+  },
+  {
+    "id": 7,
+    "name": "商品 007",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 4206
+  },
+  {
+    "id": 8,
+    "name": "商品 008",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 3756
+  },
+  {
+    "id": 9,
+    "name": "商品 009",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 4723
+  },
+  {
+    "id": 10,
+    "name": "商品 010",
+    "brand": "Super",
+    "category": "生活",
+    "price": 3495
+  },
+  {
+    "id": 11,
+    "name": "商品 011",
+    "brand": "Super",
+    "category": "運動",
+    "price": 2991
+  },
+  {
+    "id": 12,
+    "name": "商品 012",
+    "brand": "Super",
+    "category": "居家",
+    "price": 1991
+  },
+  {
+    "id": 13,
+    "name": "商品 013",
+    "brand": "Super",
+    "category": "3C",
+    "price": 3371
+  },
+  {
+    "id": 14,
+    "name": "商品 014",
+    "brand": "Super",
+    "category": "文具",
+    "price": 801
+  },
+  {
+    "id": 15,
+    "name": "商品 015",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 3313
+  },
+  {
+    "id": 16,
+    "name": "商品 016",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 3701
+  },
+  {
+    "id": 17,
+    "name": "商品 017",
+    "brand": "Super",
+    "category": "文具",
+    "price": 1612
+  },
+  {
+    "id": 18,
+    "name": "商品 018",
+    "brand": "Super",
+    "category": "3C",
+    "price": 1681
+  },
+  {
+    "id": 19,
+    "name": "商品 019",
+    "brand": "Super",
+    "category": "3C",
+    "price": 3782
+  },
+  {
+    "id": 20,
+    "name": "商品 020",
+    "brand": "Super",
+    "category": "文具",
+    "price": 681
+  },
+  {
+    "id": 21,
+    "name": "商品 021",
+    "brand": "Super",
+    "category": "家電",
+    "price": 1055
+  },
+  {
+    "id": 22,
+    "name": "商品 022",
+    "brand": "Super",
+    "category": "運動",
+    "price": 859
+  },
+  {
+    "id": 23,
+    "name": "商品 023",
+    "brand": "Super",
+    "category": "食品",
+    "price": 3617
+  },
+  {
+    "id": 24,
+    "name": "商品 024",
+    "brand": "Super",
+    "category": "家電",
+    "price": 2607
+  },
+  {
+    "id": 25,
+    "name": "商品 025",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 4245
+  },
+  {
+    "id": 26,
+    "name": "商品 026",
+    "brand": "Super",
+    "category": "文具",
+    "price": 1934
+  },
+  {
+    "id": 27,
+    "name": "商品 027",
+    "brand": "Super",
+    "category": "家電",
+    "price": 2966
+  },
+  {
+    "id": 28,
+    "name": "商品 028",
+    "brand": "Super",
+    "category": "生活",
+    "price": 1461
+  },
+  {
+    "id": 29,
+    "name": "商品 029",
+    "brand": "Super",
+    "category": "運動",
+    "price": 1008
+  },
+  {
+    "id": 30,
+    "name": "商品 030",
+    "brand": "Super",
+    "category": "文具",
+    "price": 3560
+  },
+  {
+    "id": 31,
+    "name": "商品 031",
+    "brand": "Super",
+    "category": "居家",
+    "price": 240
+  },
+  {
+    "id": 32,
+    "name": "商品 032",
+    "brand": "Super",
+    "category": "運動",
+    "price": 3589
+  },
+  {
+    "id": 33,
+    "name": "商品 033",
+    "brand": "Super",
+    "category": "家電",
+    "price": 3068
+  },
+  {
+    "id": 34,
+    "name": "商品 034",
+    "brand": "Super",
+    "category": "3C",
+    "price": 1333
+  },
+  {
+    "id": 35,
+    "name": "商品 035",
+    "brand": "Super",
+    "category": "居家",
+    "price": 1407
+  },
+  {
+    "id": 36,
+    "name": "商品 036",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 2893
+  },
+  {
+    "id": 37,
+    "name": "商品 037",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 3189
+  },
+  {
+    "id": 38,
+    "name": "商品 038",
+    "brand": "Super",
+    "category": "家電",
+    "price": 644
+  },
+  {
+    "id": 39,
+    "name": "商品 039",
+    "brand": "Super",
+    "category": "文具",
+    "price": 344
+  },
+  {
+    "id": 40,
+    "name": "商品 040",
+    "brand": "Super",
+    "category": "3C",
+    "price": 4966
+  },
+  {
+    "id": 41,
+    "name": "商品 041",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 4170
+  },
+  {
+    "id": 42,
+    "name": "商品 042",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 2206
+  },
+  {
+    "id": 43,
+    "name": "商品 043",
+    "brand": "Super",
+    "category": "家電",
+    "price": 3402
+  },
+  {
+    "id": 44,
+    "name": "商品 044",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 181
+  },
+  {
+    "id": 45,
+    "name": "商品 045",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 2314
+  },
+  {
+    "id": 46,
+    "name": "商品 046",
+    "brand": "Super",
+    "category": "文具",
+    "price": 966
+  },
+  {
+    "id": 47,
+    "name": "商品 047",
+    "brand": "Super",
+    "category": "食品",
+    "price": 2642
+  },
+  {
+    "id": 48,
+    "name": "商品 048",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 2805
+  },
+  {
+    "id": 49,
+    "name": "商品 049",
+    "brand": "Super",
+    "category": "運動",
+    "price": 4237
+  },
+  {
+    "id": 50,
+    "name": "商品 050",
+    "brand": "Super",
+    "category": "文具",
+    "price": 748
+  },
+  {
+    "id": 51,
+    "name": "商品 051",
+    "brand": "Super",
+    "category": "食品",
+    "price": 1332
+  },
+  {
+    "id": 52,
+    "name": "商品 052",
+    "brand": "Super",
+    "category": "運動",
+    "price": 1260
+  },
+  {
+    "id": 53,
+    "name": "商品 053",
+    "brand": "Super",
+    "category": "生活",
+    "price": 4165
+  },
+  {
+    "id": 54,
+    "name": "商品 054",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 2348
+  },
+  {
+    "id": 55,
+    "name": "商品 055",
+    "brand": "Super",
+    "category": "3C",
+    "price": 2596
+  },
+  {
+    "id": 56,
+    "name": "商品 056",
+    "brand": "Super",
+    "category": "居家",
+    "price": 2445
+  },
+  {
+    "id": 57,
+    "name": "商品 057",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 1057
+  },
+  {
+    "id": 58,
+    "name": "商品 058",
+    "brand": "Super",
+    "category": "食品",
+    "price": 3238
+  },
+  {
+    "id": 59,
+    "name": "商品 059",
+    "brand": "Super",
+    "category": "居家",
+    "price": 4937
+  },
+  {
+    "id": 60,
+    "name": "商品 060",
+    "brand": "Super",
+    "category": "食品",
+    "price": 2298
+  },
+  {
+    "id": 61,
+    "name": "商品 061",
+    "brand": "Super",
+    "category": "食品",
+    "price": 4633
+  },
+  {
+    "id": 62,
+    "name": "商品 062",
+    "brand": "Super",
+    "category": "生活",
+    "price": 508
+  },
+  {
+    "id": 63,
+    "name": "商品 063",
+    "brand": "Super",
+    "category": "文具",
+    "price": 4195
+  },
+  {
+    "id": 64,
+    "name": "商品 064",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 1702
+  },
+  {
+    "id": 65,
+    "name": "商品 065",
+    "brand": "Super",
+    "category": "3C",
+    "price": 1286
+  },
+  {
+    "id": 66,
+    "name": "商品 066",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 3019
+  },
+  {
+    "id": 67,
+    "name": "商品 067",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 4072
+  },
+  {
+    "id": 68,
+    "name": "商品 068",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 2818
+  },
+  {
+    "id": 69,
+    "name": "商品 069",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 1125
+  },
+  {
+    "id": 70,
+    "name": "商品 070",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 1226
+  },
+  {
+    "id": 71,
+    "name": "商品 071",
+    "brand": "Super",
+    "category": "食品",
+    "price": 1541
+  },
+  {
+    "id": 72,
+    "name": "商品 072",
+    "brand": "Super",
+    "category": "3C",
+    "price": 4676
+  },
+  {
+    "id": 73,
+    "name": "商品 073",
+    "brand": "Super",
+    "category": "食品",
+    "price": 2460
+  },
+  {
+    "id": 74,
+    "name": "商品 074",
+    "brand": "Super",
+    "category": "3C",
+    "price": 4844
+  },
+  {
+    "id": 75,
+    "name": "商品 075",
+    "brand": "Super",
+    "category": "居家",
+    "price": 1651
+  },
+  {
+    "id": 76,
+    "name": "商品 076",
+    "brand": "Super",
+    "category": "美妝",
+    "price": 3714
+  },
+  {
+    "id": 77,
+    "name": "商品 077",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 1776
+  },
+  {
+    "id": 78,
+    "name": "商品 078",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 1306
+  },
+  {
+    "id": 79,
+    "name": "商品 079",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 195
+  },
+  {
+    "id": 80,
+    "name": "商品 080",
+    "brand": "Super",
+    "category": "家電",
+    "price": 1173
+  },
+  {
+    "id": 81,
+    "name": "商品 081",
+    "brand": "Super",
+    "category": "食品",
+    "price": 2999
+  },
+  {
+    "id": 82,
+    "name": "商品 082",
+    "brand": "Super",
+    "category": "居家",
+    "price": 650
+  },
+  {
+    "id": 83,
+    "name": "商品 083",
+    "brand": "Super",
+    "category": "3C",
+    "price": 783
+  },
+  {
+    "id": 84,
+    "name": "商品 084",
+    "brand": "Super",
+    "category": "3C",
+    "price": 2590
+  },
+  {
+    "id": 85,
+    "name": "商品 085",
+    "brand": "Super",
+    "category": "3C",
+    "price": 4359
+  },
+  {
+    "id": 86,
+    "name": "商品 086",
+    "brand": "Super",
+    "category": "3C",
+    "price": 2368
+  },
+  {
+    "id": 87,
+    "name": "商品 087",
+    "brand": "Super",
+    "category": "家電",
+    "price": 3725
+  },
+  {
+    "id": 88,
+    "name": "商品 088",
+    "brand": "Super",
+    "category": "玩具",
+    "price": 1527
+  },
+  {
+    "id": 89,
+    "name": "商品 089",
+    "brand": "Super",
+    "category": "家電",
+    "price": 2852
+  },
+  {
+    "id": 90,
+    "name": "商品 090",
+    "brand": "Super",
+    "category": "運動",
+    "price": 4231
+  },
+  {
+    "id": 91,
+    "name": "商品 091",
+    "brand": "Super",
+    "category": "居家",
+    "price": 2431
+  },
+  {
+    "id": 92,
+    "name": "商品 092",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 1700
+  },
+  {
+    "id": 93,
+    "name": "商品 093",
+    "brand": "Super",
+    "category": "食品",
+    "price": 1416
+  },
+  {
+    "id": 94,
+    "name": "商品 094",
+    "brand": "Super",
+    "category": "居家",
+    "price": 3868
+  },
+  {
+    "id": 95,
+    "name": "商品 095",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 1310
+  },
+  {
+    "id": 96,
+    "name": "商品 096",
+    "brand": "Super",
+    "category": "文具",
+    "price": 4751
+  },
+  {
+    "id": 97,
+    "name": "商品 097",
+    "brand": "Super",
+    "category": "生活",
+    "price": 823
+  },
+  {
+    "id": 98,
+    "name": "商品 098",
+    "brand": "Super",
+    "category": "3C",
+    "price": 3420
+  },
+  {
+    "id": 99,
+    "name": "商品 099",
+    "brand": "Super",
+    "category": "居家",
+    "price": 1656
+  },
+  {
+    "id": 100,
+    "name": "商品 100",
+    "brand": "Super",
+    "category": "服飾",
+    "price": 4188
+  }
+]
