@@ -159,19 +159,17 @@
   <nav class="navbar border-bottom">
     <div class="container d-flex justify-content-between">
     <a class="navbar-brand fw-bold d-flex align-items-center brand-logo" href="#">
-  <!-- 左邊小圖 -->
   <img src="assets/img/supertool-favicon.png" alt="SuperTool Icon" class="icon">
-  <!-- 右邊主 Logo -->
   <img src="assets/img/supertool-logo.png" alt="SuperTool Logo" class="wordmark">
 </a>
 
 <style>
-  .brand-logo {
-    padding-top: 8px;
-    padding-bottom: 8px;
+  /* 不動 Navbar 原本的高度 */
+  .navbar {
+    height: auto;
   }
 
-  /* 動畫效果 */
+  /* Hover 動畫 */
   .brand-logo img {
     transition: transform 0.3s ease, filter 0.3s ease;
   }
@@ -181,26 +179,26 @@
     filter: brightness(1.1);
   }
 
-  /* 桌面版尺寸（加大） */
+  /* ✅ 只放大兩張圖，不動上邊線 */
   .brand-logo .icon {
-    height: 54px;  /* ← 左邊小圖從 36px 提升到 54px */
+    height: 52px;   /* favicon 放大 */
     width: auto;
-    margin-right: 12px;
+    margin-right: 10px;
   }
 
   .brand-logo .wordmark {
-    height: 62px;  /* ← 右邊 logo 從 42px 提升到 62px */
+    height: 60px;   /* SuperTool logo 放大 */
     width: auto;
   }
 
-  /* 手機版自動縮放，但保留清晰度 */
+  /* 📱 手機自動縮放 */
   @media (max-width: 768px) {
     .brand-logo .icon {
-      height: 46px;  /* ← 手機左圖 */
+      height: 42px;
       margin-right: 8px;
     }
     .brand-logo .wordmark {
-      height: 54px;  /* ← 手機右圖 */
+      height: 50px;
     }
   }
 </style>
