@@ -158,15 +158,31 @@
 <body>
   <nav class="navbar border-bottom">
     <div class="container d-flex justify-content-between">
-     <a class="navbar-brand fw-bold d-flex align-items-center" href="#">
-  <!-- 左邊：favicon 圖示 -->
-  <img src="assets/img/supertool-favicon.png" alt="SuperTool Icon"
-       style="height:26px; width:auto; margin-right:6px;">
-
-  <!-- 右邊：logo 圖片 -->
-  <img src="assets/img/supertool-logo.png" alt="SuperTool Logo"
-       style="height:30px; width:auto;">
+     <a class="navbar-brand fw-bold d-flex align-items-center brand-logo" href="#">
+  <!-- 左邊小圖 -->
+  <img src="assets/img/supertool-favicon.png" alt="SuperTool Icon" class="icon">
+  <!-- 右邊文字 Logo -->
+  <img src="assets/img/supertool-logo.png" alt="SuperTool Logo" class="wordmark">
 </a>
+
+<style>
+  .brand-logo img {
+    transition: transform 0.3s ease, filter 0.3s ease;
+  }
+  .brand-logo:hover img {
+    transform: scale(1.06);
+    filter: brightness(1.15);
+  }
+  .brand-logo .icon {
+    height: 26px;
+    margin-right: 6px;
+    width: auto;
+  }
+  .brand-logo .wordmark {
+    height: 30px;
+    width: auto;
+  }
+</style>
       
       <div class="d-flex gap-2">
         <button id="toggleTheme" class="btn btn-outline-light btn-sm">切換亮/暗</button>
