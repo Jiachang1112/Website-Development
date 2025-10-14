@@ -86,7 +86,6 @@
     .cart-box hr{ border-color:var(--line-dark); opacity:1 }
     #subtotal, #shipping, #total{ color:#ffffff !important; font-weight:800 }
 
-    /* 亮色模式保持原樣 */
     body.light{ background:var(--bg-light); color:var(--text-light) }
     html.light{ background:var(--bg-light) }
     body.light .card{ background:var(--card-light); border:1px solid var(--border-light) }
@@ -101,43 +100,26 @@
     body.light .cart-box{ background:#fff }
     body.light .cart-box hr{ border-color:#e7e7e7 }
 
-    /* ===== 深色主題 Modal 調整 ===== */
     body:not(.light) .modal-content {
       background: #f8fafc !important;
       color: #000 !important;
       border: 1px solid #2b313a;
       box-shadow: 0 0 20px rgba(0,0,0,0.4);
     }
-
     body:not(.light) .modal-header,
-    body:not(.light) .modal-footer {
-      border-color: #2b313a !important;
-    }
-
+    body:not(.light) .modal-footer { border-color: #2b313a !important; }
     body:not(.light) .modal-content label,
     body:not(.light) .modal-content input,
     body:not(.light) .modal-content select,
     body:not(.light) .modal-content textarea,
     body:not(.light) .modal-content .form-label,
     body:not(.light) .modal-content .form-select option,
-    body:not(.light) .modal-content .modal-title {
-      color: #000 !important;
-    }
+    body:not(.light) .modal-content .modal-title { color: #000 !important; }
 
-    /* 保留按鈕原樣（舊設定，下面會覆蓋強化外框） */
-    body:not(.light) .modal-footer .btn,
-    body:not(.light) .modal-footer .btn-primary {
-      color: inherit !important;
-      background: inherit !important;
-      border: inherit !important;
-    }
-
-    /* ====== 新增：強化 modal 內按鈕外框與對比 ====== */
     body:not(.light) .modal-footer .btn {
-      border: 1px solid #444 !important;      /* 更明顯的外框 */
+      border: 1px solid #444 !important;
       background: #f9fafb !important;
       color: #000 !important;
-      box-shadow: 0 1px 0 rgba(0,0,0,.06);
       transition: all .2s ease;
     }
     body:not(.light) .modal-footer .btn:hover {
@@ -145,8 +127,8 @@
       border-color: #000 !important;
     }
     body:not(.light) .modal-footer .btn-primary {
-      border: 1px solid #2563eb !important;   /* 藍色外框 */
-      background: #3b82f6 !important;         /* 藍色填色 */
+      border: 1px solid #2563eb !important;
+      background: #3b82f6 !important;
       color: #fff !important;
     }
     body:not(.light) .modal-footer .btn-primary:hover {
@@ -162,58 +144,17 @@
   <img src="assets/img/supertool-favicon.png" alt="SuperTool Icon" class="icon">
   <img src="assets/img/supertool-logo.png" alt="SuperTool Logo" class="wordmark">
 </a>
-
 <style>
-  /* ✅ 保持原本 navbar 高度 */
-  .navbar {
-    min-height: 56px; /* Bootstrap 預設高度 */
-    overflow: visible; /* 讓圖片可以超出但不被裁掉 */
-  }
-
-  /* 保持原邊距，不撐高 */
-  .brand-logo {
-    display: flex;
-    align-items: center;
-    padding-top: 0;
-    padding-bottom: 0;
-  }
-
-  /* ✅ 放大的 logo 保留現在大小 */
-  .brand-logo .icon {
-    height: 52px;
-    width: auto;
-    margin-right: 10px;
-    transform: translateY(4px); /* 向下微調置中 */
-  }
-
-  .brand-logo .wordmark {
-    height: 60px;
-    width: auto;
-    transform: translateY(4px); /* 同樣向下微調 */
-  }
-
-  /* hover 動畫 */
-  .brand-logo img {
-    transition: transform 0.3s ease, filter 0.3s ease;
-  }
-  .brand-logo:hover img {
-    filter: brightness(1.1);
-  }
-
-  /* 📱 手機版自動縮放 */
+  .navbar { min-height: 56px; overflow: visible; }
+  .brand-logo { display: flex; align-items: center; padding: 0; }
+  .brand-logo .icon { height: 52px; margin-right: 10px; transform: translateY(4px); }
+  .brand-logo .wordmark { height: 60px; transform: translateY(4px); }
   @media (max-width: 768px) {
-    .brand-logo .icon {
-      height: 42px;
-      margin-right: 8px;
-      transform: translateY(3px);
-    }
-    .brand-logo .wordmark {
-      height: 50px;
-      transform: translateY(3px);
-    }
+    .brand-logo .icon { height: 42px; margin-right: 8px; transform: translateY(3px); }
+    .brand-logo .wordmark { height: 50px; transform: translateY(3px); }
   }
 </style>
-      
+
       <div class="d-flex gap-2">
         <button id="toggleTheme" class="btn btn-outline-light btn-sm">切換亮/暗</button>
         <a class="btn btn-outline-light" href="./index.html">回首頁</a>
@@ -253,7 +194,6 @@
     </div>
   </main>
 
-  <!-- 結帳 Modal -->
   <div class="modal fade" id="checkoutDlg" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
       <form id="checkoutForm" class="modal-content">
@@ -312,16 +252,16 @@
 
   <script type="module">
     import { db } from './assets/js/firebase.js';
-    import { collection, addDoc, serverTimestamp } 
+    import { collection, addDoc, serverTimestamp }
       from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
     const PRODUCTS = [
       { name:'SuperTool Premium 7天', price:50 },
       { name:'SuperTool Premium 30天', price:100 },
-      { name:'SuperTool Premium 365天',    price:800 },
-      { sku:'感謝贊助',  name:'贊助開發者一杯咖啡',      price:50 },
-      { sku:'感謝贊助',  name:'贊助開發者一個便當',       price:100 },
-      { sku:'感謝贊助',  name:'贊助開發者兩個便當',        price:200 },
+      { name:'SuperTool Premium 365天', price:800 },
+      { name:'贊助開發者一杯咖啡', price:50 },
+      { name:'贊助開發者一個便當', price:100 },
+      { name:'贊助開發者兩個便當', price:200 },
     ];
 
     const CART_KEY = 'cart';
@@ -334,16 +274,16 @@
 
     function addToCart(p){
       const cart = loadCart();
-      const f = cart.find(i=>i.sku===p.sku);
+      const f = cart.find(i=>i.name===p.name);
       if (f) f.qty++;
-      else cart.push({ sku:p.sku, name:p.name, price:p.price, qty:1 });
+      else cart.push({ name:p.name, price:p.price, qty:1 });
       saveCart(cart);
       renderCart();
     }
     window.changeQty = changeQty;
-    function changeQty(sku, delta){
+    function changeQty(name, delta){
       const cart = loadCart();
-      const i = cart.find(x=>x.sku===sku);
+      const i = cart.find(x=>x.name===name);
       if (!i) return;
       i.qty += delta;
       if (i.qty <= 0) cart.splice(cart.indexOf(i),1);
@@ -355,7 +295,6 @@
       $('#products').innerHTML = PRODUCTS.map(p=>`
         <div class="card p-3">
           <div class="fw-semibold">${p.name}</div>
-          <div class="text-muted small">SKU：${p.sku}</div>
           <div class="price mt-1">NT$ ${p.price.toLocaleString()}</div>
           <button class="btn btn-sm mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
         </div>
@@ -369,14 +308,11 @@
       wrap.innerHTML = cart.length
         ? cart.map(i=>`
           <div class="d-flex justify-content-between align-items-center py-1 cart-item">
-            <div>
-              <div>${i.name}</div>
-              <div class="text-muted small">SKU：${i.sku}</div>
-            </div>
+            <div>${i.name}</div>
             <div class="d-flex align-items-center gap-2">
-              <button class="btn btn-sm" onclick="changeQty('${i.sku}',-1)">－</button>
+              <button class="btn btn-sm" onclick="changeQty('${i.name}',-1)">－</button>
               <span>${i.qty}</span>
-              <button class="btn btn-sm" onclick="changeQty('${i.sku}',+1)">＋</button>
+              <button class="btn btn-sm" onclick="changeQty('${i.name}',+1)">＋</button>
               <div class="ms-2">${fmt(i.price*i.qty)}</div>
             </div>
           </div>
