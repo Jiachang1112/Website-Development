@@ -15,93 +15,88 @@
   <style>
     /* ===== 導覽列 ===== */
     .top{
-      background: var(--panel-dark, #17202a);
-      color: #fff;
-      padding: .6rem 1rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border-dark, #2b313a);
-      position: sticky;
-      top: 0;
-      z-index: 20;
+      background:#0b0e13;color:#fff;padding:.6rem 1rem;
+      display:flex;align-items:center;justify-content:space-between;
+      position:sticky;top:0;z-index:10;
     }
-    .brand{color:inherit;text-decoration:none;font-weight:700;font-size:20px;cursor:pointer;}
-    .brand:hover{opacity:.85;}
-    .nav button{margin-right:.4rem;}
-    .nav .gap{display:inline-block;width:10px;}
+    .brand-logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff;font-weight:700;}
+    .brand-logo img{height:36px;width:auto;object-fit:contain;display:block;}
 
-    /* ===== 背景 ===== */
+    .nav button{
+      margin-right:.4rem;border:none;background:#1e293b;color:#fff;
+      padding:.4rem .8rem;border-radius:6px;cursor:pointer;
+    }
+    .nav button:hover{background:#334155;}
+    .nav .gap{width:10px;display:inline-block;}
+
+    /* ===== 背景（導覽列下方） ===== */
+    body,html{margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
     .gradient-wrap{
-      background: linear-gradient(135deg,#1e3a8a 0%,#2563eb 20%,#7e22ce 40%,#db2777 60%,#f97316 80%,#fde047 100%);
-      background-size:300% 300%;
-      animation:gradientShift 10s ease-in-out infinite;
-      min-height:calc(100vh - 64px);
-      padding-bottom:64px;
+      background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 20%,#7e22ce 40%,#db2777 60%,#f97316 80%,#fde047 100%);
+      background-size:400% 400%;
+      animation:gradientShift 10s ease infinite;
+      min-height:100vh;padding:2rem 1rem 4rem;
     }
-    @keyframes gradientShift{
-      0%{background-position:0% 50%;}
-      50%{background-position:100% 50%;}
-      100%{background-position:0% 50%;}
-    }
+    @keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 
-    /* ===== 英雄卡片（藍→紫漸層） ===== */
+    /* ===== 英雄卡片（上方大區塊） ===== */
     .hero-card{
-      max-width:1080px;margin:0 auto 32px auto;
-      background:linear-gradient(135deg,#3b82f6,#9333ea);
-      color:#fff;padding:28px 32px;border-radius:18px;
-      box-shadow:0 10px 28px rgba(0,0,0,.4);
-      transition:transform .25s ease,box-shadow .25s ease;
-    }
-    .hero-card:hover{transform:translateY(-4px);box-shadow:0 18px 36px rgba(0,0,0,.45);}
-    .hero-card h1{margin:0 0 .4rem 0;font-size:1.9rem;font-weight:800;}
-    .hero-card p{margin:0 0 1rem 0;color:#e2e8f0;}
-    .hero-actions{display:flex;gap:10px;flex-wrap:wrap;}
-    .hero-actions .btn-chip{
-      border:none;border-radius:999px;padding:.55rem 1.1rem;font-weight:600;cursor:pointer;
-    }
-    .btn-chip.primary{background:#1d4ed8;color:#fff;}
-    .btn-chip.light{background:#fff;color:#111;}
-    .btn-chip.ghost{background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4);}
-    .btn-chip:hover{filter:brightness(1.1);}
-
-    /* ===== 卡片主體（多色漸層） ===== */
-    .gradient-wrap .card{
-      border-radius:14px;
-      color:#fff;
-      box-shadow:0 3px 12px rgba(0,0,0,0.35);
+      max-width:1100px;margin:0 auto 28px auto;
+      background:linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%);
+      color:#fff;border-radius:18px;padding:24px 28px;
+      box-shadow:0 14px 32px rgba(0,0,0,.35);
       transition:transform .25s ease, box-shadow .25s ease;
     }
-    .gradient-wrap .card:hover{transform:translateY(-3px);box-shadow:0 8px 22px rgba(0,0,0,0.45);}
-    .st-colored-card{color:#fff;}
-    .st-g1{background:linear-gradient(135deg,#2563eb,#60a5fa);}
-    .st-g2{background:linear-gradient(135deg,#10b981,#34d399);}
-    .st-g3{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#1f2937;}
-    .st-g4{background:linear-gradient(135deg,#9333ea,#c084fc);}
-    .st-g5{background:linear-gradient(135deg,#db2777,#f472b6);}
-    .st-g6{background:linear-gradient(135deg,#0ea5e9,#22d3ee);}
-    .st-g7{background:linear-gradient(135deg,#ef4444,#f97316);}
-    .st-g8{background:linear-gradient(135deg,#14b8a6,#84cc16);}
-    .section-title{color:#fff;font-weight:800;margin:24px 10px 8px;}
+    .hero-card:hover{transform:translateY(-4px);box-shadow:0 20px 40px rgba(0,0,0,.45);}
+    .hero-title{margin:0 0 .5rem 0;font-size:28px;font-weight:800;letter-spacing:.2px;}
+    .hero-sub{margin:0;color:#eef2ff;opacity:.95;}
+    .hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+    .btn-chip{border:0;border-radius:999px;padding:.5rem .9rem;cursor:pointer;font-weight:600}
+    .btn-chip.primary{background:#1d4ed8;color:#fff}
+    .btn-chip.light{background:#ffffff;color:#111}
+    .btn-chip.ghost{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.35)}
+    .btn-chip:hover{filter:brightness(1.05)}
 
-    /* ===== Modal（聯絡我們） ===== */
+    /* ===== 多彩卡片（下方） ===== */
+    .gradient-wrap .card{
+      border-radius:16px;color:#111;background:#fff; /* 先給白底，等會用漸層覆蓋 */
+      padding:20px;margin:10px;box-shadow:0 8px 20px rgba(0,0,0,0.25);
+      transition:transform .25s ease, box-shadow .25s ease;
+      background-color:transparent !important;background-image:none !important;
+      color:#fff;
+    }
+    .gradient-wrap .card:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(0,0,0,0.45);}
+
+    /* 六色循環（確保覆蓋舊樣式） */
+    .gradient-wrap .card:nth-of-type(6n+1){background-image:linear-gradient(135deg,#3b82f6,#60a5fa) !important;}
+    .gradient-wrap .card:nth-of-type(6n+2){background-image:linear-gradient(135deg,#10b981,#34d399) !important;}
+    .gradient-wrap .card:nth-of-type(6n+3){background-image:linear-gradient(135deg,#f59e0b,#fbbf24) !important;}
+    .gradient-wrap .card:nth-of-type(6n+4){background-image:linear-gradient(135deg,#ec4899,#f472b6) !important;}
+    .gradient-wrap .card:nth-of-type(6n+5){background-image:linear-gradient(135deg,#8b5cf6,#a78bfa) !important;}
+    .gradient-wrap .card:nth-of-type(6n+6){background-image:linear-gradient(135deg,#f97316,#fb923c) !important;}
+
+    .card h3{margin-top:0}
+    .section-title{color:#fff;margin:26px 10px 6px;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+
+    /* ===== 聯絡我們 Modal ===== */
     .modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:9999;}
     .modal-mask.show{display:flex;}
-    .modal-card{width:min(560px,92vw);background:#fff;color:#111;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);}
-    .modal-hd,.modal-ft{padding:12px 16px;background:#f5f7fb;}
-    .modal-hd{font-weight:700;border-bottom:1px solid #e5e7eb;}
-    .modal-bd{padding:16px;}
-    .modal-ft{border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end;}
-    .btn-line{border:1px solid #cbd5e1;background:#fff;padding:8px 12px;border-radius:8px;cursor:pointer;}
-    .btn-primary{border:1px solid #2563eb;background:#3b82f6;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer;}
-    .form-ctl{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;}
+    .modal-card{width:min(560px,92vw);background:#ffffff;color:#111;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);}
+    .modal-hd,.modal-ft{padding:12px 16px;background:#f5f7fb}
+    .modal-hd{font-weight:700;border-bottom:1px solid #e5e7eb}
+    .modal-bd{padding:16px}
+    .btn-line{border:1px solid #cbd5e1;background:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+    .btn-primary{border:1px solid #2563eb;background:#3b82f6;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+    .form-ctl{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px}
   </style>
 </head>
 <body>
 
-<!-- ===== 導覽列 ===== -->
 <header class="top">
-  <a href="#dashboard" class="brand">SuperTool</a>
+  <a href="#dashboard" class="brand-logo" title="SuperTool">
+    <img src="assets/img/supertool-logo.png" alt="SuperTool Logo"
+         onerror="this.replaceWith(document.createTextNode('SuperTool'))">
+  </a>
   <nav class="nav">
     <button data-route="dashboard">首頁</button>
     <button data-route="auth">帳號</button>
@@ -113,32 +108,36 @@
     <button data-route="admin">後台</button>
     <button data-route="settings">設定</button>
     <button data-route="backup">備份</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/stock/stocks.html'" class="btn btn-primary">股票</button>
+    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/stock/stocks.html'" class="btn-primary">股票</button>
     <span class="gap"></span>
-    <button class="btn btn-outline-light" id="btnContact">聯絡我們</button>
+    <button class="btn-line" id="btnContact">聯絡我們</button>
   </nav>
 </header>
 
-<!-- ===== 主內容區 ===== -->
 <div class="gradient-wrap">
-
-  <!-- 英雄卡片 -->
-  <section class="hero-card">
-    <h1>SuperTool – 你的日常工作面板</h1>
-    <p>集中管理記帳、訂單與日常工具，介面簡潔、上手快速。</p>
+  <!-- 英雄卡片（彩色、保留原文案與三顆按鈕） -->
+  <section class="hero-card" aria-label="SuperTool 簡介">
+    <h1 class="hero-title">SuperTool – 你的日常工作面板</h1>
+    <p class="hero-sub">集中管理記帳、訂單與日常工具，介面簡潔、上手快速。</p>
     <div class="hero-actions">
       <button class="btn-chip primary" onclick="location.href='https://jiachang1112.github.io/Website-Development/cart-demo.html'">立即購物</button>
-      <button class="btn-chip light" onclick="location.href='https://jiachang1112.github.io/Website-Development/admin/accounting-settings.html#ledgers'">管理後台</button>
-      <button class="btn-chip ghost" onclick="document.body.classList.toggle('light')">✴ 切換亮/暗</button>
+      <button class="btn-chip light"   onclick="location.href='https://jiachang1112.github.io/Website-Development/admin/accounting-settings.html#ledgers'">管理後台</button>
+      <button class="btn-chip ghost"   onclick="document.documentElement.classList.toggle('light');document.body.classList.toggle('light')">✴ 切換亮/暗</button>
     </div>
   </section>
 
-  <main id="app"></main>
-</div>
+  <main id="app">
+    <h2 class="section-title">為什麼選擇 SuperTool？</h2>
+    <div class="card"><h3>⚡ 極速上手</h3><p>不需學習成本，登入即能用；常見功能一鍵直達。</p></div>
+    <div class="card"><h3>🔒 安全穩定</h3><p>採用雲端資料儲存（Firestore），訂單資料安全可靠。</p></div>
+    <div class="card"><h3>💻 介面友善</h3><p>淺色 / 深色主題可切換，行動 / 桌面都能舒適瀏覽。</p></div>
 
-<!-- FAB 按鈕保留 -->
-<button id="fabExpense" class="fab">＋</button>
-<button id="fabShop" class="fab-square">🛒</button>
+    <h2 class="section-title">怎麼開始使用？</h2>
+    <div class="card"><h3>Step 1</h3><p>前往「購物」頁挑選商品，加入購物車、準備結帳。</p></div>
+    <div class="card"><h3>Step 2</h3><p>填寫收件資料與付款方式，提交後可查看訂單狀態。</p></div>
+    <div class="card"><h3>Step 3</h3><p>到「後台」查看訂單詳情，更新狀態（待付款 / 已出貨 / 已取消）。</p></div>
+  </main>
+</div>
 
 <!-- ===== 聯絡我們 Modal（Formspree） ===== -->
 <div class="modal-mask" id="contactModal" aria-hidden="true">
@@ -163,38 +162,15 @@
   </div>
 </div>
 
-<!-- ===== JS 部分 ===== -->
-<script type="module" src="assets/js/app.js"></script>
-
 <script>
-  /* Modal 開關 */
   const modal=document.getElementById('contactModal');
   const btnOpen=document.getElementById('btnContact');
   const btnClose=document.getElementById('btnContactCancel');
-  function openModal(){modal.classList.add('show');}
-  function closeModal(){modal.classList.remove('show');}
+  function openModal(){modal.classList.add('show')}
+  function closeModal(){modal.classList.remove('show')}
   btnOpen.addEventListener('click',openModal);
   btnClose.addEventListener('click',closeModal);
-  modal.addEventListener('click',e=>{if(e.target===modal)closeModal();});
-  window.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
-
-  /* 提交提示 */
-  document.getElementById('contactForm').addEventListener('submit',()=>{setTimeout(()=>{closeModal();alert('已送出，感謝您的來信！');},50);});
-
-  /* 動態套色卡片 */
-  (function(){
-    const container=document.querySelector('.gradient-wrap');
-    if(!container)return;
-    const all=container.querySelectorAll('.card,.panel,.box');
-    const gradients=['st-g1','st-g2','st-g3','st-g4','st-g5','st-g6','st-g7','st-g8'];
-    let idx=0;
-    all.forEach((el,i)=>{
-      if(i===0)return;
-      if(el.classList.contains('keep-dark'))return;
-      el.classList.add('st-colored-card',gradients[idx%gradients.length]);
-      idx++;
-    });
-  })();
+  modal.addEventListener('click',e=>{if(e.target===modal)closeModal()});
 </script>
 
 </body>
