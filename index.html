@@ -10,176 +10,104 @@
   <link rel="icon" type="image/png" href="assets/img/supertool-favicon.png">
   <link rel="stylesheet" href="assets/css/style.css" />
 
-  <!-- Google Identity Services：只載一次 -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
-    /* ===== 上方導覽列維持原本深色 ===== */
+    /* ===== 導覽列 ===== */
     .top{
-      background: var(--panel-dark, #17202a);
+      background: #0b0e13;
       color: #fff;
       padding: .6rem 1rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--border-dark, #2b313a);
       position: sticky;
       top: 0;
-      z-index: 20;
-      overflow: visible;
+      z-index: 10;
     }
-    .brand{ color: inherit; text-decoration: none; font-weight: 700; font-size: 20px; cursor: pointer; }
-    .brand:hover{ opacity: .85; }
-    .nav button{ margin-right:.4rem; }
-    .nav .gap{ display:inline-block; width:10px; } /* 股票右邊空一格 */
+    .brand-logo{
+      display: flex; align-items: center; gap:10px;
+      text-decoration:none; color:#fff; font-weight:700;
+    }
+    .brand-logo img{
+      height: 36px; width: auto; object-fit: contain; display:block;
+    }
 
-    /* ===== 下面主要背景區：強烈多色漸層（只作用在導覽列下方） ===== */
+    .nav button{
+      margin-right:.4rem; border:none; background:#1e293b; color:#fff;
+      padding:.4rem .8rem; border-radius:6px; cursor:pointer;
+    }
+    .nav button:hover{ background:#334155; }
+    .nav .gap{ width:10px; display:inline-block; }
+
+    /* ===== 背景（導覽列下方才有漸層） ===== */
+    body,html{ margin:0; padding:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; }
     .gradient-wrap{
-      background: linear-gradient(135deg,
-        #1e3a8a 0%,
-        #2563eb 20%,
-        #7e22ce 40%,
-        #db2777 60%,
-        #f97316 80%,
-        #fde047 100%
-      );
-      background-size: 300% 300%;
-      animation: gradientShift 10s ease-in-out infinite;
-      min-height: calc(100vh - 64px);
-      padding-bottom: 64px;
+      background: linear-gradient(135deg,#1e3a8a 0%,#2563eb 20%,#7e22ce 40%,#db2777 60%,#f97316 80%,#fde047 100%);
+      background-size: 400% 400%;
+      animation: gradientShift 10s ease infinite;
+      min-height:100vh;
+      padding:2rem 1rem 4rem 1rem;
     }
     @keyframes gradientShift{
-      0%{ background-position: 0% 50%; }
-      50%{ background-position: 100% 50%; }
-      100%{ background-position: 0% 50%; }
+      0%{background-position:0% 50%}
+      50%{background-position:100% 50%}
+      100%{background-position:0% 50%}
     }
 
-    /* ===== 英雄卡片（第一張卡）做彩色邊框＋深藍底，維持原文字功能 ===== */
-    .dashboard-card,
-    .gradient-wrap .card.hero,
-    .gradient-wrap .hero-card,
-    .gradient-wrap #hero,
-    .gradient-wrap #app > .card:first-of-type,
-    .gradient-wrap main > .card:first-of-type{
-      background: linear-gradient(145deg, #0f172a, #1e293b) !important;
-      border: 2px solid transparent;
-      border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1;
-      border-radius: 14px;
-      padding: 22px;
-      color: #fff;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-      transition: transform .3s ease, box-shadow .3s ease;
-    }
-    .dashboard-card:hover,
-    .gradient-wrap .card.hero:hover,
-    .gradient-wrap .hero-card:hover,
-    .gradient-wrap #hero:hover,
-    .gradient-wrap #app > .card:first-of-type:hover,
-    .gradient-wrap main > .card:first-of-type:hover{
-      transform: translateY(-6px);
-      box-shadow: 0 14px 32px rgba(0,0,0,0.55);
-    }
-    .dashboard-card h1,
-    .gradient-wrap .card.hero h1,
-    .gradient-wrap .hero-card h1,
-    .gradient-wrap #hero h1,
-    .gradient-wrap #app > .card:first-of-type h1,
-    .gradient-wrap main > .card:first-of-type h1{
-      background: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      font-size: 1.8rem;
-      font-weight: 800;
-      margin: 0 0 .4rem 0;
-    }
-    .dashboard-card p,
-    .gradient-wrap .card.hero p,
-    .gradient-wrap .hero-card p,
-    .gradient-wrap #hero p,
-    .gradient-wrap #app > .card:first-of-type p,
-    .gradient-wrap main > .card:first-of-type p{
-      color: #d1d5db;
-      margin: 0;
-    }
-
-    /* ===== 一般卡片：多顏色循環 + 懸浮抬起 =====
-       這裡不改你的 DOM，直接針對 .gradient-wrap 內的每個 .card 做 nth-of-type 配色
-       讓不同容器內的卡也能各自循環顏色。 */
+    /* ===== 多彩卡片（強制覆蓋原本 style.css 的 .card 背景） ===== */
     .gradient-wrap .card{
-      border: 0;
-      border-radius: 14px;
-      color: #fff;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
-      transition: transform .25s ease, box-shadow .25s ease, filter .25s ease;
-      backdrop-filter: blur(2px);
+      border-radius:16px;
+      color:#fff;
+      padding:20px;
+      margin:10px;
+      box-shadow:0 8px 20px rgba(0,0,0,0.35);
+      transition:transform .25s ease, box-shadow .25s ease;
+      background-color: transparent !important;  /* 清掉舊的深色底 */
+      background-image: none !important;         /* 先清空，下面會依序指定 */
     }
     .gradient-wrap .card:hover{
-      transform: translateY(-6px);
-      box-shadow: 0 14px 30px rgba(0,0,0,0.5);
+      transform:translateY(-6px);
+      box-shadow:0 12px 30px rgba(0,0,0,0.5);
     }
 
-    /* 調整卡片內文字對比 */
-    .gradient-wrap .card .text-muted,
-    .gradient-wrap .card .text-secondary,
-    .gradient-wrap .card .text-body-secondary{ color: rgba(255,255,255,.88) !important; }
+    /* 六色循環（用更高優先度選擇器+!important，確保成功覆蓋） */
+    .gradient-wrap .card:nth-of-type(6n+1){ background-image:linear-gradient(135deg,#3b82f6,#60a5fa) !important; }
+    .gradient-wrap .card:nth-of-type(6n+2){ background-image:linear-gradient(135deg,#10b981,#34d399) !important; }
+    .gradient-wrap .card:nth-of-type(6n+3){ background-image:linear-gradient(135deg,#f59e0b,#fbbf24) !important; }
+    .gradient-wrap .card:nth-of-type(6n+4){ background-image:linear-gradient(135deg,#ec4899,#f472b6) !important; }
+    .gradient-wrap .card:nth-of-type(6n+5){ background-image:linear-gradient(135deg,#8b5cf6,#a78bfa) !important; }
+    .gradient-wrap .card:nth-of-type(6n+6){ background-image:linear-gradient(135deg,#f97316,#fb923c) !important; }
 
-    .gradient-wrap .card .btn{ border-color: rgba(255,255,255,.55); color:#fff; }
-    .gradient-wrap .card .btn:hover{ background: rgba(255,255,255,.12); }
-
-    /* 6 色循環（可依喜好改） */
-    .gradient-wrap .card:nth-of-type(6n+1){ background: linear-gradient(135deg,#60a5fa,#3b82f6); }
-    .gradient-wrap .card:nth-of-type(6n+2){ background: linear-gradient(135deg,#34d399,#10b981); }
-    .gradient-wrap .card:nth-of-type(6n+3){ background: repeating-linear-gradient(135deg,#86efac 0 14px,#22c55e 14px 28px); }
-    .gradient-wrap .card:nth-of-type(6n+4){ background: linear-gradient(135deg,#f59e0b,#f97316); }
-    .gradient-wrap .card:nth-of-type(6n+5){ background: linear-gradient(135deg,#f472b6,#ec4899); }
-    .gradient-wrap .card:nth-of-type(6n+6){ background: linear-gradient(135deg,#a78bfa,#8b5cf6); }
-
-    /* 卡片內容可讀性（標題白、段落微白） */
-    .gradient-wrap .card h1,
-    .gradient-wrap .card h2,
-    .gradient-wrap .card h3,
-    .gradient-wrap .card h4,
-    .gradient-wrap .card h5{ color:#fff; margin-top:0; }
-    .gradient-wrap .card p{ color: rgba(255,255,255,.92); }
-
-    /* ===== 輕量 Modal（聯絡我們） ===== */
+    .card h3{margin-top:0;}
+    .section-title{color:#fff;margin-top:2rem;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.25);}
+    
+    /* ===== 聯絡我們 Modal ===== */
     .modal-mask{
-      position: fixed; inset: 0; background: rgba(0,0,0,.45);
-      display: none; align-items: center; justify-content: center; z-index: 9999;
+      position:fixed; inset:0; background:rgba(0,0,0,.45);
+      display:none; align-items:center; justify-content:center; z-index:9999;
     }
-    .modal-mask.show{ display: flex; }
+    .modal-mask.show{ display:flex; }
     .modal-card{
-      width: min(560px, 92vw);
-      background: #ffffff; color:#111;
-      border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
-      overflow: hidden; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      width:min(560px,92vw);
+      background:#ffffff; color:#111;
+      border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.35);
     }
     .modal-hd,.modal-ft{ padding:12px 16px; background:#f5f7fb; }
     .modal-hd{ font-weight:700; border-bottom:1px solid #e5e7eb; }
-    .modal-bd{ padding:16px; background:#fff; }
-    .modal-ft{ border-top:1px solid #e5e7eb; display:flex; gap:8px; justify-content:flex-end; }
-    .btn-line{ border:1px solid #cbd5e1; background:#fff; color:#111; padding:8px 12px; border-radius:8px; cursor:pointer; }
-    .btn-line:hover{ background:#eef2f7; }
-    .btn-primary{
-      border:1px solid #2563eb; background:#3b82f6; color:#fff;
-      padding:8px 12px; border-radius:8px; cursor:pointer;
-    }
-    .btn-primary:hover{ background:#60a5fa; }
-    .form-ctl{ width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; }
-    .form-ctl:focus{ outline:none; border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,.35); }
-    .form-row{ margin-bottom:12px; }
-    .form-lb{ display:block; margin-bottom:6px; font-weight:600; }
-
-    /* 深色主題時，Modal 仍維持淺底深字以利閱讀 */
-    html:not(.light) .modal-card{ background:#f8fafc; color:#111; }
-    html:not(.light) .modal-hd, html:not(.light) .modal-ft{ background:#eef2f7; }
+    .modal-bd{ padding:16px; }
+    .btn-line{border:1px solid #cbd5e1;background:#fff;padding:8px 12px;border-radius:8px;cursor:pointer;}
+    .btn-primary{border:1px solid #2563eb;background:#3b82f6;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer;}
+    .form-ctl{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;}
   </style>
 </head>
 <body>
 
-<!-- ===== 導覽列（維持原樣） ===== -->
 <header class="top">
-  <a href="#dashboard" class="brand">SuperTool</a>
+  <a href="#dashboard" class="brand-logo" title="SuperTool">
+    <img src="assets/img/supertool-logo.png" alt="SuperTool Logo"
+         onerror="this.replaceWith(document.createTextNode('SuperTool'))">
+  </a>
   <nav class="nav">
     <button data-route="dashboard">首頁</button>
     <button data-route="auth">帳號</button>
@@ -191,41 +119,40 @@
     <button data-route="admin">後台</button>
     <button data-route="settings">設定</button>
     <button data-route="backup">備份</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/stock/stocks.html'" class="btn btn-primary">股票</button>
+    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/stock/stocks.html'" class="btn-primary">股票</button>
     <span class="gap"></span>
-    <button class="btn btn-outline-light" id="btnContact">聯絡我們</button>
+    <button class="btn-line" id="btnContact">聯絡我們</button>
   </nav>
 </header>
 
-<!-- ===== 下面整區加彩色漸層背景 ===== -->
 <div class="gradient-wrap">
-  <main id="app"></main>
-</div>
+  <main id="app">
+    <h2 class="section-title">為什麼選擇 SuperTool？</h2>
+    <div class="card"><h3>⚡ 極速上手</h3><p>不需學習成本，登入即能用；常見功能一鍵直達。</p></div>
+    <div class="card"><h3>🔒 安全穩定</h3><p>採用雲端資料儲存（Firestore），訂單資料安全可靠。</p></div>
+    <div class="card"><h3>💻 介面友善</h3><p>淺色 / 深色主題可切換，行動 / 桌面都能舒適瀏覽。</p></div>
 
-<!-- FAB 保持原本位置 -->
-<button id="fabExpense" class="fab">＋</button>
-<button id="fabShop" class="fab-square">🛒</button>
+    <h2 class="section-title">怎麼開始使用？</h2>
+    <div class="card"><h3>Step 1</h3><p>前往「購物」頁挑選商品，加入購物車、準備結帳。</p></div>
+    <div class="card"><h3>Step 2</h3><p>填寫收件資料與付款方式，提交後可查看訂單狀態。</p></div>
+    <div class="card"><h3>Step 3</h3><p>到「後台」查看訂單詳情，更新狀態（待付款 / 已出貨 / 已取消）。</p></div>
+  </main>
+</div>
 
 <!-- ===== 聯絡我們 Modal（Formspree） ===== -->
 <div class="modal-mask" id="contactModal" aria-hidden="true">
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
-    <div class="modal-hd" id="contactTitle">聯絡我們</div>
+  <div class="modal-card" role="dialog">
+    <div class="modal-hd">聯絡我們</div>
     <form id="contactForm" action="https://formspree.io/f/mvgwdkwy" method="POST">
       <div class="modal-bd">
         <input type="hidden" name="_subject" value="SuperTool｜聯絡我們來信">
         <input type="hidden" name="_captcha" value="false">
-        <div class="form-row">
-          <label class="form-lb">姓名</label>
-          <input class="form-ctl" name="name" required>
-        </div>
-        <div class="form-row">
-          <label class="form-lb">Email</label>
-          <input class="form-ctl" type="email" name="email" required>
-        </div>
-        <div class="form-row">
-          <label class="form-lb">訊息內容</label>
-          <textarea class="form-ctl" rows="4" name="message" required></textarea>
-        </div>
+        <label>姓名</label>
+        <input class="form-ctl" name="name" required>
+        <label>Email</label>
+        <input class="form-ctl" type="email" name="email" required>
+        <label>訊息內容</label>
+        <textarea class="form-ctl" rows="4" name="message" required></textarea>
       </div>
       <div class="modal-ft">
         <button type="button" class="btn-line" id="btnContactCancel">取消</button>
@@ -235,106 +162,17 @@
   </div>
 </div>
 
-<!-- 你的 SPA 腳本（維持原樣） -->
-<script type="module" src="assets/js/app.js"></script>
-
 <script>
-/* ------------------ 共用：JWT 解析（避免中文亂碼） ------------------ */
-function parseGoogleJWT(credential){
-  const base64Url = credential.split('.')[1];
-  const base64 = base64Url.replace(/-/g,'+').replace(/_/g,'/');
-  const json = decodeURIComponent(
-    atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
-  );
-  return JSON.parse(json);
-}
-
-/* ------------------ 共用：在帳號卡片顯示歡迎 ------------------ */
-window.__showWelcomeInAuth = function(name){
-  let slot = document.getElementById('welcome-slot');
-  if(!slot){
-    const card = document.querySelector('#auth-card');
-    if(card){
-      slot = document.createElement('div');
-      slot.id = 'welcome-slot';
-      card.insertBefore(slot, card.firstChild ? card.firstChild.nextSibling : null);
-    }
-  }
-  if(slot){ slot.innerHTML = `<div class="welcome-chip">👋 歡迎 ${name}</div>`; }
-};
-
-/* ------------------ Google 初始化 & 登入回呼 ------------------ */
-function handleCredentialResponse(res){
-  try{
-    const payload = parseGoogleJWT(res.credential);
-    const user = {
-      email: payload.email, name: payload.name,
-      picture: payload.picture, sub: payload.sub
-    };
-    localStorage.setItem('session_user', JSON.stringify(user));
-    try{ google.accounts.id.cancel(); }catch(e){}
-    window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name);
-    if(location.hash !== '#auth'){ location.hash = '#dashboard'; }
-  }catch(e){ console.error('解析 Google Token 失敗：', e); }
-}
-
-function initGoogle(){
-  if(!window.google || !google.accounts || !google.accounts.id) return;
-  google.accounts.id.initialize({
-    client_id: "225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com",
-    callback: handleCredentialResponse,
-    auto_select: false,
-    cancel_on_tap_outside: true
-  });
-  window.__renderGoogleBtn = function(){
-    const mount = document.getElementById('googleBtnMount') || document.querySelector('.g_id_signin');
-    if(mount){ google.accounts.id.renderButton(mount, { theme: "outline", size: "large" }); }
-  };
-  function refreshAuthUI(){
-    let user = null; try{ user = JSON.parse(localStorage.getItem('session_user')||'null'); }catch{}
-    if(location.hash === '#auth'){
-      if(user && user.name){ window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name); }
-      else{ window.__renderGoogleBtn && window.__renderGoogleBtn(); }
-    }
-  }
-  refreshAuthUI();
-  window.addEventListener('hashchange', refreshAuthUI);
-}
-
-window.addEventListener('load', () => {
-  const ready = () => initGoogle();
-  if(window.google && google.accounts && google.accounts.id){ ready(); }
-  else{
-    let tries = 0;
-    const timer = setInterval(()=>{
-      tries++;
-      if(window.google && google.accounts && google.accounts.id){ clearInterval(timer); ready(); }
-      else if(tries>50){ clearInterval(timer); }
-    },100);
-  }
-});
-</script>
-
-<script>
-  if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
-
-  /* ===== 聯絡我們 Modal 開關 ===== */
   const modal = document.getElementById('contactModal');
   const btnOpen = document.getElementById('btnContact');
   const btnClose = document.getElementById('btnContactCancel');
-
-  function openModal(){ modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); }
-  function closeModal(){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); }
-
+  function openModal(){ modal.classList.add('show'); }
+  function closeModal(){ modal.classList.remove('show'); }
   btnOpen.addEventListener('click', openModal);
   btnClose.addEventListener('click', closeModal);
-  modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
-  window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeModal(); });
-
-  // 送出後給提示（不阻塞 Formspree 提交）
-  document.getElementById('contactForm').addEventListener('submit', function(){
-    setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
-  });
+  modal.addEventListener('click', e=>{ if(e.target===modal) closeModal(); });
 </script>
+
 </body>
 </html>
+
