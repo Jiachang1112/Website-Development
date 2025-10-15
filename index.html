@@ -57,10 +57,7 @@
       100%{ background-position: 0% 50%; }
     }
 
-    /* ===== 「工作面板」彩色化（盡量不改你的 DOM） =====
-       1) 若你在 app.js 有英雄卡片的 class/ID，給它加 .dashboard-card 最精準
-       2) 若沒有，下面的選擇器也會套用到「第一個卡片」當作英雄卡片用
-    */
+    /* ===== 「工作面板」彩色化（盡量不改你的 DOM） ===== */
     .dashboard-card,
     .gradient-wrap .card.hero,
     .gradient-wrap .hero-card,
@@ -109,10 +106,11 @@
       margin: 0;
     }
 
-    /* 其他資訊卡略亮＋浮起效果（不動你原本排版） */
+    /* 其他資訊卡：浮起效果（顏色由下方自動套色 JS 決定） */
     .gradient-wrap .card{
       box-shadow: 0 3px 12px rgba(0,0,0,0.35);
       transition: transform .25s ease, box-shadow .25s ease;
+      border-radius: 14px;
     }
     .gradient-wrap .card:hover{
       transform: translateY(-3px);
@@ -150,6 +148,17 @@
     /* 深色主題時，Modal 仍維持淺底深字以利閱讀 */
     html:not(.light) .modal-card{ background:#f8fafc; color:#111; }
     html:not(.light) .modal-hd, html:not(.light) .modal-ft{ background:#eef2f7; }
+
+    /* ====== 彩色卡片主題（由 JS 輪流套用） ====== */
+    .st-colored-card{ color:#fff; }
+    .st-g1{ background: linear-gradient(135deg,#2563eb,#60a5fa); }
+    .st-g2{ background: linear-gradient(135deg,#10b981,#34d399); }
+    .st-g3{ background: linear-gradient(135deg,#f59e0b,#fbbf24); color:#1f2937; } /* 黃色系深字 */
+    .st-g4{ background: linear-gradient(135deg,#9333ea,#c084fc); }
+    .st-g5{ background: linear-gradient(135deg,#db2777,#f472b6); }
+    .st-g6{ background: linear-gradient(135deg,#0ea5e9,#22d3ee); }
+    .st-g7{ background: linear-gradient(135deg,#ef4444,#f97316); }
+    .st-g8{ background: linear-gradient(135deg,#14b8a6,#84cc16); }
   </style>
 </head>
 <body>
@@ -179,7 +188,7 @@
   <main id="app"></main>
 </div>
 
-<!-- 你的 FAB 保持原本位置（如果希望跟著漸層一起，也可搬到 .gradient-wrap 裡） -->
+<!-- 你的 FAB 保持原本位置 -->
 <button id="fabExpense" class="fab">＋</button>
 <button id="fabShop" class="fab-square">🛒</button>
 
@@ -312,7 +321,34 @@ window.addEventListener('load', () => {
   document.getElementById('contactForm').addEventListener('submit', function(){
     setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
   });
+
+  /* ===== 自動把彩色漸層套到內容卡片（保留字與功能） =====
+     - 只處理 .gradient-wrap 裡的卡片
+     - 第一張（英雄卡）維持你的深色樣式
+     - 想保留黑色的卡片 → 加上 .keep-dark
+  */
+  (function(){
+    const container = document.querySelector('.gradient-wrap');
+    if(!container) return;
+
+    // 你頁面卡片的可能 class（依你的版面而定），可自行加減
+    const selectors = ['.card', '.panel', '.box'];
+    const all = container.querySelectorAll(selectors.join(','));
+    if(!all.length) return;
+
+    const gradients = ['st-g1','st-g2','st-g3','st-g4','st-g5','st-g6','st-g7','st-g8'];
+    let idx = 0;
+
+    all.forEach((el, i)=>{
+      // 跳過英雄卡（第一張）與標記 keep-dark 的卡片
+      if(i === 0) return;
+      if(el.classList.contains('keep-dark')) return;
+
+      el.classList.add('st-colored-card', gradients[idx % gradients.length]);
+      idx++;
+    });
+  })();
 </script>
 </body>
 </html>
-v
+
