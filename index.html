@@ -10,77 +10,55 @@
   <link rel="icon" type="image/png" href="assets/img/supertool-favicon.png">
   <link rel="stylesheet" href="assets/css/style.css" />
 
-  <!-- Google Identity Services -->
+  <!-- Google Identity Services：只載一次 -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
-    /* ===== 導覽列彩色封面背景 ===== */
-    .top {
-      background: linear-gradient(135deg, #1e3a8a, #2563eb, #7e22ce, #f97316);
-      background-size: 400% 400%;
-      animation: gradientFlow 12s ease infinite;
+    /* --- 保持原本的頂部樣式（深色面板） --- */
+    .top{
+      background: var(--panel-dark);
       color: #fff;
-      padding: 0.6rem 1rem;
+      padding: .6rem 1rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      box-shadow: 0 2px 10px rgba(0,0,0,.4);
+      border-bottom: 1px solid var(--border-dark);
     }
-    @keyframes gradientFlow {
-      0% {background-position: 0% 50%;}
-      50% {background-position: 100% 50%;}
-      100% {background-position: 0% 50%;}
+    .brand{ color: inherit; text-decoration: none; font-weight:700; font-size:20px; cursor:pointer; }
+    .brand:hover{ opacity:.85; }
+
+    /* 如果你用圖像版 logo，保留這段（沒用就可以刪掉） */
+    .brand-logo{ display:flex; align-items:center; text-decoration:none; line-height:1; }
+    .brand-logo .icon{ height:52px; width:auto; margin-right:10px; transform:translateY(3px); }
+    .brand-logo .wordmark{ height:60px; width:auto; transform:translateY(3px); }
+    @media (max-width:768px){
+      .brand-logo .icon{ height:42px; margin-right:8px; transform:translateY(2px); }
+      .brand-logo .wordmark{ height:50px; transform:translateY(2px); }
+      .top{ flex-direction:column; gap:6px; }
     }
 
-    /* 品牌區：左 icon + 右彩色字樣 */
-    .brand-logo {
-      display: flex;
-      align-items: center;
-      text-decoration: none;
-      line-height: 1;
+    /* 導覽列間隔（股票右邊空一格） */
+    .nav .gap{ display:inline-block; width:10px; }
+
+    /* --- 下面內容的彩色漸層背景（動畫） --- */
+    .gradient-wrap{
+      /* 讓背景只套用在 header 之下 */
+      background: linear-gradient(135deg, #1e3a8a, #2563eb, #7e22ce, #f97316);
+      background-size: 400% 400%;
+      animation: gradientFlow 12s ease infinite;
+      min-height: calc(100vh - 64px); /* 大致扣掉 navbar 高度 */
+      padding-bottom: 40px;            /* 讓內容底部不會太貼邊 */
     }
-    .brand-logo .icon {
-      height: 52px; width: auto;
-      margin-right: 10px;
-      transform: translateY(3px);
-      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
-    }
-    .brand-logo .wordmark {
-      height: 60px; width: auto;
-      transform: translateY(3px);
-      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+    @keyframes gradientFlow{
+      0%{background-position:0% 50%}
+      50%{background-position:100% 50%}
+      100%{background-position:0% 50%}
     }
 
-    /* 右邊按鈕群 */
-    .nav button,
-    .nav .btn {
-      background: rgba(255,255,255,0.12);
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.25);
-      border-radius: 8px;
-      padding: 6px 12px;
-      margin: 0 3px;
-      cursor: pointer;
-      transition: all .25s ease;
+    /* 卡片/文字在漸層上可讀性（可依需求調整） */
+    .gradient-wrap #app{
+      padding: 12px;
     }
-    .nav button:hover,
-    .nav .btn:hover {
-      background: rgba(255,255,255,0.25);
-      transform: translateY(-1px);
-    }
-
-    .nav .btn-primary {
-      background: #3b82f6;
-      border-color: #60a5fa;
-      color: #fff;
-      font-weight: 600;
-    }
-    .nav .btn-primary:hover {
-      background: #60a5fa;
-      color: #000;
-    }
-
-    .nav .gap { display:inline-block; width:10px; }
 
     /* ===== 輕量自製 Modal（不依賴 Bootstrap JS） ===== */
     .modal-mask{
@@ -110,25 +88,22 @@
     .form-row{ margin-bottom:12px; }
     .form-lb{ display:block; margin-bottom:6px; font-weight:600; }
 
+    /* 深色主題時，Modal 仍維持淺底深字以利閱讀 */
     html:not(.light) .modal-card{ background:#f8fafc; color:#111; }
     html:not(.light) .modal-hd, html:not(.light) .modal-ft{ background:#eef2f7; }
-
-    @media (max-width: 768px){
-      .brand-logo .icon{ height:42px; margin-right:8px; transform:translateY(2px); }
-      .brand-logo .wordmark{ height:50px; transform:translateY(2px); }
-      .top{ flex-direction: column; gap:6px; }
-    }
   </style>
 </head>
 <body>
 
 <header class="top">
-  <!-- ✅ 改成彩色封面品牌 -->
+  <!-- 文字版： -->
+  <a href="#dashboard" class="brand">SuperTool</a>
+  <!-- 若要圖像版，把上面一行換成下面這段即可
   <a href="#dashboard" class="brand-logo" aria-label="SuperTool">
     <img src="assets/img/supertool-favicon.png" alt="SuperTool Icon" class="icon">
     <img src="assets/img/supertool-logo.png" alt="SuperTool" class="wordmark">
   </a>
-
+  -->
   <nav class="nav">
     <button data-route="dashboard">首頁</button>
     <button data-route="auth">帳號</button>
@@ -146,35 +121,40 @@
   </nav>
 </header>
 
-<main id="app"></main>
+<!-- ✅ 從這裡開始都在彩色漸層背景裡 -->
+<div class="gradient-wrap">
+  <main id="app"></main>
 
-<!-- ===== 聯絡我們 Modal（Formspree） ===== -->
-<div class="modal-mask" id="contactModal" aria-hidden="true">
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
-    <div class="modal-hd" id="contactTitle">聯絡我們</div>
-    <form id="contactForm" action="https://formspree.io/f/mvgwdkwy" method="POST">
-      <div class="modal-bd">
-        <input type="hidden" name="_subject" value="SuperTool｜聯絡我們來信">
-        <input type="hidden" name="_captcha" value="false">
+  <button id="fabExpense" class="fab">＋</button>
+  <button id="fabShop" class="fab-square">🛒</button>
 
-        <div class="form-row">
-          <label class="form-lb">姓名</label>
-          <input class="form-ctl" name="name" required>
+  <!-- 聯絡我們 Modal（Formspree） -->
+  <div class="modal-mask" id="contactModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
+      <div class="modal-hd" id="contactTitle">聯絡我們</div>
+      <form id="contactForm" action="https://formspree.io/f/mvgwdkwy" method="POST">
+        <div class="modal-bd">
+          <input type="hidden" name="_subject" value="SuperTool｜聯絡我們來信">
+          <input type="hidden" name="_captcha" value="false">
+          <div class="form-row">
+            <label class="form-lb">姓名</label>
+            <input class="form-ctl" name="name" required>
+          </div>
+          <div class="form-row">
+            <label class="form-lb">Email</label>
+            <input class="form-ctl" type="email" name="email" required>
+          </div>
+          <div class="form-row">
+            <label class="form-lb">訊息內容</label>
+            <textarea class="form-ctl" rows="4" name="message" required></textarea>
+          </div>
         </div>
-        <div class="form-row">
-          <label class="form-lb">Email</label>
-          <input class="form-ctl" type="email" name="email" required>
+        <div class="modal-ft">
+          <button type="button" class="btn-line" id="btnContactCancel">取消</button>
+          <button type="submit" class="btn-primary">送出</button>
         </div>
-        <div class="form-row">
-          <label class="form-lb">訊息內容</label>
-          <textarea class="form-ctl" rows="4" name="message" required></textarea>
-        </div>
-      </div>
-      <div class="modal-ft">
-        <button type="button" class="btn-line" id="btnContactCancel">取消</button>
-        <button type="submit" class="btn-primary">送出</button>
-      </div>
-    </form>
+      </form>
+    </div>
   </div>
 </div>
 
@@ -191,9 +171,14 @@
   btnClose.addEventListener('click', closeModal);
   modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
   window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeModal(); });
+
+  // 送出後提示（不阻擋 Formspree）
   document.getElementById('contactForm').addEventListener('submit', function(){
     setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
   });
+
+  // 你原本的 Google 登入初始化、SW 等繼續放在 app.js 或原檔（不動）
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
 </script>
 </body>
 </html>
