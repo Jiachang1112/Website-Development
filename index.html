@@ -33,9 +33,10 @@
     }
     .brand:hover{ opacity: .85; }
     .nav button{ margin-right:.4rem; }
+    /* 股票右邊空一格 */
     .nav .gap{ display:inline-block; width:10px; }
 
-    /* ===== 主要背景：強烈多色漸層 ===== */
+    /* ===== 下面主要背景區：強烈多色漸層（只作用在導覽列下方） ===== */
     .gradient-wrap{
       background: linear-gradient(135deg,
         #1e3a8a 0%,
@@ -56,16 +57,16 @@
       100%{ background-position: 0% 50%; }
     }
 
-    /* ===== 英雄區深藍亮面卡 ===== */
+    /* ===== 「工作面板」彩色化（盡量不改你的 DOM） ===== */
     .dashboard-card,
     .gradient-wrap .card.hero,
     .gradient-wrap .hero-card,
     .gradient-wrap #hero,
     .gradient-wrap #app > .card:first-of-type,
     .gradient-wrap main > .card:first-of-type{
-      background: linear-gradient(145deg, #0f172a, #1e293b) !important;
+      background: linear-gradient(145deg, #0f172a, #1e293b) !important; /* 深藍亮面 */
       border: 2px solid transparent;
-      border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1;
+      border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1; /* 彩色邊框 */
       border-radius: 14px;
       padding: 22px;
       color: #fff;
@@ -81,6 +82,7 @@
       transform: translateY(-4px);
       box-shadow: 0 10px 28px rgba(0,0,0,0.55);
     }
+    /* 英雄卡片標題做彩色漸層字 */
     .dashboard-card h1,
     .gradient-wrap .card.hero h1,
     .gradient-wrap .hero-card h1,
@@ -104,7 +106,7 @@
       margin: 0;
     }
 
-    /* ===== 浮起效果 ===== */
+    /* 其他資訊卡：浮起效果（顏色由下方自動套色 JS 決定） */
     .gradient-wrap .card{
       box-shadow: 0 3px 12px rgba(0,0,0,0.35);
       transition: transform .25s ease, box-shadow .25s ease;
@@ -115,7 +117,7 @@
       box-shadow: 0 8px 22px rgba(0,0,0,0.45);
     }
 
-    /* ===== Modal 美化 ===== */
+    /* ===== 輕量 Modal（聯絡我們） ===== */
     .modal-mask{
       position: fixed; inset: 0; background: rgba(0,0,0,.45);
       display: none; align-items: center; justify-content: center; z-index: 9999;
@@ -143,33 +145,98 @@
     .form-row{ margin-bottom:12px; }
     .form-lb{ display:block; margin-bottom:6px; font-weight:600; }
 
-    /* ===== 所有卡片外框都有彩色邊框 ===== */
-    .card, .panel, .box, .dashboard-card {
-      border: 2px solid transparent !important;
-      border-image: linear-gradient(90deg,
-        #60a5fa,
-        #a855f7,
-        #f472b6,
-        #f59e0b,
-        #22d3ee,
-        #10b981
-      ) 1 !important;
-      border-radius: 14px !important;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.45);
-      transition: all .3s ease;
+    /* 深色主題時，Modal 仍維持淺底深字以利閱讀 */
+    html:not(.light) .modal-card{ background:#f8fafc; color:#111; }
+    html:not(.light) .modal-hd, html:not(.light) .modal-ft{ background:#eef2f7; }
+
+    /* ====== 彩色卡片主題（由 JS 輪流套用） ====== */
+    .st-colored-card{ color:#fff; }
+    .st-g1{ background: linear-gradient(135deg,#2563eb,#60a5fa); }
+    .st-g2{ background: linear-gradient(135deg,#10b981,#34d399); }
+    .st-g3{ background: linear-gradient(135deg,#f59e0b,#fbbf24); color:#1f2937; } /* 黃色系深字 */
+    .st-g4{ background: linear-gradient(135deg,#9333ea,#c084fc); }
+    .st-g5{ background: linear-gradient(135deg,#db2777,#f472b6); }
+    .st-g6{ background: linear-gradient(135deg,#0ea5e9,#22d3ee); }
+    .st-g7{ background: linear-gradient(135deg,#ef4444,#f97316); }
+    .st-g8{ background: linear-gradient(135deg,#14b8a6,#84cc16); }
+
+    /* ========= 只針對 #contactModal 美化（新增；其餘不動） ========= */
+    #contactModal.modal-mask{
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(4px);
     }
-    .card:hover, .panel:hover, .box:hover, .dashboard-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 10px 28px rgba(0,0,0,0.55);
+    #contactModal .modal-card{
+      border: none;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 18px 50px rgba(0,0,0,.35);
     }
-    .keep-dark {
-      border-image: none !important;
-      border: 2px solid #1f2937 !important;
+    #contactModal .modal-hd{
+      padding: 16px 20px;
+      background: #f5f7fb;
+      border-bottom: 1px solid #e5e7eb;
+      font-weight: 800;
+      font-size: 16px;
+    }
+    #contactModal .modal-bd{
+      background: #fff;
+      padding: 20px;
+    }
+    #contactModal .form-row{ margin-bottom: 14px; }
+    #contactModal .form-lb{
+      display:block;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    #contactModal .form-ctl{
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      background: #ffffff;
+      color: #0f172a;
+      box-shadow: inset 0 1px 0 rgba(0,0,0,.03);
+      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    #contactModal textarea.form-ctl{
+      min-height: 130px;
+      resize: vertical;
+    }
+    #contactModal .form-ctl:focus{
+      outline: none;
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 4px rgba(96,165,250,.25);
+    }
+    #contactModal .modal-ft{
+      padding: 14px 20px;
+      background: #f5f7fb;
+      border-top: 1px solid #e5e7eb;
+      display: flex; gap: 10px; justify-content: flex-end;
+    }
+    #contactModal .btn-line{
+      border:1px solid #cbd5e1; background:#fff; color:#111;
+      padding:10px 16px; border-radius: 10px; cursor:pointer;
+    }
+    #contactModal .btn-line:hover{ background:#eef2f7; }
+    #contactModal .btn-primary{
+      border:1px solid #1d4ed8; background:#2563eb; color:#fff;
+      padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600;
+    }
+    #contactModal .btn-primary:hover{ background:#1d4ed8; }
+
+    /* 深色主題時仍維持淺底高對比 */
+    html:not(.light) #contactModal .modal-card{ background:#f8fafc; color:#111; }
+    html:not(.light) #contactModal .modal-hd,
+    html:not(.light) #contactModal .modal-ft{ background:#eef2f7; }
+    html:not(.light) #contactModal .modal-bd{ background:#ffffff; }
+    html:not(.light) #contactModal .form-ctl{
+      background:#ffffff; color:#0f172a; border-color:#d1d5db;
     }
   </style>
 </head>
 <body>
 
+<!-- ===== 導覽列（維持原樣） ===== -->
 <header class="top">
   <a href="#dashboard" class="brand">
     <img src="assets/img/supertool-logo.png" alt="SuperTool Logo" style="height:36px; vertical-align:middle; margin-right:10px;">
@@ -191,14 +258,16 @@
   </nav>
 </header>
 
+<!-- ===== 下面整區加彩色漸層背景 ===== -->
 <div class="gradient-wrap">
   <main id="app"></main>
 </div>
 
+<!-- 你的 FAB 保持原本位置 -->
 <button id="fabExpense" class="fab">＋</button>
 <button id="fabShop" class="fab-square">🛒</button>
 
-<!-- ===== 聯絡我們 Modal ===== -->
+<!-- ===== 聯絡我們 Modal（Formspree） ===== -->
 <div class="modal-mask" id="contactModal" aria-hidden="true">
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
     <div class="modal-hd" id="contactTitle">聯絡我們</div>
@@ -227,10 +296,90 @@
   </div>
 </div>
 
+<!-- 你的 SPA 腳本（維持原樣） -->
 <script type="module" src="assets/js/app.js"></script>
+
+<script>
+/* ------------------ 共用：JWT 解析（避免中文亂碼） ------------------ */
+function parseGoogleJWT(credential){
+  const base64Url = credential.split('.')[1];
+  const base64 = base64Url.replace(/-/g,'+').replace(/_/g,'/');
+  const json = decodeURIComponent(
+    atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+  );
+  return JSON.parse(json);
+}
+
+/* ------------------ 共用：在帳號卡片顯示歡迎 ------------------ */
+window.__showWelcomeInAuth = function(name){
+  let slot = document.getElementById('welcome-slot');
+  if(!slot){
+    const card = document.querySelector('#auth-card');
+    if(card){
+      slot = document.createElement('div');
+      slot.id = 'welcome-slot';
+      card.insertBefore(slot, card.firstChild ? card.firstChild.nextSibling : null);
+    }
+  }
+  if(slot){ slot.innerHTML = `<div class="welcome-chip">👋 歡迎 ${name}</div>`; }
+};
+
+/* ------------------ Google 初始化 & 登入回呼 ------------------ */
+function handleCredentialResponse(res){
+  try{
+    const payload = parseGoogleJWT(res.credential);
+    const user = {
+      email: payload.email, name: payload.name,
+      picture: payload.picture, sub: payload.sub
+    };
+    localStorage.setItem('session_user', JSON.stringify(user));
+    try{ google.accounts.id.cancel(); }catch(e){}
+    window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name);
+    if(location.hash !== '#auth'){ location.hash = '#dashboard'; }
+  }catch(e){ console.error('解析 Google Token 失敗：', e); }
+}
+
+function initGoogle(){
+  if(!window.google || !google.accounts || !google.accounts.id) return;
+  google.accounts.id.initialize({
+    client_id: "225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com",
+    callback: handleCredentialResponse,
+    auto_select: false,
+    cancel_on_tap_outside: true
+  });
+  window.__renderGoogleBtn = function(){
+    const mount = document.getElementById('googleBtnMount') || document.querySelector('.g_id_signin');
+    if(mount){ google.accounts.id.renderButton(mount, { theme: "outline", size: "large" }); }
+  };
+  function refreshAuthUI(){
+    let user = null; try{ user = JSON.parse(localStorage.getItem('session_user')||'null'); }catch{}
+    if(location.hash === '#auth'){
+      if(user && user.name){ window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name); }
+      else{ window.__renderGoogleBtn && window.__renderGoogleBtn(); }
+    }
+  }
+  refreshAuthUI();
+  window.addEventListener('hashchange', refreshAuthUI);
+}
+
+window.addEventListener('load', () => {
+  const ready = () => initGoogle();
+  if(window.google && google.accounts && google.accounts.id){ ready(); }
+  else{
+    let tries = 0;
+    const timer = setInterval(()=>{
+      tries++;
+      if(window.google && google.accounts && google.accounts.id){ clearInterval(timer); ready(); }
+      else if(tries>50){ clearInterval(timer); }
+    },100);
+  }
+});
+</script>
+
 <script>
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
 
+  /* ===== 聯絡我們 Modal 開關 ===== */
   const modal = document.getElementById('contactModal');
   const btnOpen = document.getElementById('btnContact');
   const btnClose = document.getElementById('btnContactCancel');
@@ -243,9 +392,37 @@
   modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
   window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeModal(); });
 
+  // 送出後給提示（不阻塞 Formspree 提交）
   document.getElementById('contactForm').addEventListener('submit', function(){
     setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
   });
+
+  /* ===== 自動把彩色漸層套到內容卡片（保留字與功能） =====
+     - 只處理 .gradient-wrap 裡的卡片
+     - 第一張（英雄卡）維持你的深色樣式
+     - 想保留黑色的卡片 → 加上 .keep-dark
+  */
+  (function(){
+    const container = document.querySelector('.gradient-wrap');
+    if(!container) return;
+
+    // 你頁面卡片的可能 class（依你的版面而定），可自行加減
+    const selectors = ['.card', '.panel', '.box'];
+    const all = container.querySelectorAll(selectors.join(','));
+    if(!all.length) return;
+
+    const gradients = ['st-g1','st-g2','st-g3','st-g4','st-g5','st-g6','st-g7','st-g8'];
+    let idx = 0;
+
+    all.forEach((el, i)=>{
+      // 跳過英雄卡（第一張）與標記 keep-dark 的卡片
+      if(i === 0) return;
+      if(el.classList.contains('keep-dark')) return;
+
+      el.classList.add('st-colored-card', gradients[idx % gradients.length]);
+      idx++;
+    });
+  })();
 </script>
 </body>
 </html>
