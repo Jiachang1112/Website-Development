@@ -10,18 +10,77 @@
   <link rel="icon" type="image/png" href="assets/img/supertool-favicon.png">
   <link rel="stylesheet" href="assets/css/style.css" />
 
-  <!-- Google Identity Services：只載一次 -->
+  <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
-    .brand{
-      color: inherit; text-decoration: none; font-weight: 700;
-      font-size: 20px; cursor: pointer;
+    /* ===== 導覽列彩色封面背景 ===== */
+    .top {
+      background: linear-gradient(135deg, #1e3a8a, #2563eb, #7e22ce, #f97316);
+      background-size: 400% 400%;
+      animation: gradientFlow 12s ease infinite;
+      color: #fff;
+      padding: 0.6rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 10px rgba(0,0,0,.4);
     }
-    .brand:hover{ opacity: .85; }
+    @keyframes gradientFlow {
+      0% {background-position: 0% 50%;}
+      50% {background-position: 100% 50%;}
+      100% {background-position: 0% 50%;}
+    }
 
-    /* 導覽列的小間隔（股票右邊空一格） */
-    .nav .gap{ display:inline-block; width:10px; }
+    /* 品牌區：左 icon + 右彩色字樣 */
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      text-decoration: none;
+      line-height: 1;
+    }
+    .brand-logo .icon {
+      height: 52px; width: auto;
+      margin-right: 10px;
+      transform: translateY(3px);
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+    }
+    .brand-logo .wordmark {
+      height: 60px; width: auto;
+      transform: translateY(3px);
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+    }
+
+    /* 右邊按鈕群 */
+    .nav button,
+    .nav .btn {
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 8px;
+      padding: 6px 12px;
+      margin: 0 3px;
+      cursor: pointer;
+      transition: all .25s ease;
+    }
+    .nav button:hover,
+    .nav .btn:hover {
+      background: rgba(255,255,255,0.25);
+      transform: translateY(-1px);
+    }
+
+    .nav .btn-primary {
+      background: #3b82f6;
+      border-color: #60a5fa;
+      color: #fff;
+      font-weight: 600;
+    }
+    .nav .btn-primary:hover {
+      background: #60a5fa;
+      color: #000;
+    }
+
+    .nav .gap { display:inline-block; width:10px; }
 
     /* ===== 輕量自製 Modal（不依賴 Bootstrap JS） ===== */
     .modal-mask{
@@ -51,15 +110,25 @@
     .form-row{ margin-bottom:12px; }
     .form-lb{ display:block; margin-bottom:6px; font-weight:600; }
 
-    /* 深色主題時，Modal 仍維持淺底深字以利閱讀 */
     html:not(.light) .modal-card{ background:#f8fafc; color:#111; }
     html:not(.light) .modal-hd, html:not(.light) .modal-ft{ background:#eef2f7; }
+
+    @media (max-width: 768px){
+      .brand-logo .icon{ height:42px; margin-right:8px; transform:translateY(2px); }
+      .brand-logo .wordmark{ height:50px; transform:translateY(2px); }
+      .top{ flex-direction: column; gap:6px; }
+    }
   </style>
 </head>
 <body>
 
 <header class="top">
-  <a href="#dashboard" class="brand">SuperTool</a>
+  <!-- ✅ 改成彩色封面品牌 -->
+  <a href="#dashboard" class="brand-logo" aria-label="SuperTool">
+    <img src="assets/img/supertool-favicon.png" alt="SuperTool Icon" class="icon">
+    <img src="assets/img/supertool-logo.png" alt="SuperTool" class="wordmark">
+  </a>
+
   <nav class="nav">
     <button data-route="dashboard">首頁</button>
     <button data-route="auth">帳號</button>
@@ -79,16 +148,12 @@
 
 <main id="app"></main>
 
-<button id="fabExpense" class="fab">＋</button>
-<button id="fabShop" class="fab-square">🛒</button>
-
 <!-- ===== 聯絡我們 Modal（Formspree） ===== -->
 <div class="modal-mask" id="contactModal" aria-hidden="true">
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
     <div class="modal-hd" id="contactTitle">聯絡我們</div>
     <form id="contactForm" action="https://formspree.io/f/mvgwdkwy" method="POST">
       <div class="modal-bd">
-        <!-- 可自訂郵件主旨，並停用 captcha（如不需可移除） -->
         <input type="hidden" name="_subject" value="SuperTool｜聯絡我們來信">
         <input type="hidden" name="_captcha" value="false">
 
@@ -116,99 +181,16 @@
 <script type="module" src="assets/js/app.js"></script>
 
 <script>
-/* ------------------ 共用：JWT 解析（避免中文亂碼） ------------------ */
-function parseGoogleJWT(credential){
-  const base64Url = credential.split('.')[1];
-  const base64 = base64Url.replace(/-/g,'+').replace(/_/g,'/');
-  const json = decodeURIComponent(
-    atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
-  );
-  return JSON.parse(json);
-}
-
-/* ------------------ 共用：在帳號卡片顯示歡迎 ------------------ */
-window.__showWelcomeInAuth = function(name){
-  let slot = document.getElementById('welcome-slot');
-  if(!slot){
-    const card = document.querySelector('#auth-card');
-    if(card){
-      slot = document.createElement('div');
-      slot.id = 'welcome-slot';
-      card.insertBefore(slot, card.firstChild ? card.firstChild.nextSibling : null);
-    }
-  }
-  if(slot){ slot.innerHTML = `<div class="welcome-chip">👋 歡迎 ${name}</div>`; }
-};
-
-/* ------------------ Google 初始化 & 登入回呼 ------------------ */
-function handleCredentialResponse(res){
-  try{
-    const payload = parseGoogleJWT(res.credential);
-    const user = {
-      email: payload.email, name: payload.name,
-      picture: payload.picture, sub: payload.sub
-    };
-    localStorage.setItem('session_user', JSON.stringify(user));
-    try{ google.accounts.id.cancel(); }catch(e){}
-    window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name);
-    if(location.hash !== '#auth'){ location.hash = '#dashboard'; }
-  }catch(e){ console.error('解析 Google Token 失敗：', e); }
-}
-
-function initGoogle(){
-  if(!window.google || !google.accounts || !google.accounts.id) return;
-  google.accounts.id.initialize({
-    client_id: "225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com",
-    callback: handleCredentialResponse,
-    auto_select: false,
-    cancel_on_tap_outside: true
-  });
-  window.__renderGoogleBtn = function(){
-    const mount = document.getElementById('googleBtnMount') || document.querySelector('.g_id_signin');
-    if(mount){ google.accounts.id.renderButton(mount, { theme: "outline", size: "large" }); }
-  };
-  function refreshAuthUI(){
-    let user = null; try{ user = JSON.parse(localStorage.getItem('session_user')||'null'); }catch{}
-    if(location.hash === '#auth'){
-      if(user && user.name){ window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name); }
-      else{ window.__renderGoogleBtn && window.__renderGoogleBtn(); }
-    }
-  }
-  refreshAuthUI();
-  window.addEventListener('hashchange', refreshAuthUI);
-}
-
-window.addEventListener('load', () => {
-  const ready = () => initGoogle();
-  if(window.google && google.accounts && google.accounts.id){ ready(); }
-  else{
-    let tries = 0;
-    const timer = setInterval(()=>{
-      tries++;
-      if(window.google && google.accounts && google.accounts.id){ clearInterval(timer); ready(); }
-      else if(tries>50){ clearInterval(timer); }
-    },100);
-  }
-});
-</script>
-
-<script>
-  if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
-
   /* ===== 聯絡我們 Modal 開關 ===== */
   const modal = document.getElementById('contactModal');
   const btnOpen = document.getElementById('btnContact');
   const btnClose = document.getElementById('btnContactCancel');
-
   function openModal(){ modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); }
   function closeModal(){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); }
-
   btnOpen.addEventListener('click', openModal);
   btnClose.addEventListener('click', closeModal);
   modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
   window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeModal(); });
-
-  // 送出後給提示（不阻塞 Formspree 提交）
   document.getElementById('contactForm').addEventListener('submit', function(){
     setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
   });
