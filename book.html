@@ -9,7 +9,7 @@
   <style>
     body {
       font-family: system-ui;
-      background: #0f141a;
+      background: #0f141a; /* 頂部與過場底色，與首頁一致風格 */
       color: #fff;
       margin: 0;
       min-height: 100vh;
@@ -46,10 +46,31 @@
       color: #fff;
     }
 
+    /* === 新增：與首頁相同的多色漸層動畫（作用於 header 下方區塊） === */
+    .gradient-wrap{
+      background: linear-gradient(135deg,
+        #1e3a8a 0%,
+        #2563eb 20%,
+        #7e22ce 40%,
+        #db2777 60%,
+        #f97316 80%,
+        #fde047 100%
+      );
+      background-size: 300% 300%;
+      animation: gradientShift 10s ease-in-out infinite;
+      min-height: calc(100vh - 56px); /* 扣掉導覽列高度，讓背景鋪滿視窗 */
+      padding: 40px 0;                /* 與首頁視覺留白相近 */
+    }
+    @keyframes gradientShift{
+      0%{ background-position: 0% 50%; }
+      50%{ background-position: 100% 50%; }
+      100%{ background-position: 0% 50%; }
+    }
+
     /* Main content */
     .wrap {
       max-width: 1080px;
-      margin: 40px auto;
+      margin: 0 auto;         /* 由 gradient-wrap 管留白，這裡只置中 */
       padding: 0 16px;
     }
     h1 {
@@ -103,7 +124,7 @@
 </head>
 
 <body>
-  <!-- 導覽列 -->
+  <!-- 導覽列（不變） -->
   <header class="top">
     <a href="https://jiachang1112.github.io/Website-Development/#dashboard" class="brand">SuperTool</a>
     <nav class="nav">
@@ -117,32 +138,34 @@
     </nav>
   </header>
 
-  <!-- 主內容 -->
-  <div class="wrap">
-    <h1>記帳</h1>
-    <div class="muted">選擇你想使用的記帳方式</div>
+  <!-- 主內容：新增 gradient-wrap 包住，其餘不動 -->
+  <div class="gradient-wrap">
+    <div class="wrap">
+      <h1>記帳</h1>
+      <div class="muted">選擇你想使用的記帳方式</div>
 
-    <div class="grid">
-      <div class="card" onclick="location.href='https://jiachang1112.github.io/Website-Development/#expense'">
-        <i data-lucide="wallet" class="icon"></i>
-        <div class="title">支出記帳</div>
-        <div class="desc">輸入品項、分類與金額，快速新增一筆支出</div>
+      <div class="grid">
+        <div class="card" onclick="location.href='https://jiachang1112.github.io/Website-Development/#expense'">
+          <i data-lucide="wallet" class="icon"></i>
+          <div class="title">支出記帳</div>
+          <div class="desc">輸入品項、分類與金額，快速新增一筆支出</div>
+        </div>
+
+        <div class="card" onclick="location.href='https://jiachang1112.github.io/Website-Development/#chatbook'">
+          <i data-lucide="message-circle" class="icon"></i>
+          <div class="title">聊天記帳</div>
+          <div class="desc">像聊天一樣輸入：「早餐 65」，系統自動記錄</div>
+        </div>
+
+        <div class="card" onclick="location.href='https://jiachang1112.github.io/Website-Development/#camera'">
+          <i data-lucide="camera" class="icon"></i>
+          <div class="title">拍照記帳</div>
+          <div class="desc">拍收據自動辨識金額與項目，省下手動輸入</div>
+        </div>
       </div>
 
-      <div class="card" onclick="location.href='https://jiachang1112.github.io/Website-Development/#chatbook'">
-        <i data-lucide="message-circle" class="icon"></i>
-        <div class="title">聊天記帳</div>
-        <div class="desc">像聊天一樣輸入：「早餐 65」，系統自動記錄</div>
-      </div>
-
-      <div class="card" onclick="location.href='https://jiachang1112.github.io/Website-Development/#camera'">
-        <i data-lucide="camera" class="icon"></i>
-        <div class="title">拍照記帳</div>
-        <div class="desc">拍收據自動辨識金額與項目，省下手動輸入</div>
-      </div>
+      <a href="https://jiachang1112.github.io/Website-Development/index.html" class="back">← 返回首頁</a>
     </div>
-
-    <a href="https://jiachang1112.github.io/Website-Development/index.html" class="back">← 返回首頁</a>
   </div>
 
   <script>
