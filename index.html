@@ -1,374 +1,217 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>SuperTool｜線上下單 Demo</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SuperTool Site</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="assets/img/supertool-favicon.png">
+  <link rel="stylesheet" href="assets/css/style.css" />
+
+  <!-- Google Identity Services：只載一次 -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <style>
-    :root{
-      --bg-dark: #0f141a;
-      --text-dark: #eef2f7;
-      --muted-dark: #c7d1de;
-      --card-dark: #1b222c;
-      --border-dark: #2b313a;
-      --panel-dark: #17202a;
-      --line-dark: #3f4b5b;
-
-      --bg-light: #f5f7fb;
-      --text-light: #111;
-      --card-light: #fff;
-      --border-light: #ddd;
-
-      --accent: #60a5fa;
-      --accent-2: #93c5fd;
+    .brand{
+      color: inherit; text-decoration: none; font-weight: 700;
+      font-size: 20px; cursor: pointer;
     }
+    .brand:hover{ opacity: .85; }
 
-    html{ background:var(--bg-dark); height:100% }
-    body{
-      background:var(--bg-dark);
-      color:var(--text-dark);
-      min-height:100vh;
+    /* 導覽列的小間隔（股票右邊空一格） */
+    .nav .gap{ display:inline-block; width:10px; }
+
+    /* ===== 輕量自製 Modal（不依賴 Bootstrap JS） ===== */
+    .modal-mask{
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: none; align-items: center; justify-content: center; z-index: 9999;
     }
-
-    .navbar{
-      background: var(--panel-dark) !important;
-      border-bottom: 1px solid var(--border-dark) !important;
+    .modal-mask.show{ display: flex; }
+    .modal-card{
+      width: min(560px, 92vw);
+      background: #ffffff; color:#111;
+      border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      overflow: hidden; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
     }
-    .navbar .navbar-brand{ color:#fff }
-    .navbar .btn{ border-color:#8aa0b7; color:#e7edf5 }
-    .navbar .btn:hover{ background:#2b3542; color:#fff; border-color:#9fb2c6 }
-
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-    .card{background:var(--card-dark);border:1px solid var(--border-dark);border-radius:12px}
-    .card .fw-semibold{ color:#f7f9fc }
-    .card .text-muted{ color:var(--muted-dark) !important }
-    .price{font-weight:700;color:#e9eef5}
-
-    .btn{border:1px solid #556073;background:#1d2433;color:#eef2f7}
-    .btn:hover{ background:#243047; border-color:#6a7892; color:#fff }
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-
+    .modal-hd,.modal-ft{ padding:12px 16px; background:#f5f7fb; }
+    .modal-hd{ font-weight:700; border-bottom:1px solid #e5e7eb; }
+    .modal-bd{ padding:16px; background:#fff; }
+    .modal-ft{ border-top:1px solid #e5e7eb; display:flex; gap:8px; justify-content:flex-end; }
+    .btn-line{ border:1px solid #cbd5e1; background:#fff; color:#111; padding:8px 12px; border-radius:8px; cursor:pointer; }
+    .btn-line:hover{ background:#eef2f7; }
     .btn-primary{
-      background: var(--accent);
-      border-color: var(--accent);
-      color:#0a0f14;
-      font-weight:700;
+      border:1px solid #2563eb; background:#3b82f6; color:#fff;
+      padding:8px 12px; border-radius:8px; cursor:pointer;
     }
-    .btn-primary:hover{
-      background: var(--accent-2);
-      border-color: var(--accent-2);
-      color:#0a0f14;
-    }
+    .btn-primary:hover{ background:#60a5fa; }
+    .form-ctl{ width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; }
+    .form-ctl:focus{ outline:none; border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,.35); }
+    .form-row{ margin-bottom:12px; }
+    .form-lb{ display:block; margin-bottom:6px; font-weight:600; }
 
-    .btn-outline-light{
-      color:#e7edf5;
-      border-color:#8aa0b7;
-    }
-    .btn-outline-light:hover{
-      background:#2b3542;
-      color:#fff;
-      border-color:#9fb2c6;
-    }
-
-    .aside{position:sticky;top:16px}
-    @media (max-width: 991px){.aside{position:static}}
-
-    .cart-box{
-      background: var(--panel-dark);
-      border:1px solid var(--border-dark);
-      color:#e9edf3;
-    }
-    body .text-muted,
-    body .text-secondary,
-    body .text-body-secondary{ color: var(--muted-dark) !important; }
-    .cart-item{ border-bottom:1px solid var(--line-dark) }
-    .cart-box hr{ border-color:var(--line-dark); opacity:1 }
-    #subtotal, #shipping, #total{ color:#ffffff !important; font-weight:800 }
-
-    body.light{ background:var(--bg-light); color:var(--text-light) }
-    html.light{ background:var(--bg-light) }
-    body.light .card{ background:var(--card-light); border:1px solid var(--border-light) }
-    body.light .btn{ background:#f0f0f0; color:#111; border:1px solid #ccc }
-    body.light .btn-primary{ background:#0d6efd; border-color:#0d6efd; color:#fff }
-    body.light .btn-primary:hover{ background:#0b5ed7; border-color:#0a58ca }
-    body.light .text-muted,
-    body.light .text-secondary,
-    body.light .text-body-secondary{ color:#6b7280 !important }
-    body.light #subtotal, body.light #shipping, body.light #total{ color:#111 !important }
-    body.light .cart-item{ border-bottom:1px solid #e7e7e7 }
-    body.light .cart-box{ background:#fff }
-    body.light .cart-box hr{ border-color:#e7e7e7 }
-
-    body:not(.light) .modal-content {
-      background: #f8fafc !important;
-      color: #000 !important;
-      border: 1px solid #2b313a;
-      box-shadow: 0 0 20px rgba(0,0,0,0.4);
-    }
-    body:not(.light) .modal-header,
-    body:not(.light) .modal-footer { border-color: #2b313a !important; }
-    body:not(.light) .modal-content label,
-    body:not(.light) .modal-content input,
-    body:not(.light) .modal-content select,
-    body:not(.light) .modal-content textarea,
-    body:not(.light) .modal-content .form-label,
-    body:not(.light) .modal-content .form-select option,
-    body:not(.light) .modal-content .modal-title { color: #000 !important; }
-
-    body:not(.light) .modal-footer .btn {
-      border: 1px solid #444 !important;
-      background: #f9fafb !important;
-      color: #000 !important;
-      transition: all .2s ease;
-    }
-    body:not(.light) .modal-footer .btn:hover {
-      background: #e5e7eb !important;
-      border-color: #000 !important;
-    }
-    body:not(.light) .modal-footer .btn-primary {
-      border: 1px solid #2563eb !important;
-      background: #3b82f6 !important;
-      color: #fff !important;
-    }
-    body:not(.light) .modal-footer .btn-primary:hover {
-      background: #60a5fa !important;
-      border-color: #1d4ed8 !important;
-    }
+    /* 深色主題時，Modal 仍維持淺底深字以利閱讀 */
+    html:not(.light) .modal-card{ background:#f8fafc; color:#111; }
+    html:not(.light) .modal-hd, html:not(.light) .modal-ft{ background:#eef2f7; }
   </style>
 </head>
 <body>
-  <nav class="navbar border-bottom">
-    <div class="container d-flex justify-content-between">
-<a class="navbar-brand fw-bold d-flex align-items-center brand-logo" href="#">
-  <img src="assets/img/supertool-favicon.png" alt="SuperTool Icon" class="icon">
-  <img src="assets/img/supertool-logo.png" alt="SuperTool Logo" class="wordmark">
-</a>
-<style>
-  .navbar { min-height: 56px; overflow: visible; }
-  .brand-logo { display: flex; align-items: center; padding: 0; }
-  .brand-logo .icon { height: 52px; margin-right: 10px; transform: translateY(4px); }
-  .brand-logo .wordmark { height: 60px; transform: translateY(4px); }
-  @media (max-width: 768px) {
-    .brand-logo .icon { height: 42px; margin-right: 8px; transform: translateY(3px); }
-    .brand-logo .wordmark { height: 50px; transform: translateY(3px); }
-  }
-</style>
 
-      <div class="d-flex gap-2">
-        <button id="toggleTheme" class="btn btn-outline-light btn-sm">切換亮/暗</button>
-        <a class="btn btn-outline-light" href="./index.html">回首頁</a>
-      </div>
-    </div>
+<header class="top">
+  <a href="#dashboard" class="brand">SuperTool</a>
+  <nav class="nav">
+    <button data-route="dashboard">首頁</button>
+    <button data-route="auth">帳號</button>
+    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/book.html'">記帳</button>
+    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/admin/accounting-settings.html#ledgers'">我的</button>
+    <button data-route="acct_detail">明細</button>
+    <button data-route="acct_analysis">分析</button>
+    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/cart-demo.html'">購物</button>
+    <button data-route="admin">後台</button>
+    <button data-route="settings">設定</button>
+    <button data-route="backup">備份</button>
+    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/stock/stocks.html'" class="btn btn-primary">股票</button>
+    <span class="gap"></span>
+    <button class="btn btn-outline-light" id="btnContact">聯絡我們</button>
   </nav>
+</header>
 
-  <main class="container py-3">
-    <div class="row g-3">
-      <div class="col-lg-8">
-        <h4 class="mb-3">商品列表</h4>
-        <div id="products" class="grid"></div>
+<main id="app"></main>
+
+<button id="fabExpense" class="fab">＋</button>
+<button id="fabShop" class="fab-square">🛒</button>
+
+<!-- ===== 聯絡我們 Modal（Formspree） ===== -->
+<div class="modal-mask" id="contactModal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
+    <div class="modal-hd" id="contactTitle">聯絡我們</div>
+    <form id="contactForm" action="https://formspree.io/f/mvgwdkwy" method="POST">
+      <div class="modal-bd">
+        <!-- 可自訂郵件主旨，並停用 captcha（如不需可移除） -->
+        <input type="hidden" name="_subject" value="SuperTool｜聯絡我們來信">
+        <input type="hidden" name="_captcha" value="false">
+
+        <div class="form-row">
+          <label class="form-lb">姓名</label>
+          <input class="form-ctl" name="name" required>
+        </div>
+        <div class="form-row">
+          <label class="form-lb">Email</label>
+          <input class="form-ctl" type="email" name="email" required>
+        </div>
+        <div class="form-row">
+          <label class="form-lb">訊息內容</label>
+          <textarea class="form-ctl" rows="4" name="message" required></textarea>
+        </div>
       </div>
-
-      <div class="col-lg-4">
-        <div class="card aside p-3 cart-box">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 class="m-0">購物車</h5>
-            <button id="btnClear" class="btn btn-sm">清空</button>
-          </div>
-          <div id="cartItems" class="small text-muted">尚無商品</div>
-          <hr>
-          <div class="d-flex justify-content-between">
-            <div class="text-muted">小計</div><div id="subtotal" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-flex justify-content-between">
-            <div class="text-muted">運費</div><div id="shipping" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-flex justify-content-between fs-5">
-            <div>合計</div><div id="total" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-grid mt-2">
-            <button id="btnCheckout" class="btn btn-primary">結帳</button>
-          </div>
-        </div>
+      <div class="modal-ft">
+        <button type="button" class="btn-line" id="btnContactCancel">取消</button>
+        <button type="submit" class="btn-primary">送出</button>
       </div>
-    </div>
-  </main>
-
-  <div class="modal fade" id="checkoutDlg" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <form id="checkoutForm" class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">訂購資料</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="row g-2">
-            <div class="col-md-6">
-              <label class="form-label">姓名</label>
-              <input name="name" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">電話</label>
-              <input name="phone" class="form-control" required>
-            </div>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">Email（收訂單）</label>
-            <input name="email" type="email" class="form-control" required>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">配送方式</label>
-            <select name="shipping" class="form-select" required>
-              <option value="宅配">宅配（黑貓/新竹）</option>
-              <option value="超商取貨（先匯款）">超商取貨（先匯款）</option>
-            </select>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">地址/門市</label>
-            <input name="address" class="form-control" required>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">付款方式</label>
-            <select name="payment" class="form-select" required>
-              <option value="銀行轉帳">銀行轉帳</option>
-              <option value="貨到付款">貨到付款</option>
-              <option value="信用卡">信用卡（綠界/藍新）</option>
-            </select>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">備註</label>
-            <textarea name="note" rows="3" class="form-control" placeholder="尺寸、發票抬頭/統編等"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">取消</button>
-          <button class="btn btn-primary" type="submit">送出訂單</button>
-        </div>
-      </form>
-    </div>
+    </form>
   </div>
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script type="module" src="assets/js/app.js"></script>
 
-  <script type="module">
-    import { db } from './assets/js/firebase.js';
-    import { collection, addDoc, serverTimestamp }
-      from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+<script>
+/* ------------------ 共用：JWT 解析（避免中文亂碼） ------------------ */
+function parseGoogleJWT(credential){
+  const base64Url = credential.split('.')[1];
+  const base64 = base64Url.replace(/-/g,'+').replace(/_/g,'/');
+  const json = decodeURIComponent(
+    atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+  );
+  return JSON.parse(json);
+}
 
-    const PRODUCTS = [
-      { name:'SuperTool Premium 7天', price:50 },
-      { name:'SuperTool Premium 30天', price:100 },
-      { name:'SuperTool Premium 365天', price:800 },
-      { name:'贊助開發者一杯咖啡', price:50 },
-      { name:'贊助開發者一個便當', price:100 },
-      { name:'贊助開發者兩個便當', price:200 },
-    ];
-
-    const CART_KEY = 'cart';
-    const $ = sel => document.querySelector(sel);
-    const fmt = n => 'NT$ ' + (n||0).toLocaleString();
-
-    const loadCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY)||'[]'); } catch { return []; } };
-    const saveCart = (c) => localStorage.setItem(CART_KEY, JSON.stringify(c));
-    const clearCart = () => localStorage.removeItem(CART_KEY);
-
-    function addToCart(p){
-      const cart = loadCart();
-      const f = cart.find(i=>i.name===p.name);
-      if (f) f.qty++;
-      else cart.push({ name:p.name, price:p.price, qty:1 });
-      saveCart(cart);
-      renderCart();
+/* ------------------ 共用：在帳號卡片顯示歡迎 ------------------ */
+window.__showWelcomeInAuth = function(name){
+  let slot = document.getElementById('welcome-slot');
+  if(!slot){
+    const card = document.querySelector('#auth-card');
+    if(card){
+      slot = document.createElement('div');
+      slot.id = 'welcome-slot';
+      card.insertBefore(slot, card.firstChild ? card.firstChild.nextSibling : null);
     }
-    window.changeQty = changeQty;
-    function changeQty(name, delta){
-      const cart = loadCart();
-      const i = cart.find(x=>x.name===name);
-      if (!i) return;
-      i.qty += delta;
-      if (i.qty <= 0) cart.splice(cart.indexOf(i),1);
-      saveCart(cart);
-      renderCart();
+  }
+  if(slot){ slot.innerHTML = `<div class="welcome-chip">👋 歡迎 ${name}</div>`; }
+};
+
+/* ------------------ Google 初始化 & 登入回呼 ------------------ */
+function handleCredentialResponse(res){
+  try{
+    const payload = parseGoogleJWT(res.credential);
+    const user = {
+      email: payload.email, name: payload.name,
+      picture: payload.picture, sub: payload.sub
+    };
+    localStorage.setItem('session_user', JSON.stringify(user));
+    try{ google.accounts.id.cancel(); }catch(e){}
+    window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name);
+    if(location.hash !== '#auth'){ location.hash = '#dashboard'; }
+  }catch(e){ console.error('解析 Google Token 失敗：', e); }
+}
+
+function initGoogle(){
+  if(!window.google || !google.accounts || !google.accounts.id) return;
+  google.accounts.id.initialize({
+    client_id: "225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com",
+    callback: handleCredentialResponse,
+    auto_select: false,
+    cancel_on_tap_outside: true
+  });
+  window.__renderGoogleBtn = function(){
+    const mount = document.getElementById('googleBtnMount') || document.querySelector('.g_id_signin');
+    if(mount){ google.accounts.id.renderButton(mount, { theme: "outline", size: "large" }); }
+  };
+  function refreshAuthUI(){
+    let user = null; try{ user = JSON.parse(localStorage.getItem('session_user')||'null'); }catch{}
+    if(location.hash === '#auth'){
+      if(user && user.name){ window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name); }
+      else{ window.__renderGoogleBtn && window.__renderGoogleBtn(); }
     }
+  }
+  refreshAuthUI();
+  window.addEventListener('hashchange', refreshAuthUI);
+}
 
-    function renderProducts(){
-      $('#products').innerHTML = PRODUCTS.map(p=>`
-        <div class="card p-3">
-          <div class="fw-semibold">${p.name}</div>
-          <div class="price mt-1">NT$ ${p.price.toLocaleString()}</div>
-          <button class="btn btn-sm mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
-        </div>
-      `).join('');
-      window.addToCart = addToCart;
-    }
+window.addEventListener('load', () => {
+  const ready = () => initGoogle();
+  if(window.google && google.accounts && google.accounts.id){ ready(); }
+  else{
+    let tries = 0;
+    const timer = setInterval(()=>{
+      tries++;
+      if(window.google && google.accounts && google.accounts.id){ clearInterval(timer); ready(); }
+      else if(tries>50){ clearInterval(timer); }
+    },100);
+  }
+});
+</script>
 
-    function renderCart(){
-      const cart = loadCart();
-      const wrap = $('#cartItems');
-      wrap.innerHTML = cart.length
-        ? cart.map(i=>`
-          <div class="d-flex justify-content-between align-items-center py-1 cart-item">
-            <div>${i.name}</div>
-            <div class="d-flex align-items-center gap-2">
-              <button class="btn btn-sm" onclick="changeQty('${i.name}',-1)">－</button>
-              <span>${i.qty}</span>
-              <button class="btn btn-sm" onclick="changeQty('${i.name}',+1)">＋</button>
-              <div class="ms-2">${fmt(i.price*i.qty)}</div>
-            </div>
-          </div>
-        `).join('')
-        : '<div class="text-muted">尚無商品</div>';
+<script>
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
 
-      const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
-      const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
-      $('#subtotal').textContent = fmt(subtotal);
-      $('#shipping').textContent = fmt(shipping);
-      $('#total').textContent = fmt(subtotal+shipping);
-    }
+  /* ===== 聯絡我們 Modal 開關 ===== */
+  const modal = document.getElementById('contactModal');
+  const btnOpen = document.getElementById('btnContact');
+  const btnClose = document.getElementById('btnContactCancel');
 
-    $('#btnClear').addEventListener('click', ()=>{ clearCart(); renderCart(); });
-    $('#btnCheckout').addEventListener('click', ()=>{
-      if (!loadCart().length) { alert('購物車是空的'); return; }
-      new bootstrap.Modal('#checkoutDlg').show();
-    });
+  function openModal(){ modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); }
+  function closeModal(){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); }
 
-    $('#checkoutForm').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const cart = loadCart();
-      if (!cart.length){ alert('購物車是空的'); return; }
+  btnOpen.addEventListener('click', openModal);
+  btnClose.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
+  window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeModal(); });
 
-      const data = Object.fromEntries(new FormData(e.target).entries());
-      const subtotal = cart.reduce((s,i)=> s + i.price*i.qty, 0);
-      const shipping = (subtotal > 2000 || subtotal === 0) ? 0 : 100;
-      const total = subtotal + shipping;
-
-      const order = {
-        customer: data,
-        items: cart,
-        amounts: { subtotal, shipping, total },
-        status: 'pending',
-        createdAt: serverTimestamp()
-      };
-
-      try{
-        const ref = await addDoc(collection(db,'orders'), order);
-        alert(`訂單已送出：${ref.id}`);
-        clearCart();
-        renderCart();
-        bootstrap.Modal.getInstance(document.getElementById('checkoutDlg')).hide();
-      }catch(err){
-        console.error(err);
-        alert('寫入訂單失敗：' + err.message);
-      }
-    });
-
-    $('#toggleTheme').addEventListener('click', ()=>{
-      document.body.classList.toggle('light');
-      document.documentElement.classList.toggle('light');
-    });
-
-    renderProducts();
-    renderCart();
-  </script>
+  // 送出後給提示（不阻塞 Formspree 提交）
+  document.getElementById('contactForm').addEventListener('submit', function(){
+    setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
+  });
+</script>
 </body>
 </html>
