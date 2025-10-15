@@ -44,7 +44,7 @@
     <button data-route="settings">設定</button>
     <button data-route="backup">備份</button>
     <button onclick="location.href='https://jiachang1112.github.io/Website-Development/stock/stocks.html'" class="btn btn-primary">股票</button>
-    <button class="btn btn-outline-light" data-bs-toggle="modal" data-bs-target="#contactDlg">聯絡我們</button>
+    <button class="btn btn-outline-light" id="btnContact">聯絡我們</button>
   </nav>
 </header>
 
@@ -172,36 +172,5 @@ window.addEventListener('load', () => {
 <script>
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
 </script>
-  <!-- 聯絡我們 Modal -->
-<div class="modal fade" id="contactDlg" tabindex="-1">
-  <div class="modal-dialog">
-    <form class="modal-content" action="https://formspree.io/f/mvgwdkwy" method="POST">
-      <div class="modal-header">
-        <h5 class="modal-title">聯絡我們</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" name="_subject" value="SuperTool｜聯絡我們來信">
-        <input type="hidden" name="_captcha" value="false">
-        <div class="mb-2">
-          <label class="form-label">姓名</label>
-          <input class="form-control" name="name" required>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">Email</label>
-          <input class="form-control" type="email" name="email" required>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">訊息內容</label>
-          <textarea class="form-control" rows="4" name="message" required></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">取消</button>
-        <button class="btn btn-primary" type="submit">送出</button>
-      </div>
-    </form>
-  </div>
-</div>
 </body>
 </html>
