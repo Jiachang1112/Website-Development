@@ -95,10 +95,8 @@
       gap: 22px;
     }
 
+    /* === 彩色卡片樣式 === */
     .card {
-      background: linear-gradient(145deg, #0f172a, #1e293b);
-      border: 2px solid transparent;
-      border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1;
       border-radius: 18px;
       padding: 28px;
       cursor: pointer;
@@ -111,24 +109,37 @@
       box-shadow: 0 10px 30px rgba(0,0,0,.5);
     }
 
+    /* 各卡顏色 */
+    .card.expense {
+      background: linear-gradient(145deg, #1e293b, #2563eb);
+      border: 1px solid rgba(96,165,250,.5);
+    }
+    .card.chat {
+      background: linear-gradient(145deg, #1e1b4b, #7e22ce);
+      border: 1px solid rgba(168,85,247,.5);
+    }
+    .card.camera {
+      background: linear-gradient(145deg, #3b0a2e, #db2777);
+      border: 1px solid rgba(244,114,182,.5);
+    }
+
     .icon {
       width: 40px;
       height: 40px;
       margin-bottom: 14px;
-      color: #60a5fa;
+      color: #ffffff;
+      opacity: 0.85;
     }
 
     .title {
       font-weight: 700;
       margin-bottom: 8px;
       font-size: 1.3rem;
-      background: linear-gradient(90deg,#60a5fa,#a855f7,#f472b6);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      color: #fff;
     }
 
     .desc {
-      color: #d1d5db;
+      color: #e2e8f0;
       font-size: .95rem;
       line-height: 1.5;
     }
@@ -166,26 +177,26 @@
     </nav>
   </header>
 
-  <!-- 主內容：加上彩色背景 -->
+  <!-- 主內容：彩色背景 -->
   <div class="gradient-wrap">
     <div class="wrap">
       <h1>記帳</h1>
       <div class="muted">選擇你想使用的記帳方式</div>
 
       <div class="grid">
-        <div class="card" onclick="location.href='https://jiachang1112.github.io/Website-Development/#expense'">
+        <div class="card expense" onclick="location.href='https://jiachang1112.github.io/Website-Development/#expense'">
           <i data-lucide="wallet" class="icon"></i>
           <div class="title">支出記帳</div>
           <div class="desc">輸入品項、分類與金額，快速新增一筆支出</div>
         </div>
 
-        <div class="card" onclick="location.href='https://jiachang1112.github.io/Website-Development/#chatbook'">
+        <div class="card chat" onclick="location.href='https://jiachang1112.github.io/Website-Development/#chatbook'">
           <i data-lucide="message-circle" class="icon"></i>
           <div class="title">聊天記帳</div>
           <div class="desc">像聊天一樣輸入：「早餐 65」，系統自動記錄</div>
         </div>
 
-        <div class="card" onclick="location.href='https://jiachang1112.github.io/Website-Development/#camera'">
+        <div class="card camera" onclick="location.href='https://jiachang1112.github.io/Website-Development/#camera'">
           <i data-lucide="camera" class="icon"></i>
           <div class="title">拍照記帳</div>
           <div class="desc">拍收據自動辨識金額與項目，省下手動輸入</div>
