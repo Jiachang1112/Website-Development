@@ -44,12 +44,7 @@
     <button data-route="settings">設定</button>
     <button data-route="backup">備份</button>
     <button onclick="location.href='https://jiachang1112.github.io/Website-Development/stock/stocks.html'" class="btn btn-primary">股票</button>
-    <div class="d-flex gap-2 ms-2">
-  <div style="width:10px"></div> <!-- 空一格 -->
-  <button class="btn btn-outline-light" id="btnContact">聯絡我們</button>
-  <button id="toggleTheme" class="btn btn-outline-light btn-sm">切換亮/暗</button>
-  <a class="btn btn-outline-light" href="./index.html">回首頁</a>
-</div>
+    <button class="btn btn-outline-light" id="btnContact">聯絡我們</button>
   </nav>
 </header>
 
@@ -177,43 +172,5 @@ window.addEventListener('load', () => {
 <script>
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
 </script>
-  <!-- 聯絡我們 Modal -->
-<div class="modal fade" id="contactDlg" tabindex="-1">
-  <div class="modal-dialog">
-    <form id="contactForm" class="modal-content" action="YOUR_FORMSPREE_ENDPOINT_HERE" method="POST">
-      <div class="modal-header">
-        <h5 class="modal-title">聯絡我們</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <!-- 可選：讓 Formspree 寄信主旨更好看 -->
-        <input type="hidden" name="_subject" value="SuperTool｜聯絡我們來信">
-        <!-- 可選：成功導向（用 AJAX 我們就不跳轉） -->
-        <input type="hidden" name="_captcha" value="false">
-
-        <div class="mb-2">
-          <label class="form-label">您的姓名</label>
-          <input class="form-control" name="name" id="cName" required>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">您的 Email</label>
-          <input class="form-control" type="email" name="email" id="cEmail" required>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">主旨</label>
-          <input class="form-control" name="subject" id="cSubject" placeholder="想諮詢的主題" required>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">內容</label>
-          <textarea class="form-control" rows="4" name="message" id="cMessage" placeholder="請輸入訊息…" required></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">取消</button>
-        <button class="btn btn-primary" type="submit">送出</button>
-      </div>
-    </form>
-  </div>
-</div>
 </body>
 </html>
