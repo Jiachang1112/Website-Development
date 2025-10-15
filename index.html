@@ -26,15 +26,12 @@
       position: sticky;
       top: 0;
       z-index: 20;
+      overflow: visible;
     }
-    .brand{
-      color: inherit; text-decoration: none; font-weight: 700;
-      font-size: 20px; cursor: pointer;
-    }
+    .brand{ color: inherit; text-decoration: none; font-weight: 700; font-size: 20px; cursor: pointer; }
     .brand:hover{ opacity: .85; }
     .nav button{ margin-right:.4rem; }
-    /* 股票右邊空一格 */
-    .nav .gap{ display:inline-block; width:10px; }
+    .nav .gap{ display:inline-block; width:10px; } /* 股票右邊空一格 */
 
     /* ===== 下面主要背景區：強烈多色漸層（只作用在導覽列下方） ===== */
     .gradient-wrap{
@@ -57,21 +54,21 @@
       100%{ background-position: 0% 50%; }
     }
 
-    /* ===== 「工作面板」彩色化（盡量不改你的 DOM） ===== */
+    /* ===== 英雄卡片（第一張卡）做彩色邊框＋深藍底，維持原文字功能 ===== */
     .dashboard-card,
     .gradient-wrap .card.hero,
     .gradient-wrap .hero-card,
     .gradient-wrap #hero,
     .gradient-wrap #app > .card:first-of-type,
     .gradient-wrap main > .card:first-of-type{
-      background: linear-gradient(145deg, #0f172a, #1e293b) !important; /* 深藍亮面 */
+      background: linear-gradient(145deg, #0f172a, #1e293b) !important;
       border: 2px solid transparent;
-      border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1; /* 彩色邊框 */
+      border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1;
       border-radius: 14px;
       padding: 22px;
       color: #fff;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.45);
-      transition: all .3s ease;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      transition: transform .3s ease, box-shadow .3s ease;
     }
     .dashboard-card:hover,
     .gradient-wrap .card.hero:hover,
@@ -79,10 +76,9 @@
     .gradient-wrap #hero:hover,
     .gradient-wrap #app > .card:first-of-type:hover,
     .gradient-wrap main > .card:first-of-type:hover{
-      transform: translateY(-4px);
-      box-shadow: 0 10px 28px rgba(0,0,0,0.55);
+      transform: translateY(-6px);
+      box-shadow: 0 14px 32px rgba(0,0,0,0.55);
     }
-    /* 英雄卡片標題做彩色漸層字 */
     .dashboard-card h1,
     .gradient-wrap .card.hero h1,
     .gradient-wrap .hero-card h1,
@@ -106,16 +102,45 @@
       margin: 0;
     }
 
-    /* 其他資訊卡：浮起效果（顏色由下方自動套色 JS 決定） */
+    /* ===== 一般卡片：多顏色循環 + 懸浮抬起 =====
+       這裡不改你的 DOM，直接針對 .gradient-wrap 內的每個 .card 做 nth-of-type 配色
+       讓不同容器內的卡也能各自循環顏色。 */
     .gradient-wrap .card{
-      box-shadow: 0 3px 12px rgba(0,0,0,0.35);
-      transition: transform .25s ease, box-shadow .25s ease;
+      border: 0;
       border-radius: 14px;
+      color: #fff;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+      transition: transform .25s ease, box-shadow .25s ease, filter .25s ease;
+      backdrop-filter: blur(2px);
     }
     .gradient-wrap .card:hover{
-      transform: translateY(-3px);
-      box-shadow: 0 8px 22px rgba(0,0,0,0.45);
+      transform: translateY(-6px);
+      box-shadow: 0 14px 30px rgba(0,0,0,0.5);
     }
+
+    /* 調整卡片內文字對比 */
+    .gradient-wrap .card .text-muted,
+    .gradient-wrap .card .text-secondary,
+    .gradient-wrap .card .text-body-secondary{ color: rgba(255,255,255,.88) !important; }
+
+    .gradient-wrap .card .btn{ border-color: rgba(255,255,255,.55); color:#fff; }
+    .gradient-wrap .card .btn:hover{ background: rgba(255,255,255,.12); }
+
+    /* 6 色循環（可依喜好改） */
+    .gradient-wrap .card:nth-of-type(6n+1){ background: linear-gradient(135deg,#60a5fa,#3b82f6); }
+    .gradient-wrap .card:nth-of-type(6n+2){ background: linear-gradient(135deg,#34d399,#10b981); }
+    .gradient-wrap .card:nth-of-type(6n+3){ background: repeating-linear-gradient(135deg,#86efac 0 14px,#22c55e 14px 28px); }
+    .gradient-wrap .card:nth-of-type(6n+4){ background: linear-gradient(135deg,#f59e0b,#f97316); }
+    .gradient-wrap .card:nth-of-type(6n+5){ background: linear-gradient(135deg,#f472b6,#ec4899); }
+    .gradient-wrap .card:nth-of-type(6n+6){ background: linear-gradient(135deg,#a78bfa,#8b5cf6); }
+
+    /* 卡片內容可讀性（標題白、段落微白） */
+    .gradient-wrap .card h1,
+    .gradient-wrap .card h2,
+    .gradient-wrap .card h3,
+    .gradient-wrap .card h4,
+    .gradient-wrap .card h5{ color:#fff; margin-top:0; }
+    .gradient-wrap .card p{ color: rgba(255,255,255,.92); }
 
     /* ===== 輕量 Modal（聯絡我們） ===== */
     .modal-mask{
@@ -148,17 +173,6 @@
     /* 深色主題時，Modal 仍維持淺底深字以利閱讀 */
     html:not(.light) .modal-card{ background:#f8fafc; color:#111; }
     html:not(.light) .modal-hd, html:not(.light) .modal-ft{ background:#eef2f7; }
-
-    /* ====== 彩色卡片主題（由 JS 輪流套用） ====== */
-    .st-colored-card{ color:#fff; }
-    .st-g1{ background: linear-gradient(135deg,#2563eb,#60a5fa); }
-    .st-g2{ background: linear-gradient(135deg,#10b981,#34d399); }
-    .st-g3{ background: linear-gradient(135deg,#f59e0b,#fbbf24); color:#1f2937; } /* 黃色系深字 */
-    .st-g4{ background: linear-gradient(135deg,#9333ea,#c084fc); }
-    .st-g5{ background: linear-gradient(135deg,#db2777,#f472b6); }
-    .st-g6{ background: linear-gradient(135deg,#0ea5e9,#22d3ee); }
-    .st-g7{ background: linear-gradient(135deg,#ef4444,#f97316); }
-    .st-g8{ background: linear-gradient(135deg,#14b8a6,#84cc16); }
   </style>
 </head>
 <body>
@@ -188,7 +202,7 @@
   <main id="app"></main>
 </div>
 
-<!-- 你的 FAB 保持原本位置 -->
+<!-- FAB 保持原本位置 -->
 <button id="fabExpense" class="fab">＋</button>
 <button id="fabShop" class="fab-square">🛒</button>
 
@@ -321,34 +335,6 @@ window.addEventListener('load', () => {
   document.getElementById('contactForm').addEventListener('submit', function(){
     setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
   });
-
-  /* ===== 自動把彩色漸層套到內容卡片（保留字與功能） =====
-     - 只處理 .gradient-wrap 裡的卡片
-     - 第一張（英雄卡）維持你的深色樣式
-     - 想保留黑色的卡片 → 加上 .keep-dark
-  */
-  (function(){
-    const container = document.querySelector('.gradient-wrap');
-    if(!container) return;
-
-    // 你頁面卡片的可能 class（依你的版面而定），可自行加減
-    const selectors = ['.card', '.panel', '.box'];
-    const all = container.querySelectorAll(selectors.join(','));
-    if(!all.length) return;
-
-    const gradients = ['st-g1','st-g2','st-g3','st-g4','st-g5','st-g6','st-g7','st-g8'];
-    let idx = 0;
-
-    all.forEach((el, i)=>{
-      // 跳過英雄卡（第一張）與標記 keep-dark 的卡片
-      if(i === 0) return;
-      if(el.classList.contains('keep-dark')) return;
-
-      el.classList.add('st-colored-card', gradients[idx % gradients.length]);
-      idx++;
-    });
-  })();
 </script>
 </body>
 </html>
-
