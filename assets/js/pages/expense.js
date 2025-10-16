@@ -14,33 +14,32 @@ export function ExpensePage(){
   el.innerHTML = `
     <h3>支出記帳</h3>
 
-    <!-- 一行排版；桌機保持在同一行，窄螢幕才換行 -->
-    <div class="row" id="formRow" style="
-      display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; align-items:center;
+    <!-- ✅ 全部排列成同一行（可橫向捲動） -->
+    <div id="formRow" style="
+      display:flex;
+      gap:6px;
+      align-items:center;
+      overflow-x:auto;
+      padding-bottom:6px;
+      scrollbar-width:thin;
+      margin-bottom:8px;
     ">
-      <!-- 類型：支出 / 收入 -->
-      <select id="type" class="form-control" style="min-width:90px">
+      <select id="type" class="form-control" style="min-width:85px;flex:0 0 auto;">
         <option value="expense">支出</option>
         <option value="income">收入</option>
       </select>
 
-      <!-- 日期：年 / 月 / 日 -->
-      <select id="year"  class="form-control" style="min-width:110px"></select>
-      <select id="month" class="form-control" style="min-width:90px"></select>
-      <select id="day"   class="form-control" style="min-width:90px"></select>
+      <select id="year"  class="form-control" style="min-width:100px;flex:0 0 auto;"></select>
+      <select id="month" class="form-control" style="min-width:80px;flex:0 0 auto;"></select>
+      <select id="day"   class="form-control" style="min-width:80px;flex:0 0 auto;"></select>
 
-      <!-- 先金額，再分類、品項、備註（備註緊貼在品項右邊） -->
       <input id="amt"  type="text" inputmode="decimal" placeholder="金額"
-             class="form-control" style="min-width:120px;"/>
-      <input id="cat"  placeholder="分類" class="form-control" style="min-width:140px;"/>
+             class="form-control" style="min-width:100px;flex:0 0 auto;"/>
+      <input id="cat"  placeholder="分類" class="form-control" style="min-width:120px;flex:0 0 auto;"/>
+      <input id="item" placeholder="品項" class="form-control" style="min-width:200px;flex:1 1 auto;"/>
+      <input id="note" placeholder="備註" class="form-control" style="min-width:200px;flex:1 1 auto;"/>
 
-      <!-- 品項與備註給較大的彈性寬度，維持同一行 -->
-      <input id="item" placeholder="品項" class="form-control"
-             style="flex:1 1 240px; min-width:220px;"/>
-      <input id="note" placeholder="備註" class="form-control"
-             style="flex:1 1 260px; min-width:220px;"/>
-
-      <button class="primary btn btn-primary" id="add" style="min-width:88px;">新增</button>
+      <button class="primary btn btn-primary" id="add" style="min-width:90px;flex:0 0 auto;">新增</button>
     </div>
 
     <div class="small text-muted">快速鍵：右下角「＋」也會跳到此頁。</div>
@@ -103,7 +102,7 @@ export function ExpensePage(){
   yearSel.addEventListener('change', syncDays);
   monthSel.addEventListener('change', syncDays);
 
-  // === 金額輸入清理（避免手機鍵盤限制） ===
+  // === 金額輸入清理 ===
   amtInput.addEventListener('input', ()=>{
     amtInput.value = amtInput.value.replace(/[^\d.,\-]/g,'');
   });
@@ -115,7 +114,7 @@ export function ExpensePage(){
     return parseFloat(s);
   };
 
-  // === 取得登入 email（Auth → localStorage 回退） ===
+  // === 登入 email ===
   const getActiveEmailNow = ()=>{
     if (auth?.currentUser?.email) return auth.currentUser.email;
     try { const s = JSON.parse(localStorage.getItem('session_user')||'null'); return s?.email || null; } catch { return null; }
@@ -128,7 +127,7 @@ export function ExpensePage(){
   });
 
   // === Firestore 寫入 ===
-  const SUBCOL = 'entries'; // 需要改回 'records' 就改這行
+  const SUBCOL = 'entries'; // 改 'records' 可自訂
   async function saveEntry(email, rec){
     await setDoc(doc(db,'expenses',email), { email, updatedAt: serverTimestamp() }, { merge:true });
     await addDoc(collection(db,'expenses',email,SUBCOL), {
@@ -150,13 +149,12 @@ export function ExpensePage(){
     const categoryId = (catInput.value||'').trim()  || '其他';
     const item       = (itemInput.value||'').trim() || '未命名品項';
     const note       = (noteInput.value||'').trim() || '';
-    const type       = typeSel.value; // 'expense' or 'income'
+    const type       = typeSel.value;
 
     try{
       await saveEntry(email, { type, date, amount, categoryId, item, note });
-      alert(`✅ 已加入${type==='income'?'收入':'支出'}：` + item);
+      alert(`✅ 已加入${type==='income'?'收入':'支出'}：${item}`);
 
-      // 清空文字欄位（日期保留、類型保留）
       amtInput.value=''; catInput.value=''; itemInput.value=''; noteInput.value='';
     }catch(err){
       console.error(err);
