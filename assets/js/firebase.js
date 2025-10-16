@@ -1,4 +1,13 @@
 // assets/js/firebase.js
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } 
+  from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+
+// 初始化 Firestore（原本的 db = getFirestore(app) 改成這樣）
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+});
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js';
 import { getAuth }       from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 import { getFirestore }  from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
