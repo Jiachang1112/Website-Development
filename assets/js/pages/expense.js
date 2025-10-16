@@ -1,4 +1,4 @@
-// assets/js/pages/expense.js（與聊天記帳一致：Auth + localStorage 兼容）
+// assets/js/pages/expense.js（Auth + localStorage 兼容 / 金額欄可自由輸入）
 // Firestore 路徑：/expenses/{email}/records/{autoId}
 
 import { auth, db } from '../firebase.js';
@@ -16,7 +16,8 @@ export function ExpensePage(){
       <input id="date" type="date" class="form-control"/>
       <input id="item" placeholder="品項" class="form-control"/>
       <input id="cat" placeholder="分類" class="form-control"/>
-      <input id="amt" type="number" placeholder="金額" class="form-control"/>
+      <!-- 金額欄：改 text + inputmode 讓各裝置都能輸入 -->
+      <input id="amt" type="text" inputmode="decimal" placeholder="金額" class="form-control"/>
       <button class="primary btn btn-primary" id="add">新增</button>
     </div>
     <div class="small text-muted">快速鍵：右下角「＋」也會跳到此頁。</div>
@@ -30,6 +31,11 @@ export function ExpensePage(){
   const catInput  = el.querySelector('#cat');
   const amtInput  = el.querySelector('#amt');
   const addBtn    = el.querySelector('#add');
+
+  // 金額輸入即時清理：只保留數字、小數點與逗號（會在解析時統一成 .）
+  amtInput.addEventListener('input', () => {
+    amtInput.value = amtInput.value.replace(/[^\d.,\-]/g, '');
+  });
 
   // 取得目前可用的 email：先 Firebase，再退回 localStorage.session_user
   function getActiveEmailNow(){
@@ -53,24 +59,38 @@ export function ExpensePage(){
         if (u && u.email){ done = true; unSub && unSub(); resolve(u.email); }
       });
 
-      // 超時使用 localStorage 回退
       setTimeout(() => {
         if (done) return;
         done = true;
         try { unSub && unSub(); } catch {}
-        resolve(getActiveEmailNow()); // 可能為 null，外層會再檢查
+        resolve(getActiveEmailNow()); // 可能為 null
       }, timeoutMs);
     });
   }
 
+  // 解析金額（支援逗號小數、千分位）
+  function parseAmount(v){
+    if (!v) return NaN;
+    // 若同時有 . 與 ,：推測千分位 + 小數符號，保留最後一個做為小數點
+    let s = String(v).trim();
+    // 移除空白與千分位
+    s = s.replace(/\s/g,'').replace(/,/g,'.'); // 直接把逗號當小數點
+    // 僅保留數字、小數點與負號（最前）
+    s = s.replace(/[^\d.\-]/g,'');
+    // 若有多個小數點，只取第一個
+    const firstDot = s.indexOf('.');
+    if (firstDot !== -1){
+      s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g,'');
+    }
+    return parseFloat(s);
+  }
+
   async function saveExpense(email, rec){
-    // 先確保父文件存在
     await setDoc(
       doc(db, 'expenses', email),
       { email, updatedAt: serverTimestamp() },
       { merge: true }
     );
-    // 新增一筆記錄
     await addDoc(collection(db, 'expenses', email, 'records'), {
       ...rec,
       source: 'form',
@@ -88,7 +108,7 @@ export function ExpensePage(){
     const date  = dateInput.value;
     const item  = (itemInput.value || '').trim() || '未命名品項';
     const cat   = (catInput.value  || '').trim() || '其他';
-    const amt   = parseFloat(amtInput.value || '0');
+    const amt   = parseAmount(amtInput.value);
 
     if (!Number.isFinite(amt) || amt <= 0){
       alert('金額需為正數');
