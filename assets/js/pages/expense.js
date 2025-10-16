@@ -15,7 +15,7 @@ export function ExpensePage(){
   el.innerHTML = `
     <h3>支出記帳</h3>
 
-    <!-- ✅ 全部同一行排列（橫向可滾動），縮小間距 -->
+    <!-- ✅ 全部同一行排列 -->
     <div id="formRow" style="
       display:flex;
       gap:4px;
@@ -34,22 +34,21 @@ export function ExpensePage(){
       <select id="month" class="form-control" style="min-width:70px;flex:0 0 auto;"></select>
       <select id="day"   class="form-control" style="min-width:70px;flex:0 0 auto;"></select>
 
-      <!-- ⚡️ 將金額、分類、品項寬度縮到原來的約 1/3 -->
+      <!-- ⚡️調整寬度：金額更小、分類略縮、品項放大 -->
       <input id="amt"  type="text" inputmode="decimal" placeholder="金額"
              class="form-control" style="min-width:18px;flex:0 0 auto;"/>
       <input id="cat"  placeholder="分類" class="form-control"
              style="min-width:25px;flex:0 0 auto;"/>
       <input id="item" placeholder="品項" class="form-control"
-             style="min-width:95px;flex:1 1 auto;"/>
+             style="min-width:90px;flex:1 1 auto;"/>
 
-      <!-- 備註維持正常寬度，靠右 -->
       <input id="note" placeholder="備註" class="form-control"
              style="min-width:140px;flex:1 1 auto;"/>
 
       <button class="primary btn btn-primary" id="add" style="min-width:80px;flex:0 0 auto;">新增</button>
     </div>
 
-    <div class="small text-muted">快速鍵：右下角「＋」也會跳到此頁。</div>
+    <div class="small text-muted">快速鍵：按 Enter 或 Ctrl+Enter 可直接新增。</div>
   `;
 
   // === 節點 ===
@@ -154,7 +153,7 @@ export function ExpensePage(){
   }
 
   // === 新增 ===
-  addBtn.addEventListener('click',async()=>{
+  async function addRecord(){
     const email=await waitEmail(2000);
     if(!email){ alert('請先登入帳號再記帳'); return; }
 
@@ -170,11 +169,30 @@ export function ExpensePage(){
     try{
       await saveEntry(email,{ type,date,amount,categoryId,item,note });
       alert(`✅ 已加入${type==='income'?'收入':'支出'}：${item}`);
-
       amtInput.value=''; catInput.value=''; itemInput.value=''; noteInput.value='';
+      amtInput.focus();
     }catch(err){
       console.error(err);
       alert('❌ 寫入失敗：'+(err?.message||err));
+    }
+  }
+  addBtn.addEventListener('click', addRecord);
+
+  // === Enter 快速送出 ===
+  const inputsForEnter = [amtInput, catInput, itemInput, noteInput, yearSel, monthSel, daySel, typeSel];
+  function handleEnterToAdd(e){
+    if (e.isComposing) return;  // 輸入法組字中不觸發
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    addRecord();
+  }
+  inputsForEnter.forEach(inp => inp.addEventListener('keydown', handleEnterToAdd));
+
+  // Ctrl+Enter 全域快速送出
+  document.addEventListener('keydown', e=>{
+    if (e.ctrlKey && e.key === 'Enter'){
+      e.preventDefault();
+      addRecord();
     }
   });
 
