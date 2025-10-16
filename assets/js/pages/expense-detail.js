@@ -12,9 +12,6 @@ function lastDayOfMonth(ym) {
   const d = new Date(y, m, 0);
   return d.toISOString().slice(0, 10);
 }
-function firstDayOfYear(y){ return `${y}-01-01`; }
-function lastDayOfYear(y){ return `${y}-12-31`; }
-
 // 讓 createdAt（Firestore Timestamp/Date/ISO）可比較
 function ts(v){
   if (!v) return 0;
@@ -32,6 +29,7 @@ export function ExpenseDetailPage(){
   const m0 = now.getMonth()+1;
   const d0 = now.getDate();
 
+  // 先把 UI 畫出來（不等資料）
   el.innerHTML=`<section class="card"><h3>記帳｜明細</h3>
   <div class="row" style="gap:6px;align-items:center;flex-wrap:wrap">
     <label class="small">日期</label>
@@ -44,7 +42,7 @@ export function ExpenseDetailPage(){
     <span class="badge"><span id="cap2">當日</span>支出：<b id="out"></b></span>
     <span class="badge"><span id="cap3">當日</span>收入：<b id="inc"></b></span>
   </div>
-  <div id="list"></div></section>`;
+  <div id="list"><div class="small">載入中…</div></div></section>`;
 
   const ySel = el.querySelector('#y');
   const mSel = el.querySelector('#m');
@@ -56,6 +54,26 @@ export function ExpenseDetailPage(){
   const cap  = el.querySelector('#cap');
   const cap2 = el.querySelector('#cap2');
   const cap3 = el.querySelector('#cap3');
+
+  // 工具：讓畫面先 paint，再跑資料；同時具備防抖與競態保護
+  let latestJob = 0;
+  let debounceTimer = null;
+  function scheduleRender(wait = 120){
+    const job = ++latestJob;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(()=>{
+      const run = () => {
+        if (job !== latestJob) return; // 有更新就取消舊任務
+        render(job);
+      };
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(run, { timeout: 1200 });
+      } else {
+        // 兩層 rAF：確保 DOM 先繪製，再進行資料抓取
+        requestAnimationFrame(()=> requestAnimationFrame(run));
+      }
+    }, wait);
+  }
 
   function addNotSpecifiedOption(select, text='不指定'){
     const o = document.createElement('option');
@@ -91,9 +109,7 @@ export function ExpenseDetailPage(){
   function fillDays(y, m){
     dSel.innerHTML='';
     addNotSpecifiedOption(dSel, '不指定日期');
-    if (!m){ // 未選月份：僅保留「不指定日期」
-      return;
-    }
+    if (!m){ return; }
     const max = daysInMonth(Number(y), Number(m));
     const frag = document.createDocumentFragment();
     for(let d=1; d<=max; d++){
@@ -104,40 +120,37 @@ export function ExpenseDetailPage(){
     dSel.appendChild(frag);
   }
 
-  // 初始化今天
+  // 初始化今天（但資料載入延後呼叫）
   ySel.value = String(y0);
   mSel.value = pad2(m0);
   fillDays(ySel.value, mSel.value);
   dSel.value = pad2(d0);
 
   function updateBadgeCaption(){
-    // 三者皆有值 → 當日；否則顯示 期間
     const isDay = Boolean(ySel.value && mSel.value && dSel.value);
     const txt = isDay ? '當日' : '期間';
-    cap.textContent = txt;
-    cap2.textContent = txt;
-    cap3.textContent = txt;
+    cap.textContent = txt; cap2.textContent = txt; cap3.textContent = txt;
   }
 
-  // 年/月變更：重建日數；並重算與更新標籤
-  function syncDaysAndRender(){
+  function syncDaysAndSchedule(){
     const keep = dSel.value || '';
     fillDays(ySel.value, mSel.value);
     if (mSel.value === ''){
-      dSel.value = ''; // 不指定月份 → 日期也不指定
+      dSel.value = '';
     }else{
       const lastOpt = dSel.options[dSel.options.length-1];
       const lastDay = lastOpt ? lastOpt.value : '';
       if (keep && keep !== '' && keep <= lastDay) dSel.value = keep;
     }
     updateBadgeCaption();
-    render();
+    list.innerHTML = `<div class="small">載入中…</div>`; // 立即回饋
+    scheduleRender(120);
   }
-  ySel.addEventListener('change', syncDaysAndRender);
-  mSel.addEventListener('change', syncDaysAndRender);
-  dSel.addEventListener('change', ()=>{ updateBadgeCaption(); render(); });
+  ySel.addEventListener('change', syncDaysAndSchedule);
+  mSel.addEventListener('change', syncDaysAndSchedule);
+  dSel.addEventListener('change', ()=>{ updateBadgeCaption(); list.innerHTML = `<div class="small">載入中…</div>`; scheduleRender(60); });
 
-  async function render(){
+  async function render(jobId){
     const u = currentUser();
     if (!u?.email) {
       list.innerHTML = `<p class="small">請先登入帳號再查看明細。</p>`;
@@ -150,19 +163,22 @@ export function ExpenseDetailPage(){
     const d = dSel.value;   // '' or '01'..'31'
 
     let from, to;
-    if (!m){ // 整年
-      from = `${y}-01-01`;
-      to   = `${y}-12-31`;
-    }else if (!d){ // 整月
+    if (!m){
+      from = `${y}-01-01`; to = `${y}-12-31`;
+    }else if (!d){
       const ym = `${y}-${m}`;
-      from = firstDayOfMonth(ym);
-      to   = lastDayOfMonth(ym);
-    }else{ // 當天
-      from = yyyyMmDd(y, m, d);
-      to   = from;
+      from = firstDayOfMonth(ym); to = lastDayOfMonth(ym);
+    }else{
+      from = yyyyMmDd(y, m, d); to = from;
     }
 
+    // 顯示載入中（避免空白）
+    list.innerHTML = `<div class="small">載入中…</div>`;
+
     const rows = await getEntriesRangeForEmail(u.email, from, to);
+
+    // 若中途又切換日期，丟棄舊結果
+    if (jobId !== latestJob) return;
 
     const outs = rows.filter(r => r.type === 'expense');
     const ins  = rows.filter(r => r.type === 'income');
@@ -174,7 +190,7 @@ export function ExpenseDetailPage(){
     incEl.textContent = fmt.money(totalIn);
     balEl.textContent = fmt.money(totalIn - totalOut);
 
-    // 排序：createdAt desc → date desc
+    // 排序：createdAt desc → date desc（讓最新紀錄在最上）
     const all = [...rows].sort((a,b)=>{
       const tb = ts(b.createdAt), ta = ts(a.createdAt);
       if (tb !== ta) return tb - ta;
@@ -201,8 +217,10 @@ export function ExpenseDetailPage(){
       }).join('') || '<p class="small">這段期間沒有紀錄</p>';
   }
 
-  // 初始標籤 + 渲染
+  // 初始化：先更新標籤，**延後**載入資料，讓畫面先出來
   updateBadgeCaption();
-  render();
+  list.innerHTML = `<div class="small">載入中…</div>`;
+  scheduleRender(120); // 延後一點，避免阻塞首屏繪製
+
   return el;
 }
