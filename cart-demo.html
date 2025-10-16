@@ -164,6 +164,42 @@
     body:not(.light) .modal-content .form-label,
     body:not(.light) .modal-content .form-select option,
     body:not(.light) .modal-content .modal-title { color: #000 !important; }
+
+    /* ====== 跟首頁一樣的多色動態漸層（只在導覽列下方） ====== */
+    .gradient-wrap{
+      background: linear-gradient(135deg,
+        #1e3a8a 0%,
+        #2563eb 20%,
+        #7e22ce 40%,
+        #db2777 60%,
+        #f97316 80%,
+        #fde047 100%
+      );
+      background-size: 300% 300%;
+      animation: gradientShift 10s ease-in-out infinite;
+      min-height: calc(100vh - 64px);
+      padding-bottom: 64px;
+    }
+    @keyframes gradientShift{
+      0%{ background-position: 0% 50%; }
+      50%{ background-position: 100% 50%; }
+      100%{ background-position: 0% 50%; }
+    }
+
+    /* ====== 彩色商品卡與彈跳效果 ====== */
+    .st-colored-card{ color:#fff; border: none; box-shadow:0 6px 18px rgba(0,0,0,.25); transition: transform .22s ease, box-shadow .22s ease, filter .22s ease; }
+    .st-colored-card:hover{ transform: translateY(-4px); box-shadow:0 14px 28px rgba(0,0,0,.35); filter: saturate(1.05); }
+    .st-g1{ background: linear-gradient(135deg,#2563eb,#60a5fa); }
+    .st-g2{ background: linear-gradient(135deg,#10b981,#34d399); }
+    .st-g3{ background: linear-gradient(135deg,#f59e0b,#fbbf24); color:#1f2937; }
+    .st-g4{ background: linear-gradient(135deg,#9333ea,#c084fc); }
+    .st-g5{ background: linear-gradient(135deg,#db2777,#f472b6); }
+    .st-g6{ background: linear-gradient(135deg,#0ea5e9,#22d3ee); }
+    .st-g7{ background: linear-gradient(135deg,#ef4444,#f97316); }
+    .st-g8{ background: linear-gradient(135deg,#14b8a6,#84cc16); }
+    .st-colored-card .fw-semibold{ color:inherit }
+    .st-colored-card .price{ color:#fff; text-shadow:0 1px 0 rgba(0,0,0,.25) }
+    .st-g3 .price{ color:#1f2937 } /* 黃色卡片上的深色字更清楚 */
   </style>
 </head>
 <body>
@@ -198,37 +234,40 @@
     </nav>
   </header>
 
-  <main class="container py-3">
-    <div class="row g-3">
-      <div class="col-lg-8">
-        <h4 class="mb-3">商品列表</h4>
-        <div id="products" class="grid"></div>
-      </div>
+  <!-- 🔽 將主要內容包在與首頁相同的漸層背景容器 -->
+  <div class="gradient-wrap">
+    <main class="container py-3">
+      <div class="row g-3">
+        <div class="col-lg-8">
+          <h4 class="mb-3">商品列表</h4>
+          <div id="products" class="grid"></div>
+        </div>
 
-      <div class="col-lg-4">
-        <div class="card aside p-3 cart-box">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 class="m-0">購物車</h5>
-            <button id="btnClear" class="btn btn-sm">清空</button>
-          </div>
-          <div id="cartItems" class="small text-muted">尚無商品</div>
-          <hr>
-          <div class="d-flex justify-content-between">
-            <div class="text-muted">小計</div><div id="subtotal" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-flex justify-content-between">
-            <div class="text-muted">運費</div><div id="shipping" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-flex justify-content-between fs-5">
-            <div>合計</div><div id="total" class="fw-bold">NT$ 0</div>
-          </div>
-          <div class="d-grid mt-2">
-            <button id="btnCheckout" class="btn btn-primary">結帳</button>
+        <div class="col-lg-4">
+          <div class="card aside p-3 cart-box">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="m-0">購物車</h5>
+              <button id="btnClear" class="btn btn-sm">清空</button>
+            </div>
+            <div id="cartItems" class="small text-muted">尚無商品</div>
+            <hr>
+            <div class="d-flex justify-content-between">
+              <div class="text-muted">小計</div><div id="subtotal" class="fw-bold">NT$ 0</div>
+            </div>
+            <div class="d-flex justify-content-between">
+              <div class="text-muted">運費</div><div id="shipping" class="fw-bold">NT$ 0</div>
+            </div>
+            <div class="d-flex justify-content-between fs-5">
+              <div>合計</div><div id="total" class="fw-bold">NT$ 0</div>
+            </div>
+            <div class="d-grid mt-2">
+              <button id="btnCheckout" class="btn btn-primary">結帳</button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </main>
+    </main>
+  </div>
 
   <!-- 結帳 Modal（原樣保留） -->
   <div class="modal fade" id="checkoutDlg" tabindex="-1">
@@ -330,13 +369,19 @@
 
     function renderProducts(){
       document.getElementById('products').innerHTML = PRODUCTS.map(p=>`
-        <div class="card p-3">
+        <div class="card p-3 product-card">
           <div class="fw-semibold">${p.name}</div>
           <div class="price mt-1">NT$ ${p.price.toLocaleString()}</div>
           <button class="btn btn-sm mt-2" onclick='addToCart(${JSON.stringify(p)})'>加入購物車</button>
         </div>
-      `).join('');  /* ← 修正：這裡要用反引號結尾 */
+      `).join('');
       window.addToCart = addToCart;
+
+      // 套用彩色主題（依序輪替 st-g1~st-g8）
+      const grads = ['st-g1','st-g2','st-g3','st-g4','st-g5','st-g6','st-g7','st-g8'];
+      document.querySelectorAll('.product-card').forEach((el,i)=>{
+        el.classList.add('st-colored-card', grads[i % grads.length]);
+      });
     }
 
     function renderCart(){
