@@ -1,5 +1,7 @@
 // assets/js/pages/expense.js
 // Firestore: /expenses/{email}/entries/{autoId}
+// 寫入欄位：type, date, amount, categoryId, item, note, createdAt, updatedAt
+
 import { auth, db } from '../firebase.js';
 import {
   collection, addDoc, doc, setDoc, serverTimestamp
@@ -13,7 +15,7 @@ export function ExpensePage(){
   el.innerHTML = `
     <h3>支出記帳</h3>
 
-    <!-- ✅ 全部一行排列、間距縮小 -->
+    <!-- ✅ 全部同一行排列（橫向可滾動），縮小間距 -->
     <div id="formRow" style="
       display:flex;
       gap:4px;
@@ -32,13 +34,15 @@ export function ExpensePage(){
       <select id="month" class="form-control" style="min-width:70px;flex:0 0 auto;"></select>
       <select id="day"   class="form-control" style="min-width:70px;flex:0 0 auto;"></select>
 
-      <!-- ⚡️縮小金額、分類、品項、備註寬度 -->
+      <!-- ⚡️ 將金額、分類、品項寬度縮到原來的約 1/3 -->
       <input id="amt"  type="text" inputmode="decimal" placeholder="金額"
-             class="form-control" style="min-width:70px;flex:0 0 auto;"/>
+             class="form-control" style="min-width:24px;flex:0 0 auto;"/>
       <input id="cat"  placeholder="分類" class="form-control"
-             style="min-width:90px;flex:0 0 auto;"/>
+             style="min-width:30px;flex:0 0 auto;"/>
       <input id="item" placeholder="品項" class="form-control"
-             style="min-width:140px;flex:1 1 auto;"/>
+             style="min-width:47px;flex:1 1 auto;"/>
+
+      <!-- 備註維持正常寬度，靠右 -->
       <input id="note" placeholder="備註" class="form-control"
              style="min-width:140px;flex:1 1 auto;"/>
 
@@ -108,7 +112,7 @@ export function ExpensePage(){
   yearSel.addEventListener('change',syncDays);
   monthSel.addEventListener('change',syncDays);
 
-  // === 金額處理 ===
+  // === 金額輸入過濾 ===
   amtInput.addEventListener('input',()=>{
     amtInput.value=amtInput.value.replace(/[^\d.,\-]/g,'');
   });
