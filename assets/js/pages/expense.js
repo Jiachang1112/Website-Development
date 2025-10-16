@@ -1,7 +1,8 @@
 // assets/js/pages/expense.js
 // Firestore: /expenses/{email}/records/{autoId}
-// 7 欄位：date(YYYY-MM-DD), party, item, categoryId, amount, type, note
-// 登入偵測：先 Firebase Auth，再回退 localStorage.session_user
+// - 日期：改成 年/月/日 <select>（2020~3000，自動判斷天數）
+// - 金額：text+inputmode=decimal，程式端安全解析
+// - 登入：先取 Firebase Auth，再回退 localStorage.session_user
 
 import { auth, db } from '../firebase.js';
 import { collection, addDoc, doc, setDoc, serverTimestamp }
@@ -14,138 +15,141 @@ export function ExpensePage(){
   el.className = 'container card';
   el.innerHTML = `
     <h3>支出記帳</h3>
-
     <div class="row" style="gap:6px; margin-bottom:8px">
-      <!-- 日期：年 / 月 / 日 -->
+      <!-- 日期選擇：年 / 月 / 日 -->
       <select id="year" class="form-control" style="min-width:110px"></select>
       <select id="month" class="form-control" style="min-width:90px"></select>
       <select id="day" class="form-control" style="min-width:90px"></select>
 
-      <!-- 來客 / 對象 -->
-      <input id="party" placeholder="來客 / 對象" class="form-control"/>
-
-      <!-- 品項 -->
       <input id="item" placeholder="品項" class="form-control"/>
+      <input id="cat" placeholder="分類" class="form-control"/>
 
-      <!-- 分類 -->
-      <input id="categoryId" placeholder="分類" class="form-control"/>
-
-      <!-- 金額：text + inputmode，前端清理 -->
-      <input id="amount" type="text" inputmode="decimal" placeholder="金額" class="form-control"/>
-
-      <!-- 類型 -->
-      <select id="type" class="form-control" style="min-width:120px">
-        <option value="expense" selected>支出（expense）</option>
-        <option value="income">收入（income）</option>
-      </select>
-
-      <!-- 備註 -->
-      <input id="note" placeholder="備註" class="form-control"/>
-
+      <!-- 金額欄：text + inputmode 讓裝置都能輸入 -->
+      <input id="amt" type="text" inputmode="decimal" placeholder="金額" class="form-control"/>
       <button class="primary btn btn-primary" id="add">新增</button>
     </div>
-
     <div class="small text-muted">快速鍵：右下角「＋」也會跳到此頁。</div>
   `;
 
-  // 取得節點
-  const ySel = el.querySelector('#year');
-  const mSel = el.querySelector('#month');
-  const dSel = el.querySelector('#day');
+  // === 取得節點 ===
+  const yearSel = el.querySelector('#year');
+  const monthSel = el.querySelector('#month');
+  const daySel = el.querySelector('#day');
 
-  const partyInput = el.querySelector('#party');
-  const itemInput  = el.querySelector('#item');
-  const catInput   = el.querySelector('#categoryId');
-  const amtInput   = el.querySelector('#amount');
-  const typeSel    = el.querySelector('#type');
-  const noteInput  = el.querySelector('#note');
-  const addBtn     = el.querySelector('#add');
+  const itemInput = el.querySelector('#item');
+  const catInput  = el.querySelector('#cat');
+  const amtInput  = el.querySelector('#amt');
+  const addBtn    = el.querySelector('#add');
 
-  // ===== 日期選單（2020~3000，自動判斷天數） =====
-  const pad2 = n => String(n).padStart(2,'0');
-  const daysInMonth = (y, m) => new Date(y, m, 0).getDate(); // m:1..12
+  // === 日期選單：2020 ~ 3000，預設今天 ===
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function daysInMonth(y, m){ return new Date(y, m, 0).getDate(); } // m: 1..12
 
   function fillYears(){
+    const start = 2020, end = 3000;
     const frag = document.createDocumentFragment();
-    for(let y=2020; y<=3000; y++){
+    for(let y = start; y <= end; y++){
       const o = document.createElement('option');
-      o.value = String(y); o.textContent = String(y);
+      o.value = String(y);
+      o.textContent = String(y);
       frag.appendChild(o);
     }
-    ySel.appendChild(frag);
+    yearSel.appendChild(frag);
   }
   function fillMonths(){
     const frag = document.createDocumentFragment();
-    for(let m=1; m<=12; m++){
+    for(let m = 1; m <= 12; m++){
       const o = document.createElement('option');
-      o.value = pad2(m); o.textContent = pad2(m);
+      o.value = pad2(m);
+      o.textContent = pad2(m);
       frag.appendChild(o);
     }
-    mSel.appendChild(frag);
+    monthSel.appendChild(frag);
   }
   function fillDays(y, m){
-    dSel.innerHTML = '';
-    const max = daysInMonth(Number(y), Number(m));
+    daySel.innerHTML = '';
+    const dmax = daysInMonth(Number(y), Number(m));
     const frag = document.createDocumentFragment();
-    for(let d=1; d<=max; d++){
+    for(let d = 1; d <= dmax; d++){
       const o = document.createElement('option');
-      o.value = pad2(d); o.textContent = pad2(d);
+      o.value = pad2(d);
+      o.textContent = pad2(d);
       frag.appendChild(o);
     }
-    dSel.appendChild(frag);
+    daySel.appendChild(frag);
   }
+
+  // 初始化日期
   (function initDate(){
     const now = new Date();
-    fillYears(); fillMonths();
-    ySel.value = String(Math.min(3000, Math.max(2020, now.getFullYear())));
-    mSel.value = pad2(now.getMonth()+1);
-    fillDays(ySel.value, mSel.value);
-    dSel.value = pad2(now.getDate());
+    const y = now.getFullYear();
+    const m = now.getMonth()+1;
+    const d = now.getDate();
+    fillYears();
+    fillMonths();
+    yearSel.value  = String(Math.min(3000, Math.max(2020, y)));
+    monthSel.value = pad2(m);
+    fillDays(yearSel.value, monthSel.value);
+    daySel.value   = pad2(d);
   })();
+
+  // 任何年/月變更都重算該月天數；若原本的日 > 新月份上限，會自動設為最後一天
   function syncDays(){
-    const prev = Number(dSel.value || '1');
-    fillDays(ySel.value, mSel.value);
-    const last = Number(dSel.options[dSel.options.length-1].value);
-    dSel.value = pad2(Math.min(prev, last));
+    const prevDay = Number(daySel.value || '1');
+    fillDays(yearSel.value, monthSel.value);
+    const max = Number(daySel.options[daySel.options.length-1].value);
+    daySel.value = pad2(Math.min(prevDay, max));
   }
-  ySel.addEventListener('change', syncDays);
-  mSel.addEventListener('change', syncDays);
+  yearSel.addEventListener('change', syncDays);
+  monthSel.addEventListener('change', syncDays);
 
-  // ===== 金額清理（允許逗號與小數） =====
+  // === 金額輸入即時清理 ===
   amtInput.addEventListener('input', () => {
-    amtInput.value = amtInput.value.replace(/[^\d.,\-]/g,'');
+    amtInput.value = amtInput.value.replace(/[^\d.,\-]/g, '');
   });
-  function parseAmount(v){
-    if (!v) return NaN;
-    let s = String(v).trim().replace(/\s/g,'').replace(/,/g,'.').replace(/[^\d.\-]/g,'');
-    const i = s.indexOf('.');
-    if (i !== -1) s = s.slice(0,i+1) + s.slice(i+1).replace(/\./g,'');
-    return parseFloat(s);
-  }
 
-  // ===== 取得 email：Auth -> localStorage =====
-  function activeEmailNow(){
-    if (auth?.currentUser?.email) return auth.currentUser.email;
+  // === 取得登入 email：Firebase -> localStorage 回退 ===
+  function getActiveEmailNow(){
+    if (auth && auth.currentUser && auth.currentUser.email) return auth.currentUser.email;
     try{
-      const s = JSON.parse(localStorage.getItem('session_user')||'null');
-      if (s?.email) return s.email;
+      const s = JSON.parse(localStorage.getItem('session_user') || 'null');
+      if (s && s.email) return s.email;
     }catch{}
     return null;
   }
-  function waitEmail(timeoutMs=2000){
-    return new Promise(resolve=>{
-      const now = activeEmailNow();
+  function waitEmail(timeoutMs = 2000){
+    return new Promise(resolve => {
+      const now = getActiveEmailNow();
       if (now) return resolve(now);
+
       let done = false;
-      const stop = onAuthStateChanged(auth, u=>{
+      const unSub = onAuthStateChanged(auth, u => {
         if (done) return;
-        if (u?.email){ done=true; stop&&stop(); resolve(u.email); }
+        if (u && u.email){ done = true; unSub && unSub(); resolve(u.email); }
       });
-      setTimeout(()=>{ if (!done){ done=true; try{stop&&stop();}catch{} resolve(activeEmailNow()); } }, timeoutMs);
+      setTimeout(() => {
+        if (done) return;
+        done = true;
+        try{ unSub && unSub(); }catch{}
+        resolve(getActiveEmailNow());
+      }, timeoutMs);
     });
   }
 
-  // ===== Firestore 寫入 =====
+  // === 解析金額（支援逗號小數/千分位） ===
+  function parseAmount(v){
+    if (!v) return NaN;
+    let s = String(v).trim();
+    s = s.replace(/\s/g,'').replace(/,/g,'.');   // 把逗號視為小數點
+    s = s.replace(/[^\d.\-]/g,'');               // 僅保留數字 . 負號
+    const firstDot = s.indexOf('.');
+    if (firstDot !== -1){
+      s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g,'');
+    }
+    return parseFloat(s);
+  }
+
+  // === Firestore 寫入 ===
   async function saveExpense(email, rec){
     await setDoc(
       doc(db, 'expenses', email),
@@ -159,33 +163,30 @@ export function ExpensePage(){
     });
   }
 
-  // ===== 新增 =====
-  addBtn.addEventListener('click', async ()=>{
+  // === 新增 ===
+  addBtn.addEventListener('click', async () => {
     const email = await waitEmail(2000);
-    if (!email){ alert('請先登入帳號再記帳'); return; }
+    if (!email){
+      alert('請先登入帳號再記帳');
+      return;
+    }
 
-    const date = `${ySel.value}-${mSel.value}-${dSel.value}`;
-    const party = (partyInput.value||'').trim();
-    const item  = (itemInput.value||'').trim() || '未命名品項';
-    const categoryId = (catInput.value||'').trim() || '其他';
-    const note  = (noteInput.value||'').trim();
-    const type  = (typeSel.value||'expense');
-    const amount = parseAmount(amtInput.value);
+    const date  = `${yearSel.value}-${monthSel.value}-${daySel.value}`;
+    const item  = (itemInput.value || '').trim() || '未命名品項';
+    const cat   = (catInput.value  || '').trim() || '其他';
+    const amt   = parseAmount(amtInput.value);
 
-    if (!Number.isFinite(amount) || amount <= 0){
-      alert('金額需為正數'); return;
+    if (!Number.isFinite(amt) || amt <= 0){
+      alert('金額需為正數');
+      return;
     }
 
     try{
-      await saveExpense(email, { date, party, item, categoryId, amount, type, note });
+      await saveExpense(email, { date, item, cat, amount: amt });
       alert('✅ 已加入：' + item);
-      // 清空輸入（日期保留今天）
-      partyInput.value = '';
-      itemInput.value  = '';
-      catInput.value   = '';
-      amtInput.value   = '';
-      noteInput.value  = '';
-      typeSel.value    = 'expense';
+      itemInput.value = '';
+      catInput.value  = '';
+      amtInput.value  = '';
     }catch(err){
       console.error(err);
       alert('❌ 寫入失敗：' + (err?.message || err));
