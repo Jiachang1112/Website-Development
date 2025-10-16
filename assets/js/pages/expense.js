@@ -1,6 +1,6 @@
 // assets/js/pages/expense.js
-// Firestore 寫入：/expenses/{email}/entries/{autoId}
-// 欄位：amount, categoryId, createdAt, date, note, type, updatedAt, item
+// Firestore: /expenses/{email}/entries/{autoId}
+// 欄位：type, date, amount, categoryId, item, note, createdAt, updatedAt
 import { auth, db } from '../firebase.js';
 import {
   collection, addDoc, doc, setDoc, serverTimestamp
@@ -13,27 +13,44 @@ export function ExpensePage(){
   el.className = 'container card';
   el.innerHTML = `
     <h3>支出記帳</h3>
-    <div class="row" style="gap:6px; margin-bottom:8px">
+
+    <!-- 一行排版；桌機保持在同一行，窄螢幕才換行 -->
+    <div class="row" id="formRow" style="
+      display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; align-items:center;
+    ">
+      <!-- 類型：支出 / 收入 -->
+      <select id="type" class="form-control" style="min-width:90px">
+        <option value="expense">支出</option>
+        <option value="income">收入</option>
+      </select>
+
       <!-- 日期：年 / 月 / 日 -->
       <select id="year"  class="form-control" style="min-width:110px"></select>
       <select id="month" class="form-control" style="min-width:90px"></select>
       <select id="day"   class="form-control" style="min-width:90px"></select>
 
-      <!-- ⭐ 先金額，再分類、品項、備註 -->
-      <input  id="amt"  type="text" inputmode="decimal" placeholder="金額" class="form-control"/>
-      <input  id="cat"  placeholder="分類" class="form-control"/>
-      <input  id="item" placeholder="品項" class="form-control"/>
-      <input  id="note" placeholder="備註" class="form-control"/>
+      <!-- 先金額，再分類、品項、備註（備註緊貼在品項右邊） -->
+      <input id="amt"  type="text" inputmode="decimal" placeholder="金額"
+             class="form-control" style="min-width:120px;"/>
+      <input id="cat"  placeholder="分類" class="form-control" style="min-width:140px;"/>
 
-      <button class="primary btn btn-primary" id="add">新增</button>
+      <!-- 品項與備註給較大的彈性寬度，維持同一行 -->
+      <input id="item" placeholder="品項" class="form-control"
+             style="flex:1 1 240px; min-width:220px;"/>
+      <input id="note" placeholder="備註" class="form-control"
+             style="flex:1 1 260px; min-width:220px;"/>
+
+      <button class="primary btn btn-primary" id="add" style="min-width:88px;">新增</button>
     </div>
+
     <div class="small text-muted">快速鍵：右下角「＋」也會跳到此頁。</div>
   `;
 
-  // === 取得節點 ===
-  const yearSel = el.querySelector('#year');
+  // === 節點 ===
+  const typeSel  = el.querySelector('#type');
+  const yearSel  = el.querySelector('#year');
   const monthSel = el.querySelector('#month');
-  const daySel = el.querySelector('#day');
+  const daySel   = el.querySelector('#day');
   const amtInput  = el.querySelector('#amt');
   const catInput  = el.querySelector('#cat');
   const itemInput = el.querySelector('#item');
@@ -43,12 +60,10 @@ export function ExpensePage(){
   // === 日期選單（2020~3000） ===
   const pad2 = n => String(n).padStart(2,'0');
   const daysInMonth = (y,m) => new Date(y,m,0).getDate(); // m:1..12
-
   function fillYears(){
     const frag = document.createDocumentFragment();
     for(let y=2020;y<=3000;y++){
-      const o=document.createElement('option');
-      o.value=o.textContent=String(y);
+      const o=document.createElement('option'); o.value=o.textContent=String(y);
       frag.appendChild(o);
     }
     yearSel.appendChild(frag);
@@ -56,19 +71,17 @@ export function ExpensePage(){
   function fillMonths(){
     const frag=document.createDocumentFragment();
     for(let m=1;m<=12;m++){
-      const o=document.createElement('option');
-      o.value=o.textContent=pad2(m);
+      const o=document.createElement('option'); o.value=o.textContent=pad2(m);
       frag.appendChild(o);
     }
     monthSel.appendChild(frag);
   }
   function fillDays(y,m){
     daySel.innerHTML='';
-    const dmax=daysInMonth(+y,+m);
     const frag=document.createDocumentFragment();
+    const dmax=daysInMonth(+y,+m);
     for(let d=1; d<=dmax; d++){
-      const o=document.createElement('option');
-      o.value=o.textContent=pad2(d);
+      const o=document.createElement('option'); o.value=o.textContent=pad2(d);
       frag.appendChild(o);
     }
     daySel.appendChild(frag);
@@ -115,10 +128,14 @@ export function ExpensePage(){
   });
 
   // === Firestore 寫入 ===
-  const SUBCOL = 'entries'; // 想改回 records 就把這行改成 'records'
-  async function saveExpense(email, rec){
+  const SUBCOL = 'entries'; // 需要改回 'records' 就改這行
+  async function saveEntry(email, rec){
     await setDoc(doc(db,'expenses',email), { email, updatedAt: serverTimestamp() }, { merge:true });
-    await addDoc(collection(db,'expenses',email,SUBCOL), { ...rec, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    await addDoc(collection(db,'expenses',email,SUBCOL), {
+      ...rec,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
   }
 
   // === 新增 ===
@@ -130,23 +147,16 @@ export function ExpensePage(){
     const amount = parseAmount(amtInput.value);
     if(!Number.isFinite(amount) || amount <= 0){ alert('金額需為正數'); return; }
 
-    const categoryId = (catInput.value||'').trim() || '其他';
+    const categoryId = (catInput.value||'').trim()  || '其他';
     const item       = (itemInput.value||'').trim() || '未命名品項';
     const note       = (noteInput.value||'').trim() || '';
+    const type       = typeSel.value; // 'expense' or 'income'
 
     try{
-      // 依你要求寫入這 7(+1) 欄位
-      await saveExpense(email, {
-        type: 'expense',
-        date,
-        amount,
-        categoryId,
-        item,
-        note
-      });
-      alert('✅ 已加入：' + item);
+      await saveEntry(email, { type, date, amount, categoryId, item, note });
+      alert(`✅ 已加入${type==='income'?'收入':'支出'}：` + item);
 
-      // 清空可輸入欄位（日期保留今天）
+      // 清空文字欄位（日期保留、類型保留）
       amtInput.value=''; catInput.value=''; itemInput.value=''; noteInput.value='';
     }catch(err){
       console.error(err);
