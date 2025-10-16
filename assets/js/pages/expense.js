@@ -36,11 +36,11 @@ export function ExpensePage(){
 
       <!-- ⚡️ 將金額、分類、品項寬度縮到原來的約 1/3 -->
       <input id="amt"  type="text" inputmode="decimal" placeholder="金額"
-             class="form-control" style="min-width:24px;flex:0 0 auto;"/>
+             class="form-control" style="min-width:18px;flex:0 0 auto;"/>
       <input id="cat"  placeholder="分類" class="form-control"
-             style="min-width:30px;flex:0 0 auto;"/>
+             style="min-width:25px;flex:0 0 auto;"/>
       <input id="item" placeholder="品項" class="form-control"
-             style="min-width:47px;flex:1 1 auto;"/>
+             style="min-width:95px;flex:1 1 auto;"/>
 
       <!-- 備註維持正常寬度，靠右 -->
       <input id="note" placeholder="備註" class="form-control"
