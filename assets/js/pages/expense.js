@@ -36,7 +36,7 @@ export function ExpensePage(){
 
       <!-- ⚡️調整寬度：金額更小、分類略縮、品項放大 -->
       <input id="amt"  type="text" inputmode="decimal" placeholder="金額"
-             class="form-control" style="min-width:18px;flex:0 0 auto;"/>
+             class="form-control" style="min-width:10px;flex:0 0 auto;"/>
       <input id="cat"  placeholder="分類" class="form-control"
              style="min-width:25px;flex:0 0 auto;"/>
       <input id="item" placeholder="品項" class="form-control"
