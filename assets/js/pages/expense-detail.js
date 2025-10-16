@@ -6,7 +6,16 @@ import { currentUser } from '../app.js';
 function pad2(n){ return String(n).padStart(2,'0'); }
 function daysInMonth(y, m){ return new Date(y, m, 0).getDate(); } // m: 1..12
 function yyyyMmDd(y, m, d){ return `${y}-${pad2(m)}-${pad2(d)}`; }
-// 讓 createdAt（Firestore Timestamp 或 Date 或字串）可比較
+function firstDayOfMonth(ym) { return ym + '-01'; }
+function lastDayOfMonth(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m, 0);
+  return d.toISOString().slice(0, 10);
+}
+function firstDayOfYear(y){ return `${y}-01-01`; }
+function lastDayOfYear(y){ return `${y}-12-31`; }
+
+// 讓 createdAt（Firestore Timestamp/Date/ISO）可比較
 function ts(v){
   if (!v) return 0;
   try{ if (typeof v.toDate === 'function') return v.toDate().getTime(); }catch{}
@@ -41,7 +50,14 @@ export function ExpenseDetailPage(){
   const balEl= el.querySelector('#bal');
   const list = el.querySelector('#list');
 
-  // ===== 填年 2020~3000 =====
+  function addNotSpecifiedOption(select, text='不指定'){
+    const o = document.createElement('option');
+    o.value = '';
+    o.textContent = text;
+    select.appendChild(o);
+  }
+
+  // 年 2020~3000
   (function fillYears(){
     const frag = document.createDocumentFragment();
     for(let y=2020;y<=3000;y++){
@@ -52,8 +68,9 @@ export function ExpenseDetailPage(){
     ySel.appendChild(frag);
   })();
 
-  // ===== 填月 01~12 =====
+  // 月份：不指定 + 01~12
   (function fillMonths(){
+    addNotSpecifiedOption(mSel, '不指定月份');
     const frag = document.createDocumentFragment();
     for(let m=1;m<=12;m++){
       const o=document.createElement('option');
@@ -63,9 +80,13 @@ export function ExpenseDetailPage(){
     mSel.appendChild(frag);
   })();
 
-  // ===== 依年/月填日 =====
+  // 日期：依年/月；第一個固定「不指定日期」
   function fillDays(y, m){
     dSel.innerHTML='';
+    addNotSpecifiedOption(dSel, '不指定日期');
+    if (!m){ // 月份未指定時，只保留「不指定日期」
+      return;
+    }
     const max = daysInMonth(Number(y), Number(m));
     const frag = document.createDocumentFragment();
     for(let d=1; d<=max; d++){
@@ -82,12 +103,18 @@ export function ExpenseDetailPage(){
   fillDays(ySel.value, mSel.value);
   dSel.value = pad2(d0);
 
-  // 年/月變更時重建天數並盡量保留目前日
+  // 年/月變更：重建日數；若月份改為不指定，日期也設為不指定並禁用（可選擇不禁用，如需改可移除這行）
   function syncDaysAndRender(){
-    const keep = Number(dSel.value || '1');
+    const keep = dSel.value || '';
     fillDays(ySel.value, mSel.value);
-    const last = Number(dSel.options[dSel.options.length-1].value);
-    dSel.value = pad2(Math.min(keep, last));
+    if (mSel.value === ''){
+      dSel.value = ''; // 不指定月份 → 日期也不指定
+    }else{
+      // 嘗試保留原本的日期；超過該月上限則維持「不指定日期」
+      const lastOpt = dSel.options[dSel.options.length-1];
+      const lastDay = lastOpt ? lastOpt.value : '';
+      if (keep && keep !== '' && keep <= lastDay) dSel.value = keep;
+    }
     render();
   }
   ySel.addEventListener('change', syncDaysAndRender);
@@ -102,10 +129,24 @@ export function ExpenseDetailPage(){
       return;
     }
 
-    const dateStr = yyyyMmDd(ySel.value, mSel.value, dSel.value);
+    const y = ySel.value;
+    const m = mSel.value;   // '' or '01'..'12'
+    const d = dSel.value;   // '' or '01'..'31'
 
-    // 讀取「當天」範圍（from = to = 當天）
-    const rows = await getEntriesRangeForEmail(u.email, dateStr, dateStr);
+    let from, to;
+    if (!m){ // 整年
+      from = firstDayOfYear(y);
+      to   = lastDayOfYear(y);
+    }else if (!d){ // 整月
+      const ym = `${y}-${m}`;
+      from = firstDayOfMonth(ym);
+      to   = lastDayOfMonth(ym);
+    }else{ // 當天
+      from = yyyyMmDd(y, m, d);
+      to   = from;
+    }
+
+    const rows = await getEntriesRangeForEmail(u.email, from, to);
 
     const outs = rows.filter(r => r.type === 'expense');
     const ins  = rows.filter(r => r.type === 'income');
@@ -141,7 +182,7 @@ export function ExpenseDetailPage(){
             <div>${fmt.money(amt)}</div>
           </div>
         `;
-      }).join('') || '<p class="small">這天沒有紀錄</p>';
+      }).join('') || '<p class="small">這段期間沒有紀錄</p>';
   }
 
   render();
