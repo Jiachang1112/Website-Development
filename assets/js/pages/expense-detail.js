@@ -3,6 +3,10 @@ import { fmt } from '../app.js';
 import { getEntriesRangeForEmail } from '../entries.js';
 import { currentUser } from '../app.js';
 
+// 🔽 新增：刪除所需的 firestore 函式
+import { db } from '../firebase.js';
+import { doc, deleteDoc } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+
 function pad2(n){ return String(n).padStart(2,'0'); }
 function daysInMonth(y, m){ return new Date(y, m, 0).getDate(); } // m: 1..12
 function yyyyMmDd(y, m, d){ return `${y}-${pad2(m)}-${pad2(d)}`; }
@@ -12,10 +16,6 @@ function lastDayOfMonth(ym) {
   const d = new Date(y, m, 0);
   return d.toISOString().slice(0, 10);
 }
-function firstDayOfYear(y){ return `${y}-01-01`; }
-function lastDayOfYear(y){ return `${y}-12-31`; }
-
-// 讓 createdAt（Firestore Timestamp/Date/ISO）可比較
 function ts(v){
   if (!v) return 0;
   try{ if (typeof v.toDate === 'function') return v.toDate().getTime(); }catch{}
@@ -57,6 +57,24 @@ export function ExpenseDetailPage(){
   const cap2 = el.querySelector('#cap2');
   const cap3 = el.querySelector('#cap3');
 
+  // === 內嵌樣式（只注入一次） ===
+  if (!document.getElementById('swipe-style')) {
+    const st = document.createElement('style');
+    st.id = 'swipe-style';
+    st.textContent = `
+      .swipe-wrap{ position:relative; overflow:hidden; }
+      .swipe-delete{
+        position:absolute; inset:0 0 0 auto; width:88px; background:#dc2626; color:#fff;
+        display:flex; align-items:center; justify-content:center; font-weight:700; border:none; cursor:pointer;
+      }
+      .swipe-content{ background:transparent; transform: translateX(0); transition: transform .18s ease; }
+      .swipe-open .swipe-content{ transform: translateX(88px); }
+      .order-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-bottom:1px solid rgba(0,0,0,.08); background: rgba(255,255,255,.02); }
+      .order-row .small{ opacity:.85 }
+    `;
+    document.head.appendChild(st);
+  }
+
   function addNotSpecifiedOption(select, text='不指定'){
     const o = document.createElement('option');
     o.value = '';
@@ -91,9 +109,7 @@ export function ExpenseDetailPage(){
   function fillDays(y, m){
     dSel.innerHTML='';
     addNotSpecifiedOption(dSel, '不指定日期');
-    if (!m){ // 未選月份：僅保留「不指定日期」
-      return;
-    }
+    if (!m){ return; }
     const max = daysInMonth(Number(y), Number(m));
     const frag = document.createDocumentFragment();
     for(let d=1; d<=max; d++){
@@ -111,20 +127,16 @@ export function ExpenseDetailPage(){
   dSel.value = pad2(d0);
 
   function updateBadgeCaption(){
-    // 三者皆有值 → 當日；否則顯示 期間
     const isDay = Boolean(ySel.value && mSel.value && dSel.value);
     const txt = isDay ? '當日' : '期間';
-    cap.textContent = txt;
-    cap2.textContent = txt;
-    cap3.textContent = txt;
+    cap.textContent = txt; cap2.textContent = txt; cap3.textContent = txt;
   }
 
-  // 年/月變更：重建日數；並重算與更新標籤
   function syncDaysAndRender(){
     const keep = dSel.value || '';
     fillDays(ySel.value, mSel.value);
     if (mSel.value === ''){
-      dSel.value = ''; // 不指定月份 → 日期也不指定
+      dSel.value = '';
     }else{
       const lastOpt = dSel.options[dSel.options.length-1];
       const lastDay = lastOpt ? lastOpt.value : '';
@@ -182,27 +194,103 @@ export function ExpenseDetailPage(){
       return db.localeCompare(da);
     });
 
+    // 建立列表（加上滑動刪除外層）
     list.innerHTML =
       all.map(r => {
+        // 嘗試多種欄位名稱拿 docId（請確保你的 entries 有回傳 id）
+        const rid = r.id || r.docId || r._id || '';
+        const canDelete = !!rid;
         const typeTxt = r.type === 'income' ? '收入' : '支出';
         const cat  = r.categoryId || '';
         const note = r.note || '';
         const amt  = r.type === 'income' ? +r.amount : -Math.abs(+r.amount || 0);
         return `
-          <div class="order-row">
-            <div>
-              <b>${r.date || ''}</b>
-              <span class="badge">${typeTxt}</span>
-              <div class="small">${cat}｜${note}</div>
+          <div class="swipe-wrap ${canDelete ? '' : 'no-del'}" data-id="${rid}">
+            ${canDelete ? `<button class="swipe-delete" data-id="${rid}" title="刪除">刪除</button>` : ``}
+            <div class="swipe-content">
+              <div class="order-row">
+                <div>
+                  <b>${r.date || ''}</b>
+                  <span class="badge">${typeTxt}</span>
+                  <div class="small">${cat}｜${note}</div>
+                </div>
+                <div>${fmt.money(amt)}</div>
+              </div>
             </div>
-            <div>${fmt.money(amt)}</div>
           </div>
         `;
       }).join('') || '<p class="small">這段期間沒有紀錄</p>';
+
+    // 綁定刪除按鈕
+    list.querySelectorAll('.swipe-delete').forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        const id = e.currentTarget.getAttribute('data-id');
+        if (!id) return;
+        if (!confirm('確定要刪除這筆記錄嗎？')) return;
+        try{
+          await deleteDoc(doc(db, 'expenses', u.email, 'entries', id));
+          // 刪除後重新渲染
+          render();
+        }catch(err){
+          console.error(err);
+          alert('刪除失敗：' + (err?.message || err));
+        }
+      });
+    });
+
+    // 綁定滑動手勢（向右滑露出刪除）
+    attachSwipe(list);
   }
 
-  // 初始標籤 + 渲染
-  updateBadgeCaption();
-  render();
-  return el;
-}
+  function attachSwipe(root){
+    let startX=0, curX=0, dragging=false, opened=null;
+
+    function onStart(e){
+      const wrap = e.target.closest('.swipe-wrap');
+      if (!wrap || wrap.classList.contains('no-del')) return;
+
+      dragging = true;
+      startX = (e.touches?.[0]?.clientX ?? e.clientX);
+      curX = 0;
+
+      // 關閉其它已開
+      if (opened && opened !== wrap){
+        opened.classList.remove('swipe-open');
+        opened = null;
+      }
+
+      wrap.addEventListener('touchmove', onMove, {passive:false});
+      wrap.addEventListener('mousemove', onMove);
+      wrap.addEventListener('touchend', onEnd);
+      wrap.addEventListener('mouseup', onEnd);
+      wrap.addEventListener('mouseleave', onEnd);
+      wrap._startWrapX = 0;
+      wrap._curWrap = wrap;
+    }
+    function onMove(e){
+      if(!dragging) return;
+      const wrap = e.currentTarget._curWrap;
+      const x = (e.touches?.[0]?.clientX ?? e.clientX);
+      const dx = Math.max(0, x - startX); // 只允許向右
+      curX = Math.min(88, dx);
+      const content = wrap.querySelector('.swipe-content');
+      if (content){
+        content.style.transition = 'none';
+        content.style.transform = `translateX(${curX}px)`;
+      }
+      if (dx>0 && e.cancelable) e.preventDefault();
+    }
+    function onEnd(e){
+      if(!dragging) return;
+      dragging = false;
+      const wrap = e.currentTarget._curWrap;
+      const content = wrap.querySelector('.swipe-content');
+      const keepOpen = curX > 44; // 超過一半就打開
+      if (content){
+        content.style.transition = '';
+        content.style.transform = '';
+      }
+      wrap.classList.toggle('swipe-open', keepOpen);
+      opened = keepOpen ? wrap : null;
+
+      w
