@@ -39,7 +39,11 @@ export function ExpenseDetailPage(){
     <select id="m" class="form-control" style="min-width:90px"></select>
     <select id="d" class="form-control" style="min-width:90px"></select>
   </div>
-  <div class="row"><span class="badge">當日結餘：<b id="bal"></b></span><span class="badge">當日支出：<b id="out"></b></span><span class="badge">當日收入：<b id="inc"></b></span></div>
+  <div class="row">
+    <span class="badge"><span id="cap">當日</span>結餘：<b id="bal"></b></span>
+    <span class="badge"><span id="cap2">當日</span>支出：<b id="out"></b></span>
+    <span class="badge"><span id="cap3">當日</span>收入：<b id="inc"></b></span>
+  </div>
   <div id="list"></div></section>`;
 
   const ySel = el.querySelector('#y');
@@ -49,6 +53,9 @@ export function ExpenseDetailPage(){
   const incEl= el.querySelector('#inc');
   const balEl= el.querySelector('#bal');
   const list = el.querySelector('#list');
+  const cap  = el.querySelector('#cap');
+  const cap2 = el.querySelector('#cap2');
+  const cap3 = el.querySelector('#cap3');
 
   function addNotSpecifiedOption(select, text='不指定'){
     const o = document.createElement('option');
@@ -84,7 +91,7 @@ export function ExpenseDetailPage(){
   function fillDays(y, m){
     dSel.innerHTML='';
     addNotSpecifiedOption(dSel, '不指定日期');
-    if (!m){ // 月份未指定時，只保留「不指定日期」
+    if (!m){ // 未選月份：僅保留「不指定日期」
       return;
     }
     const max = daysInMonth(Number(y), Number(m));
@@ -103,23 +110,32 @@ export function ExpenseDetailPage(){
   fillDays(ySel.value, mSel.value);
   dSel.value = pad2(d0);
 
-  // 年/月變更：重建日數；若月份改為不指定，日期也設為不指定並禁用（可選擇不禁用，如需改可移除這行）
+  function updateBadgeCaption(){
+    // 三者皆有值 → 當日；否則顯示 期間
+    const isDay = Boolean(ySel.value && mSel.value && dSel.value);
+    const txt = isDay ? '當日' : '期間';
+    cap.textContent = txt;
+    cap2.textContent = txt;
+    cap3.textContent = txt;
+  }
+
+  // 年/月變更：重建日數；並重算與更新標籤
   function syncDaysAndRender(){
     const keep = dSel.value || '';
     fillDays(ySel.value, mSel.value);
     if (mSel.value === ''){
       dSel.value = ''; // 不指定月份 → 日期也不指定
     }else{
-      // 嘗試保留原本的日期；超過該月上限則維持「不指定日期」
       const lastOpt = dSel.options[dSel.options.length-1];
       const lastDay = lastOpt ? lastOpt.value : '';
       if (keep && keep !== '' && keep <= lastDay) dSel.value = keep;
     }
+    updateBadgeCaption();
     render();
   }
   ySel.addEventListener('change', syncDaysAndRender);
   mSel.addEventListener('change', syncDaysAndRender);
-  dSel.addEventListener('change', render);
+  dSel.addEventListener('change', ()=>{ updateBadgeCaption(); render(); });
 
   async function render(){
     const u = currentUser();
@@ -135,8 +151,8 @@ export function ExpenseDetailPage(){
 
     let from, to;
     if (!m){ // 整年
-      from = firstDayOfYear(y);
-      to   = lastDayOfYear(y);
+      from = `${y}-01-01`;
+      to   = `${y}-12-31`;
     }else if (!d){ // 整月
       const ym = `${y}-${m}`;
       from = firstDayOfMonth(ym);
@@ -158,7 +174,7 @@ export function ExpenseDetailPage(){
     incEl.textContent = fmt.money(totalIn);
     balEl.textContent = fmt.money(totalIn - totalOut);
 
-    // 排序：createdAt desc → date desc（新到舊）
+    // 排序：createdAt desc → date desc
     const all = [...rows].sort((a,b)=>{
       const tb = ts(b.createdAt), ta = ts(a.createdAt);
       if (tb !== ta) return tb - ta;
@@ -185,6 +201,8 @@ export function ExpenseDetailPage(){
       }).join('') || '<p class="small">這段期間沒有紀錄</p>';
   }
 
+  // 初始標籤 + 渲染
+  updateBadgeCaption();
   render();
   return el;
 }
