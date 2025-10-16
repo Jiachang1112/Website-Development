@@ -1,6 +1,5 @@
-// assets/js/pages/expense.js（穩健版）
-// 寫入 Firestore：/expenses/{email}/records/{autoId}
-// 點擊時才等待 Auth 初始化，避免按鈕被鎖住
+// assets/js/pages/expense.js（與聊天記帳一致：Auth + localStorage 兼容）
+// Firestore 路徑：/expenses/{email}/records/{autoId}
 
 import { auth, db } from '../firebase.js';
 import { collection, addDoc, doc, setDoc, serverTimestamp }
@@ -32,30 +31,56 @@ export function ExpensePage(){
   const amtInput  = el.querySelector('#amt');
   const addBtn    = el.querySelector('#add');
 
-  // 等待 Firebase Auth 準備好（最多等 timeoutMs 毫秒）
-  function waitForUser(timeoutMs = 2000){
-    return new Promise(resolve => {
-      // 1) 立刻有就回傳
-      if (auth.currentUser) return resolve(auth.currentUser);
+  // 取得目前可用的 email：先 Firebase，再退回 localStorage.session_user
+  function getActiveEmailNow(){
+    if (auth && auth.currentUser && auth.currentUser.email) return auth.currentUser.email;
+    try{
+      const s = JSON.parse(localStorage.getItem('session_user') || 'null');
+      if (s && s.email) return s.email;
+    }catch{}
+    return null;
+  }
 
-      // 2) 監聽一次狀態變化
+  // 點擊時最多等待 2 秒，給 Firebase Auth 一次機會；若仍無，回退 localStorage
+  function waitEmail(timeoutMs = 2000){
+    return new Promise(resolve => {
+      const immediate = getActiveEmailNow();
+      if (immediate) return resolve(immediate);
+
+      let done = false;
       const unSub = onAuthStateChanged(auth, u => {
-        unSub && unSub();
-        resolve(u || null);
+        if (done) return;
+        if (u && u.email){ done = true; unSub && unSub(); resolve(u.email); }
       });
 
-      // 3) 超時保底
+      // 超時使用 localStorage 回退
       setTimeout(() => {
+        if (done) return;
+        done = true;
         try { unSub && unSub(); } catch {}
-        resolve(auth.currentUser || null);
+        resolve(getActiveEmailNow()); // 可能為 null，外層會再檢查
       }, timeoutMs);
     });
   }
 
+  async function saveExpense(email, rec){
+    // 先確保父文件存在
+    await setDoc(
+      doc(db, 'expenses', email),
+      { email, updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+    // 新增一筆記錄
+    await addDoc(collection(db, 'expenses', email, 'records'), {
+      ...rec,
+      source: 'form',
+      createdAt: serverTimestamp()
+    });
+  }
+
   addBtn.addEventListener('click', async () => {
-    // 等到 Auth 初始完成
-    const user = await waitForUser(2000);
-    if (!user || !user.email){
+    const email = await waitEmail(2000);
+    if (!email){
       alert('請先登入帳號再記帳');
       return;
     }
@@ -65,34 +90,18 @@ export function ExpensePage(){
     const cat   = (catInput.value  || '').trim() || '其他';
     const amt   = parseFloat(amtInput.value || '0');
 
-    if (!Number.isFinite(amt) || amt <= 0) {
+    if (!Number.isFinite(amt) || amt <= 0){
       alert('金額需為正數');
       return;
     }
 
-    const rec = { date, item, cat, amount: amt, source: 'form' };
-
-    try {
-      const email = user.email;
-
-      // 先確保父文件存在（merge）
-      await setDoc(
-        doc(db, 'expenses', email),
-        { email, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
-
-      // 寫入一筆記錄
-      await addDoc(collection(db, 'expenses', email, 'records'), {
-        ...rec,
-        createdAt: serverTimestamp()
-      });
-
-      alert('✅ 已加入：' + rec.item);
+    try{
+      await saveExpense(email, { date, item, cat, amount: amt });
+      alert('✅ 已加入：' + item);
       itemInput.value = '';
       catInput.value  = '';
       amtInput.value  = '';
-    } catch (err) {
+    }catch(err){
       console.error(err);
       alert('❌ 寫入失敗：' + (err?.message || err));
     }
