@@ -1,9 +1,11 @@
-// assets/js/pages/expense.js（改寫版）
-// 寫入 Firestore：/expenses/{email}/records/{autoId}
+// assets/js/pages/expense.js（修正版）
+// 等待 Firebase Auth 初始化後再啟用新增功能
 
 import { auth, db } from '../firebase.js';
 import { collection, addDoc, doc, setDoc, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+import { onAuthStateChanged } 
+  from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
 export function ExpensePage(){
   const el = document.createElement('div');
@@ -15,23 +17,37 @@ export function ExpensePage(){
       <input id="item" placeholder="品項" class="form-control"/>
       <input id="cat" placeholder="分類" class="form-control"/>
       <input id="amt" type="number" placeholder="金額" class="form-control"/>
-      <button class="primary btn btn-primary" id="add">新增</button>
+      <button class="primary btn btn-primary" id="add" disabled>新增</button>
     </div>
     <div class="small text-muted">快速鍵：右下角「＋」也會跳到此頁。</div>
   `;
 
   // 預設日期為今天
-  const today = new Date();
-  el.querySelector('#date').value = today.toISOString().slice(0,10);
+  el.querySelector('#date').value = new Date().toISOString().slice(0,10);
 
   const dateInput = el.querySelector('#date');
   const itemInput = el.querySelector('#item');
   const catInput  = el.querySelector('#cat');
   const amtInput  = el.querySelector('#amt');
+  const addBtn    = el.querySelector('#add');
 
-  el.querySelector('#add').addEventListener('click', async () => {
-    const user = auth.currentUser;
-    if (!user) {
+  let currentUser = null;
+
+  // 監聽登入狀態
+  onAuthStateChanged(auth, user => {
+    if (user && user.email) {
+      currentUser = user;
+      addBtn.disabled = false;
+      console.log('✅ 登入中：', user.email);
+    } else {
+      currentUser = null;
+      addBtn.disabled = true;
+      console.log('⚠️ 尚未登入');
+    }
+  });
+
+  addBtn.addEventListener('click', async () => {
+    if (!currentUser) {
       alert('請先登入帳號再記帳');
       return;
     }
@@ -49,15 +65,13 @@ export function ExpensePage(){
     const rec = { date, item, cat, amount: amt };
 
     try {
-      // 建立 /expenses/{email}
-      const email = user.email;
+      const email = currentUser.email;
       await setDoc(
         doc(db, 'expenses', email),
         { email, updatedAt: serverTimestamp() },
         { merge: true }
       );
 
-      // 寫入 /expenses/{email}/records
       await addDoc(collection(db, 'expenses', email, 'records'), {
         ...rec,
         source: 'form',
