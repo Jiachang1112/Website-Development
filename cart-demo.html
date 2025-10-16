@@ -200,6 +200,12 @@
     .st-colored-card .fw-semibold{ color:inherit }
     .st-colored-card .price{ color:#fff; text-shadow:0 1px 0 rgba(0,0,0,.25) }
     .st-g3 .price{ color:#1f2937 } /* 黃色卡片上的深色字更清楚 */
+
+    /* 🛒 彩色購物車卡片在彩色底的細節（讓字與按鈕更清楚） */
+    .cart-box.st-colored-card .text-muted{ color:rgba(255,255,255,.88)!important; }
+    .cart-box.st-colored-card hr{ border-color:rgba(255,255,255,.35); }
+    .cart-box.st-colored-card .btn{ background:rgba(0,0,0,.18); border-color:rgba(255,255,255,.35); color:#fff; }
+    .cart-box.st-colored-card .btn:hover{ background:rgba(0,0,0,.28); border-color:rgba(255,255,255,.55); }
   </style>
 </head>
 <body>
@@ -382,6 +388,10 @@
       document.querySelectorAll('.product-card').forEach((el,i)=>{
         el.classList.add('st-colored-card', grads[i % grads.length]);
       });
+
+      // 🛒 購物車卡片也套用彩色主題（固定用 st-g6，避免黃色款的深字問題）
+      const cartEl = document.querySelector('.cart-box');
+      if(cartEl){ cartEl.classList.add('st-colored-card','st-g6'); }
     }
 
     function renderCart(){
