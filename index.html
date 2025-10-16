@@ -279,11 +279,35 @@
         border-radius:10px;
       }
     }
+
+    /* ======= 新增：卡片基礎外觀 + 微彈跳特效（沿用 st-g 顏色） ======= */
+    .st-colored-card{
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.35);
+      transition: transform .25s ease, box-shadow .25s ease, filter .25s ease;
+      will-change: transform;
+      backdrop-filter: saturate(110%);
+    }
+    .st-colored-card:hover{
+      transform: translateY(-6px) scale(1.02);
+      box-shadow: 0 12px 30px rgba(0,0,0,.5);
+      filter: brightness(1.02);
+    }
+    .st-colored-card:active{
+      animation: stCardBounce .35s ease;
+    }
+    @keyframes stCardBounce{
+      0%   { transform: scale(1) }
+      40%  { transform: scale(1.04) }
+      70%  { transform: scale(0.99) }
+      100% { transform: scale(1) }
+    }
   </style>
 </head>
 <body>
 
-<!-- ===== 導覽列（維持原樣，僅新增漢堡按鈕與 nav 的 id） ===== -->
+<!-- ===== 導覽列（維持原樣） ===== -->
 <header class="top">
   <a href="#dashboard" class="brand">
     <img src="assets/img/supertool-logo.png" alt="SuperTool Logo" style="height:36px; vertical-align:middle; margin-right:10px;">
@@ -510,4 +534,3 @@ window.addEventListener('load', () => {
 </script>
 </body>
 </html>
-
