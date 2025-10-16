@@ -33,7 +33,6 @@
     }
     .brand:hover{ opacity: .85; }
     .nav button{ margin-right:.4rem; }
-    /* 股票右邊空一格 */
     .nav .gap{ display:inline-block; width:10px; }
 
     /* ===== 下面主要背景區：強烈多色漸層（只作用在導覽列下方） ===== */
@@ -64,9 +63,9 @@
     .gradient-wrap #hero,
     .gradient-wrap #app > .card:first-of-type,
     .gradient-wrap main > .card:first-of-type{
-      background: linear-gradient(145deg, #0f172a, #1e293b) !important; /* 深藍亮面 */
+      background: linear-gradient(145deg, #0f172a, #1e293b) !important;
       border: 2px solid transparent;
-      border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1; /* 彩色邊框 */
+      border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1;
       border-radius: 14px;
       padding: 22px;
       color: #fff;
@@ -82,7 +81,6 @@
       transform: translateY(-4px);
       box-shadow: 0 10px 28px rgba(0,0,0,0.55);
     }
-    /* 英雄卡片標題做彩色漸層字 */
     .dashboard-card h1,
     .gradient-wrap .card.hero h1,
     .gradient-wrap .hero-card h1,
@@ -149,11 +147,12 @@
     html:not(.light) .modal-card{ background:#f8fafc; color:#111; }
     html:not(.light) .modal-hd, html:not(.light) .modal-ft{ background:#eef2f7; }
 
-    /* ====== 彩色卡片主題（由 JS 輪流套用） ====== */
-    .st-colored-card{ color:#fff; }
+    /* ====== 彩色卡片主題（與購物頁一致） ====== */
+    .st-colored-card{ color:#fff; border: none; box-shadow:0 6px 18px rgba(0,0,0,.25); transition: transform .22s ease, box-shadow .22s ease, filter .22s ease; }
+    .st-colored-card:hover{ transform: translateY(-4px); box-shadow:0 14px 28px rgba(0,0,0,.35); filter: saturate(1.05); }
     .st-g1{ background: linear-gradient(135deg,#2563eb,#60a5fa); }
     .st-g2{ background: linear-gradient(135deg,#10b981,#34d399); }
-    .st-g3{ background: linear-gradient(135deg,#f59e0b,#fbbf24); color:#1f2937; } /* 黃色系深字 */
+    .st-g3{ background: linear-gradient(135deg,#f59e0b,#fbbf24); color:#1f2937; }
     .st-g4{ background: linear-gradient(135deg,#9333ea,#c084fc); }
     .st-g5{ background: linear-gradient(135deg,#db2777,#f472b6); }
     .st-g6{ background: linear-gradient(135deg,#0ea5e9,#22d3ee); }
@@ -224,84 +223,12 @@
     }
     #contactModal .btn-primary:hover{ background:#1d4ed8; }
 
-    /* 深色主題時仍維持淺底高對比 */
     html:not(.light) #contactModal .modal-card{ background:#f8fafc; color:#111; }
     html:not(.light) #contactModal .modal-hd,
     html:not(.light) #contactModal .modal-ft{ background:#eef2f7; }
     html:not(.light) #contactModal .modal-bd{ background:#ffffff; }
     html:not(.light) #contactModal .form-ctl{
       background:#ffffff; color:#0f172a; border-color:#d1d5db;
-    }
-
-    /* ======= 手機版漢堡選單（新增） ======= */
-    .hamburger{
-      display:none;
-      position:relative;
-      width:40px; height:34px;
-      border:1px solid var(--border-dark, #2b313a);
-      border-radius:8px;
-      background:#111722;
-      cursor:pointer;
-      margin-left:8px;
-    }
-    .hamburger span{
-      display:block; height:4px; margin:5px 7px;
-      background:#fff; border-radius:999px;
-      transition:transform .25s ease, opacity .2s ease;
-    }
-    .hamburger.active span:nth-child(1){ transform:translateY(9px) rotate(45deg); }
-    .hamburger.active span:nth-child(2){ opacity:0; }
-    .hamburger.active span:nth-child(3){ transform:translateY(-9px) rotate(-45deg); }
-
-    @media (max-width: 768px){
-      .hamburger{ display:inline-block; }
-
-      .top .nav{
-        display:none;
-        position:absolute; left:0; right:0; top:100%;
-        background: var(--panel-dark, #17202a);
-        border-top:1px solid var(--border-dark, #2b313a);
-        padding:12px;
-        box-shadow:0 10px 30px rgba(0,0,0,.35);
-      }
-      .top .nav.open{
-        display:grid;
-        grid-template-columns: repeat(3, minmax(0,1fr));
-        gap:8px;
-      }
-      .top .nav.open .gap{ display:none; }
-      .top .nav.open button,
-      .top .nav.open .btn,
-      .top .nav.open .btn.btn-primary,
-      .top .nav.open .btn.btn-outline-light{
-        width:100%;
-        justify-content:center;
-        border-radius:10px;
-      }
-    }
-
-    /* ======= 新增：卡片基礎外觀 + 微彈跳特效（沿用 st-g 顏色） ======= */
-    .st-colored-card{
-      border-radius: 16px;
-      padding: 18px;
-      box-shadow: 0 6px 18px rgba(0,0,0,.35);
-      transition: transform .25s ease, box-shadow .25s ease, filter .25s ease;
-      will-change: transform;
-      backdrop-filter: saturate(110%);
-    }
-    .st-colored-card:hover{
-      transform: translateY(-6px) scale(1.02);
-      box-shadow: 0 12px 30px rgba(0,0,0,.5);
-      filter: brightness(1.02);
-    }
-    .st-colored-card:active{
-      animation: stCardBounce .35s ease;
-    }
-    @keyframes stCardBounce{
-      0%   { transform: scale(1) }
-      40%  { transform: scale(1.04) }
-      70%  { transform: scale(0.99) }
-      100% { transform: scale(1) }
     }
   </style>
 </head>
@@ -312,13 +239,7 @@
   <a href="#dashboard" class="brand">
     <img src="assets/img/supertool-logo.png" alt="SuperTool Logo" style="height:36px; vertical-align:middle; margin-right:10px;">
   </a>
-
-  <!-- 手機版漢堡按鈕 -->
-  <button id="menuToggle" class="hamburger" aria-label="開啟選單" aria-controls="mainNav" aria-expanded="false">
-    <span></span><span></span><span></span>
-  </button>
-
-  <nav class="nav" id="mainNav">
+  <nav class="nav">
     <button data-route="dashboard">首頁</button>
     <button data-route="auth">帳號</button>
     <button onclick="location.href='https://jiachang1112.github.io/Website-Development/book.html'">記帳</button>
@@ -474,63 +395,14 @@ window.addEventListener('load', () => {
     setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
   });
 
-  /* ===== 自動把彩色漸層套到內容卡片（保留字與功能） =====
+  /* ===== 彩色卡片自動套用（與購物頁一致，並支援 SPA 動態內容） =====
      - 只處理 .gradient-wrap 裡的卡片
-     - 第一張（英雄卡）維持你的深色樣式
+     - 第一張（英雄卡）維持深色樣式
      - 想保留黑色的卡片 → 加上 .keep-dark
   */
   (function(){
     const container = document.querySelector('.gradient-wrap');
     if(!container) return;
 
-    // 你頁面卡片的可能 class（依你的版面而定），可自行加減
-    const selectors = ['.card', '.panel', '.box'];
-    const all = container.querySelectorAll(selectors.join(','));
-    if(!all.length) return;
+    const grads = ['st-g1','st-g2','st-g3','st-g4','st-g5','st-g
 
-    const gradients = ['st-g1','st-g2','st-g3','st-g4','st-g5','st-g6','st-g7','st-g8'];
-    let idx = 0;
-
-    all.forEach((el, i)=>{
-      // 跳過英雄卡（第一張）與標記 keep-dark 的卡片
-      if(i === 0) return;
-      if(el.classList.contains('keep-dark')) return;
-
-      el.classList.add('st-colored-card', gradients[idx % gradients.length]);
-      idx++;
-    });
-  })();
-
-  /* ===== 手機漢堡選單開合（新增） ===== */
-  (function(){
-    const toggle = document.getElementById('menuToggle');
-    const nav = document.getElementById('mainNav');
-    if(!toggle || !nav) return;
-
-    const mq = window.matchMedia('(max-width: 768px)');
-
-    function closeMenu(){
-      nav.classList.remove('open');
-      toggle.classList.remove('active');
-      toggle.setAttribute('aria-expanded','false');
-    }
-
-    toggle.addEventListener('click', ()=>{
-      const opened = nav.classList.toggle('open');
-      toggle.classList.toggle('active', opened);
-      toggle.setAttribute('aria-expanded', opened ? 'true' : 'false');
-    });
-
-    // 視窗放大回桌機尺寸時，自動收起
-    window.addEventListener('resize', ()=>{ if(!mq.matches) closeMenu(); });
-
-    // 點擊外部時收起（僅在手機）
-    document.addEventListener('click', (e)=>{
-      if (!mq.matches) return;
-      if (e.target === toggle || toggle.contains(e.target)) return;
-      if (!nav.contains(e.target)) closeMenu();
-    });
-  })();
-</script>
-</body>
-</html>
