@@ -5,198 +5,195 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>記帳設定｜SuperTool</title>
 
-  <!-- Favicon / 全站樣式（注意：這份檔案位於 admin/，所以要 ../assets/...） -->
   <link rel="icon" type="image/png" href="../assets/img/supertool-favicon.png" />
   <link rel="stylesheet" href="../assets/css/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 
   <style>
-    /* ───────── 頂部導覽列（不透明深色） ───────── */
+    /* ─── 頂部導覽列 ─── */
     .top{
-      background:#17202a;
-      color:#fff;
-      padding:.6rem 1rem;
-      display:flex; align-items:center; justify-content:space-between;
-      border-bottom:1px solid #2b313a;
-      position:sticky; top:0; z-index:50;
+      background:#17202a;color:#fff;padding:.6rem 1rem;
+      display:flex;align-items:center;justify-content:space-between;
+      border-bottom:1px solid #2b313a;position:sticky;top:0;z-index:50;
     }
-    .brand{ display:flex; align-items:center; gap:.5rem; color:#fff; text-decoration:none; font-weight:800; }
-    .brand img{ height:28px; }
-    .top .nav button,
-    .top .nav .btn{ margin-right:.35rem; }
+    .brand{display:flex;align-items:center;gap:.5rem;color:#fff;text-decoration:none;font-weight:800;}
+    .brand img{height:28px;}
+    .top .nav button,.top .nav .btn{margin-right:.35rem;}
 
-    /* 手機漢堡 */
-    .hamburger{ display:none; width:40px;height:34px;border:1px solid #2b313a;border-radius:8px;background:#111722;cursor:pointer;margin-left:8px; }
-    .hamburger span{ display:block;height:4px;margin:5px 7px;background:#fff;border-radius:999px;transition:.25s; }
-    .hamburger.active span:nth-child(1){ transform:translateY(9px) rotate(45deg); }
-    .hamburger.active span:nth-child(2){ opacity:0; }
-    .hamburger.active span:nth-child(3){ transform:translateY(-9px) rotate(-45deg); }
-
-    @media (max-width: 992px){
-      .hamburger{ display:inline-block; }
-      .top .nav{
-        display:none; position:absolute; left:0; right:0; top:100%;
-        background:#17202a; border-top:1px solid #2b313a; padding:12px;
-        box-shadow:0 10px 30px rgba(0,0,0,.35);
-      }
-      .top .nav.open{
-        display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px;
-      }
-      .top .nav .btn,
-      .top .nav button{ width:100%; border-radius:10px; }
+    .hamburger{display:none;width:40px;height:34px;border:1px solid #2b313a;border-radius:8px;background:#111722;cursor:pointer;margin-left:8px;}
+    .hamburger span{display:block;height:4px;margin:5px 7px;background:#fff;border-radius:999px;transition:.25s;}
+    .hamburger.active span:nth-child(1){transform:translateY(9px) rotate(45deg);}
+    .hamburger.active span:nth-child(2){opacity:0;}
+    .hamburger.active span:nth-child(3){transform:translateY(-9px) rotate(-45deg);}
+    @media (max-width:992px){
+      .hamburger{display:inline-block;}
+      .top .nav{display:none;position:absolute;left:0;right:0;top:100%;
+        background:#17202a;border-top:1px solid #2b313a;padding:12px;
+        box-shadow:0 10px 30px rgba(0,0,0,.35);}
+      .top .nav.open{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+      .top .nav .btn,.top .nav button{width:100%;border-radius:10px;}
     }
 
-    /* ───────── 背景：與首頁一致的動態漸層 ───────── */
+    /* ─── 背景漸層 ─── */
     .gradient-wrap{
-      background: linear-gradient(135deg,#1e3a8a 0%,#2563eb 20%,#7e22ce 40%,#db2777 60%,#f97316 80%,#fde047 100%);
+      background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 20%,#7e22ce 40%,#db2777 60%,#f97316 80%,#fde047 100%);
       background-size:300% 300%;
-      animation: gradientShift 10s ease-in-out infinite;
+      animation:gradientShift 10s ease-in-out infinite;
       min-height:100vh;
       padding-bottom:56px;
     }
     @keyframes gradientShift{
-      0%{ background-position:0% 50% } 50%{ background-position:100% 50% } 100%{ background-position:0% 50% }
+      0%{background-position:0% 50%}
+      50%{background-position:100% 50%}
+      100%{background-position:0% 50%}
     }
 
-    /* ───────── 版面：左側半透明、右側內容卡片 ───────── */
-    .settings-shell{
-      max-width:1200px; margin:0 auto; padding:28px 16px; display:grid;
-      grid-template-columns: 280px 1fr; gap:22px;
-    }
-    @media (max-width: 992px){
-      .settings-shell{ grid-template-columns:1fr; }
-    }
+    /* ─── 版面配置 ─── */
+    .settings-shell{max-width:1200px;margin:0 auto;padding:28px 16px;display:grid;
+      grid-template-columns:280px 1fr;gap:22px;}
+    @media (max-width:992px){.settings-shell{grid-template-columns:1fr;}}
 
-    /* 左側：玻璃感（把原本上面的那種透明搬來左邊） */
     .side-panel{
-      backdrop-filter: blur(6px);
-      background: rgba(0,0,0,.35);
+      backdrop-filter:blur(6px);
+      background:rgba(0,0,0,.35);
       border:1px solid rgba(255,255,255,.08);
       border-radius:12px;
       box-shadow:0 6px 20px rgba(0,0,0,.25);
-      color:#fff;
-      overflow:hidden;
+      color:#fff;overflow:hidden;
     }
-    .side-title{
-      padding:14px 16px; font-weight:800; font-size:18px; border-bottom:1px solid rgba(255,255,255,.08);
-    }
-    .side-menu{ list-style:none; margin:0; padding:8px; }
-    .side-menu li{ margin:6px 0; }
+    .side-title{padding:14px 16px;font-weight:800;font-size:18px;border-bottom:1px solid rgba(255,255,255,.08);}
+    .side-menu{list-style:none;margin:0;padding:8px;}
+    .side-menu li{margin:6px 0;}
     .side-menu a{
-      display:block; padding:10px 12px; border-radius:8px; color:#e5e7eb; text-decoration:none;
-      background: rgba(255,255,255,.04);
-      transition: background .25s;
+      display:block;padding:10px 12px;border-radius:8px;
+      color:#e5e7eb;text-decoration:none;background:rgba(255,255,255,.04);
+      transition:background .25s;
     }
-    .side-menu a:hover{ background: rgba(255,255,255,.08); }
-    .side-menu a.active{ background:#2563eb; color:#fff; }
+    .side-menu a:hover{background:rgba(255,255,255,.08);}
+    .side-menu a.active{background:#2563eb;color:#fff;}
 
-    /* 右側內容卡片（深色亮面） */
     .content-card{
-      background: linear-gradient(145deg,#0f172a,#1e293b);
-      color:#fff; border:2px solid transparent;
-      border-image: linear-gradient(90deg,#60a5fa,#a855f7,#f472b6) 1;
-      border-radius:14px; padding:20px;
+      background:linear-gradient(145deg,#0f172a,#1e293b);
+      color:#fff;border:2px solid transparent;
+      border-image:linear-gradient(90deg,#60a5fa,#a855f7,#f472b6) 1;
+      border-radius:14px;padding:24px;
       box-shadow:0 8px 26px rgba(0,0,0,.45);
+      transition:opacity .3s ease;
     }
     .content-card h2{
-      margin:0 0 8px 0; font-size:22px; font-weight:800;
-      background: linear-gradient(90deg,#60a5fa,#a855f7,#f472b6);
-      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      margin:0 0 8px 0;font-size:22px;font-weight:800;
+      background:linear-gradient(90deg,#60a5fa,#a855f7,#f472b6);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
     }
-    .content-card .muted{ color:#cbd5e1; }
-
-    .page-slot{ display:grid; gap:16px; }
-
-    /* 隱藏：上方那一整排快速按鈕（已移除，不再使用） */
-    .quick-tabs{ display:none !important; }
   </style>
 </head>
 <body>
 
-  <!-- 頂部導覽 -->
-  <header class="top">
-    <a class="brand" href="../index.html#dashboard">
-      <img src="../assets/img/supertool-favicon.png" alt="SuperTool">
-      <span>SuperTool</span>
-    </a>
+<!-- 頂部導覽 -->
+<header class="top">
+  <a class="brand" href="../index.html#dashboard">
+    <img src="../assets/img/supertool-favicon.png" alt="SuperTool">
+    <span>SuperTool</span>
+  </a>
 
-    <button id="menuToggle" class="hamburger" aria-label="開啟選單" aria-controls="mainNav" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
+  <button id="menuToggle" class="hamburger"><span></span><span></span><span></span></button>
 
-    <nav class="nav" id="mainNav">
-      <button onclick="location.href='../index.html#dashboard'">首頁</button>
-      <button onclick="location.href='../index.html#auth'">帳號</button>
-      <button onclick="location.href='../book.html'">記帳</button>
-      <button onclick="location.href='./accounting-settings.html#ledgers'">我的</button>
-      <button onclick="location.href='../index.html#acct_detail'">明細</button>
-      <button onclick="location.href='../index.html#acct_analysis'">分析</button>
-      <button onclick="location.href='../cart-demo.html'">購物</button>
-      <button onclick="location.href='../index.html#admin'">後台</button>
-      <button onclick="location.href='../index.html#settings'">設定</button>
-      <button onclick="location.href='../index.html#backup'">備份</button>
-      <button class="btn btn-primary" onclick="location.href='../stock/stocks.html'">股票</button>
-      <button class="btn btn-outline-light" onclick="alert('聯絡我們：之後可串接表單')">聯絡我們</button>
-    </nav>
-  </header>
+  <nav class="nav" id="mainNav">
+    <button onclick="location.href='../index.html#dashboard'">首頁</button>
+    <button onclick="location.href='../index.html#auth'">帳號</button>
+    <button onclick="location.href='../book.html'">記帳</button>
+    <button onclick="location.href='./accounting-settings.html#ledgers'">我的</button>
+    <button onclick="location.href='../index.html#acct_detail'">明細</button>
+    <button onclick="location.href='../index.html#acct_analysis'">分析</button>
+    <button onclick="location.href='../cart-demo.html'">購物</button>
+    <button onclick="location.href='../index.html#admin'">後台</button>
+    <button onclick="location.href='../index.html#settings'">設定</button>
+    <button onclick="location.href='../index.html#backup'">備份</button>
+    <button class="btn btn-primary" onclick="location.href='../stock/stocks.html'">股票</button>
+  </nav>
+</header>
 
-  <!-- 主要背景 -->
-  <div class="gradient-wrap">
-    <div class="settings-shell">
+<!-- 主體 -->
+<div class="gradient-wrap">
+  <div class="settings-shell">
+    <aside class="side-panel">
+      <div class="side-title">記帳設定</div>
+      <ul class="side-menu" id="sideMenu">
+        <li><a href="#ledgers" class="active">管理帳本</a></li>
+        <li><a href="#budget">管理預算</a></li>
+        <li><a href="#currency">管理貨幣</a></li>
+        <li><a href="#categories">管理類型</a></li>
+        <li><a href="#chat">聊天設定</a></li>
+        <li><a href="#general">一般設定</a></li>
+      </ul>
+    </aside>
 
-      <!-- 左側半透明選單 -->
-      <aside class="side-panel">
-        <div class="side-title">記帳設定</div>
-        <ul class="side-menu">
-          <li><a href="#ledgers" class="active">管理帳本</a></li>
-          <li><a href="#budget">管理預算</a></li>
-          <li><a href="#currency">管理貨幣</a></li>
-          <li><a href="#categories">管理類型</a></li>
-          <li><a href="#chat">聊天設定</a></li>
-          <li><a href="#general">一般設定</a></li>
-        </ul>
-      </aside>
-
-      <!-- 右側內容 -->
-      <main class="page-slot">
-        <section class="content-card">
-          <h2>聊天設定</h2>
-          <p class="muted">設定專屬角色、記帳指令（示意）。</p>
-          <!-- 你的 JS 會在這裡渲染（accounting-settings.js） -->
-          <div id="app"></div>
-        </section>
-      </main>
-
-    </div>
+    <main>
+      <section class="content-card" id="contentArea">
+        <h2>管理帳本</h2>
+        <p>可新增、刪除或切換不同帳本。</p>
+      </section>
+    </main>
   </div>
+</div>
 
-  <!-- 你的頁面腳本（注意：相對路徑 ../assets/...） -->
-  <script type="module" src="../assets/js/pages/accounting-settings.js"></script>
+<script>
+  // 側邊選單即時切換內容
+  const pages = {
+    ledgers: {
+      title: "管理帳本",
+      desc: "可新增、刪除或切換不同帳本。"
+    },
+    budget: {
+      title: "管理預算",
+      desc: "設定每月或每類別預算上限。"
+    },
+    currency: {
+      title: "管理貨幣",
+      desc: "設定主貨幣與各幣別匯率。"
+    },
+    categories: {
+      title: "管理類型",
+      desc: "新增或刪除收入、支出類別。"
+    },
+    chat: {
+      title: "聊天設定",
+      desc: "可自訂語氣或開關指令模式。"
+    },
+    general: {
+      title: "一般設定",
+      desc: "設定提醒、匯入匯出等通用選項。"
+    }
+  };
 
-  <script>
-    // 手機：漢堡開關
-    (function(){
-      const toggle = document.getElementById('menuToggle');
-      const nav = document.getElementById('mainNav');
-      if(!toggle || !nav) return;
-      const mq = window.matchMedia('(max-width: 992px)');
-      function closeMenu(){
-        nav.classList.remove('open');
-        toggle.classList.remove('active');
-        toggle.setAttribute('aria-expanded','false');
+  const sideLinks = document.querySelectorAll("#sideMenu a");
+  const content = document.getElementById("contentArea");
+
+  sideLinks.forEach(link => {
+    link.addEventListener("click", e => {
+      e.preventDefault();
+      sideLinks.forEach(l => l.classList.remove("active"));
+      link.classList.add("active");
+
+      const key = link.getAttribute("href").replace("#", "");
+      const data = pages[key];
+      if (data) {
+        content.style.opacity = 0;
+        setTimeout(() => {
+          content.innerHTML = `<h2>${data.title}</h2><p>${data.desc}</p>`;
+          content.style.opacity = 1;
+        }, 200);
       }
-      toggle.addEventListener('click', ()=>{
-        const opened = nav.classList.toggle('open');
-        toggle.classList.toggle('active', opened);
-        toggle.setAttribute('aria-expanded', opened ? 'true' : 'false');
-      });
-      window.addEventListener('resize', ()=>{ if(!mq.matches) closeMenu(); });
-      document.addEventListener('click', (e)=>{
-        if (!mq.matches) return;
-        if (e.target === toggle || toggle.contains(e.target)) return;
-        if (!nav.contains(e.target)) closeMenu();
-      });
-    })();
-  </script>
+    });
+  });
+
+  // 手機漢堡開關
+  const toggle = document.getElementById("menuToggle");
+  const nav = document.getElementById("mainNav");
+  toggle.addEventListener("click", () => {
+    const opened = nav.classList.toggle("open");
+    toggle.classList.toggle("active", opened);
+  });
+</script>
 </body>
 </html>
