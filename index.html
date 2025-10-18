@@ -303,33 +303,6 @@
       70%  { transform: scale(0.99) }
       100% { transform: scale(1) }
     }
-
-    /* ===== 右下角兩顆 FAB 重新固定（新增） ===== */
-    .fab, .fab-square{
-      position: fixed;
-      bottom: 20px;
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      font-size: 24px;
-      border: none;
-      color: #fff;
-      cursor: pointer;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 8px 20px rgba(0,0,0,.35);
-      transition: transform .2s ease, box-shadow .2s ease;
-    }
-    .fab:hover, .fab-square:hover{
-      transform: translateY(-2px);
-      box-shadow: 0 12px 26px rgba(0,0,0,.45);
-    }
-    /* 左（＋） → 記帳 */
-    #fabExpense{ right: 88px; background:#2563eb; }
-    /* 右（🛒） → 購物 */
-    #fabShop{ right: 20px; background:#10b981; }
   </style>
 </head>
 <body>
@@ -558,15 +531,6 @@ window.addEventListener('load', () => {
       if (!nav.contains(e.target)) closeMenu();
     });
   })();
-
-  /* ====== 綁定右下角兩顆 FAB 連結（新增） ====== */
-  document.getElementById('fabShop')?.addEventListener('click', () => {
-    location.href = 'https://jiachang1112.github.io/Website-Development/cart-demo.html';
-  });
-  document.getElementById('fabExpense')?.addEventListener('click', () => {
-    location.href = 'https://jiachang1112.github.io/Website-Development/book.html';
-  });
 </script>
 </body>
 </html>
-
