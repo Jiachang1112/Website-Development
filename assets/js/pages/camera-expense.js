@@ -1,540 +1,357 @@
-<!doctype html>
-<html lang="zh-Hant">
-<head>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SuperTool</title>
+// assets/js/pages/camera-expense.js  (完整可替換版)
+// Firestore: expenses/{email}/entries/{autoId}
 
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" type="image/png" href="assets/img/supertool-favicon.png">
-  <link rel="stylesheet" href="assets/css/style.css" />
+import { auth, db } from '../firebase.js';
+import { collection, addDoc, doc, setDoc, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-  <!-- Google Identity Services：只載一次 -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+import { ocrImage } from '../ocr.js';
+import { OCR_DEFAULT_LANG, OCR_LANGS } from '../config.js';
+import { cloudReady, cloudOCR } from '../cloud.js';
 
-  <style>
-    /* ===== 上方導覽列維持原本深色 ===== */
-    .top{
-      background: var(--panel-dark, #17202a);
-      color: #fff;
-      padding: .6rem 1rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border-dark, #2b313a);
-      position: sticky;
-      top: 0;
-      z-index: 20;
-    }
-    .brand{
-      color: inherit; text-decoration: none; font-weight: 700;
-      font-size: 20px; cursor: pointer;
-    }
-    .brand:hover{ opacity: .85; }
-    .nav button{ margin-right:.4rem; }
-    /* 股票右邊空一格 */
-    .nav .gap{ display:inline-block; width:10px; }
-
-    /* ===== 下面主要背景區：強烈多色漸層（只作用在導覽列下方） ===== */
-    .gradient-wrap{
-      background: linear-gradient(135deg,
-        #1e3a8a 0%,
-        #2563eb 20%,
-        #7e22ce 40%,
-        #db2777 60%,
-        #f97316 80%,
-        #fde047 100%
-      );
-      background-size: 300% 300%;
-      animation: gradientShift 10s ease-in-out infinite;
-      min-height: calc(100vh - 64px);
-      padding-bottom: 64px;
-    }
-    @keyframes gradientShift{
-      0%{ background-position: 0% 50%; }
-      50%{ background-position: 100% 50%; }
-      100%{ background-position: 0% 50%; }
-    }
-
-    /* ===== 「工作面板」彩色化（盡量不改你的 DOM） ===== */
-    .dashboard-card,
-    .gradient-wrap .card.hero,
-    .gradient-wrap .hero-card,
-    .gradient-wrap #hero,
-    .gradient-wrap #app > .card:first-of-type,
-    .gradient-wrap main > .card:first-of-type{
-      background: linear-gradient(145deg, #0f172a, #1e293b) !important; /* 深藍亮面 */
-      border: 2px solid transparent;
-      border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1; /* 彩色邊框 */
-      border-radius: 14px;
-      padding: 22px;
-      color: #fff;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.45);
-      transition: all .3s ease;
-    }
-    .dashboard-card:hover,
-    .gradient-wrap .card.hero:hover,
-    .gradient-wrap .hero-card:hover,
-    .gradient-wrap #hero:hover,
-    .gradient-wrap #app > .card:first-of-type:hover,
-    .gradient-wrap main > .card:first-of-type:hover{
-      transform: translateY(-4px);
-      box-shadow: 0 10px 28px rgba(0,0,0,0.55);
-    }
-    /* 英雄卡片標題做彩色漸層字 */
-    .dashboard-card h1,
-    .gradient-wrap .card.hero h1,
-    .gradient-wrap .hero-card h1,
-    .gradient-wrap #hero h1,
-    .gradient-wrap #app > .card:first-of-type h1,
-    .gradient-wrap main > .card:first-of-type h1{
-      background: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      font-size: 1.8rem;
-      font-weight: 800;
-      margin: 0 0 .4rem 0;
-    }
-    .dashboard-card p,
-    .gradient-wrap .card.hero p,
-    .gradient-wrap .hero-card p,
-    .gradient-wrap #hero p,
-    .gradient-wrap #app > .card:first-of-type p,
-    .gradient-wrap main > .card:first-of-type p{
-      color: #d1d5db;
-      margin: 0;
-    }
-
-    /* 其他資訊卡：浮起效果（顏色由下方自動套色 JS 決定） */
-    .gradient-wrap .card{
-      box-shadow: 0 3px 12px rgba(0,0,0,0.35);
-      transition: transform .25s ease, box-shadow .25s ease;
-      border-radius: 14px;
-    }
-    .gradient-wrap .card:hover{
-      transform: translateY(-3px);
-      box-shadow: 0 8px 22px rgba(0,0,0,0.45);
-    }
-
-    /* ===== 輕量 Modal（聯絡我們） ===== */
-    .modal-mask{
-      position: fixed; inset: 0; background: rgba(0,0,0,.45);
-      display: none; align-items: center; justify-content: center; z-index: 9999;
-    }
-    .modal-mask.show{ display: flex; }
-    .modal-card{
-      width: min(560px, 92vw);
-      background: #ffffff; color:#111;
-      border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
-      overflow: hidden; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-    }
-    .modal-hd,.modal-ft{ padding:12px 16px; background:#f5f7fb; }
-    .modal-hd{ font-weight:700; border-bottom:1px solid #e5e7eb; }
-    .modal-bd{ padding:16px; background:#fff; }
-    .modal-ft{ border-top:1px solid #e5e7eb; display:flex; gap:8px; justify-content:flex-end; }
-    .btn-line{ border:1px solid #cbd5e1; background:#fff; color:#111; padding:8px 12px; border-radius:8px; cursor:pointer; }
-    .btn-line:hover{ background:#eef2f7; }
-    .btn-primary{
-      border:1px solid #2563eb; background:#3b82f6; color:#fff;
-      padding:8px 12px; border-radius:8px; cursor:pointer;
-    }
-    .btn-primary:hover{ background:#60a5fa; }
-    .form-ctl{ width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; }
-    .form-ctl:focus{ outline:none; border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,.35); }
-    .form-row{ margin-bottom:12px; }
-    .form-lb{ display:block; margin-bottom:6px; font-weight:600; }
-
-    /* 深色主題時，Modal 仍維持淺底高對比 */
-    html:not(.light) .modal-card{ background:#f8fafc; color:#111; }
-    html:not(.light) .modal-hd,
-    html:not(.light) .modal-ft{ background:#eef2f7; }
-    html:not(.light) .modal-bd{ background:#ffffff; }
-    html:not(.light) .form-ctl{
-      background:#ffffff; color:#0f172a; border-color:#d1d5db;
-    }
-
-    /* ======= 手機版漢堡選單（新增） ======= */
-    .hamburger{
-      display:none;
-      position:relative;
-      width:40px; height:34px;
-      border:1px solid var(--border-dark, #2b313a);
-      border-radius:8px;
-      background:#111722;
-      cursor:pointer;
-      margin-left:8px;
-    }
-    .hamburger span{
-      display:block; height:4px; margin:5px 7px;
-      background:#fff; border-radius:999px;
-      transition:transform .25s ease, opacity .2s ease;
-    }
-    .hamburger.active span:nth-child(1){ transform:translateY(9px) rotate(45deg); }
-    .hamburger.active span:nth-child(2){ opacity:0; }
-    .hamburger.active span:nth-child(3){ transform:translateY(-9px) rotate(-45deg); }
-
-    @media (max-width: 768px){
-      .hamburger{ display:inline-block; }
-
-      .top .nav{
-        display:none;
-        position:absolute; left:0; right:0; top:100%;
-        background: var(--panel-dark, #17202a);
-        border-top:1px solid var(--border-dark, #2b313a);
-        padding:12px;
-        box-shadow:0 10px 30px rgba(0,0,0,.35);
-      }
-      .top .nav.open{
-        display:grid;
-        grid-template-columns: repeat(3, minmax(0,1fr));
-        gap:8px;
-      }
-      .top .nav.open .gap{ display:none; }
-      .top .nav.open button,
-      .top .nav.open .btn,
-      .top .nav.open .btn.btn-primary,
-      .top .nav.open .btn.btn-outline-light{
-        width:100%;
-        justify-content:center;
-        border-radius:10px;
-      }
-    }
-
-    /* ======= 新增：卡片基礎外觀 + 微彈跳特效（沿用 st-g 顏色） ======= */
-    .st-colored-card{
-      border-radius: 16px;
-      padding: 18px;
-      box-shadow: 0 6px 18px rgba(0,0,0,.35);
-      transition: transform .25s ease, box-shadow .25s ease, filter .25s ease;
-      will-change: transform;
-      backdrop-filter: saturate(110%);
-    }
-    .st-colored-card:hover{
-      transform: translateY(-6px) scale(1.02);
-      box-shadow: 0 12px 30px rgba(0,0,0,.5);
-      filter: brightness(1.02);
-    }
-    .st-colored-card:active{
-      animation: stCardBounce .35s ease;
-    }
-    @keyframes stCardBounce{
-      0%   { transform: scale(1) }
-      40%  { transform: scale(1.04) }
-      70%  { transform: scale(0.99) }
-      100% { transform: scale(1) }
-    }
-
-    /* ========= 只針對 #contactModal 美化（新增；其餘不動） ========= */
-    #contactModal.modal-mask{
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(4px);
-    }
-    #contactModal .modal-card{
-      border: none;
-      border-radius: 16px;
-      overflow: hidden;
-      box-shadow: 0 18px 50px rgba(0,0,0,.35);
-    }
-    #contactModal .modal-hd{
-      padding: 16px 20px;
-      background: #f5f7fb;
-      border-bottom: 1px solid #e5e7eb;
-      font-weight: 800;
-      font-size: 16px;
-    }
-    #contactModal .modal-bd{
-      background: #fff;
-      padding: 20px;
-    }
-    #contactModal .form-row{ margin-bottom: 14px; }
-    #contactModal .form-lb{
-      display:block;
-      margin-bottom: 8px;
-      font-weight: 700;
-    }
-    #contactModal .form-ctl{
-      width: 100%;
-      padding: 12px 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 12px;
-      background: #ffffff;
-      color: #0f172a;
-      box-shadow: inset 0 1px 0 rgba(0,0,0,.03);
-      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
-    }
-    #contactModal textarea.form-ctl{
-      min-height: 130px;
-      resize: vertical;
-    }
-    #contactModal .form-ctl:focus{
-      outline: none;
-      border-color: #60a5fa;
-      box-shadow: 0 0 0 4px rgba(96,165,250,.25);
-    }
-    #contactModal .modal-ft{
-      padding: 14px 20px;
-      background: #f5f7fb;
-      border-top: 1px solid #e5e7eb;
-      display: flex; gap: 10px; justify-content: flex-end;
-    }
-    #contactModal .btn-line{
-      border:1px solid #cbd5e1; background:#fff; color:#111;
-      padding:10px 16px; border-radius: 10px; cursor:pointer;
-    }
-    #contactModal .btn-line:hover{ background:#eef2f7; }
-    #contactModal .btn-primary{
-      border:1px solid #1d4ed8; background:#2563eb; color:#fff;
-      padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600;
-    }
-    #contactModal .btn-primary:hover{ background:#1d4ed8; }
-
-    /* 深色主題時仍維持淺底高對比 */
-    html:not(.light) #contactModal .modal-card{ background:#f8fafc; color:#111; }
-    html:not(.light) #contactModal .modal-hd,
-    html:not(.light) #contactModal .modal-ft{ background:#eef2f7; }
-    html:not(.light) #contactModal .modal-bd{ background:#ffffff; }
-    html:not(.light) #contactModal .form-ctl{
-      background:#ffffff; color:#0f172a; border-color:#d1d5db;
-    }
-
-    /* ====== 彩色卡片主題（由 JS 輪流套用） ====== */
-    .st-g1{ background: linear-gradient(135deg,#2563eb,#60a5fa); }
-    .st-g2{ background: linear-gradient(135deg,#10b981,#34d399); }
-    .st-g3{ background: linear-gradient(135deg,#f59e0b,#fbbf24); color:#1f2937; } /* 黃色系深字 */
-    .st-g4{ background: linear-gradient(135deg,#9333ea,#c084fc); }
-    .st-g5{ background: linear-gradient(135deg,#db2777,#f472b6); }
-    .st-g6{ background: linear-gradient(135deg,#0ea5e9,#22d3ee); }
-    .st-g7{ background: linear-gradient(135deg,#ef4444,#f97316); }
-    .st-g8{ background: linear-gradient(135deg,#14b8a6,#84cc16); }
-  </style>
-</head>
-<body>
-
-<!-- ===== 導覽列（維持原樣） ===== -->
-<header class="top">
-  <a href="#dashboard" class="brand">
-    <img src="assets/img/supertool-logo.png" alt="SuperTool Logo" style="height:36px; vertical-align:middle; margin-right:10px;">
-  </a>
-
-  <!-- 手機版漢堡按鈕 -->
-  <button id="menuToggle" class="hamburger" aria-label="開啟選單" aria-controls="mainNav" aria-expanded="false">
-    <span></span><span></span><span></span>
-  </button>
-
-  <nav class="nav" id="mainNav">
-    <button data-route="dashboard">首頁</button>
-    <button data-route="auth">帳號</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/book.html'">記帳</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/admin/accounting-settings.html#ledgers'">我的</button>
-    <button data-route="acct_detail">明細</button>
-    <button data-route="acct_analysis">分析</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/cart-demo.html'">購物</button>
-    <button data-route="admin">後台</button>
-    <button data-route="settings">設定</button>
-    <button data-route="backup">備份</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/stock/stocks.html'" class="btn btn-primary">股票</button>
-    <span class="gap"></span>
-    <button class="btn btn-outline-light" id="btnContact">聯絡我們</button>
-  </nav>
-</header>
-
-<!-- ===== 下面整區加彩色漸層背景 ===== -->
-<div class="gradient-wrap">
-  <main id="app"></main>
-</div>
-
-<!-- 你的 FAB 保持原本位置 -->
-<button id="fabExpense" class="fab">＋</button>
-<button id="fabShop" class="fab-square">🛒</button>
-
-<!-- ===== 聯絡我們 Modal（Formspree） ===== -->
-<div class="modal-mask" id="contactModal" aria-hidden="true">
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
-    <div class="modal-hd" id="contactTitle">聯絡我們</div>
-    <form id="contactForm" action="https://formspree.io/f/mvgwdkwy" method="POST">
-      <div class="modal-bd">
-        <input type="hidden" name="_subject" value="SuperTool｜聯絡我們來信">
-        <input type="hidden" name="_captcha" value="false">
-        <div class="form-row">
-          <label class="form-lb">姓名</label>
-          <input class="form-ctl" name="name" required>
-        </div>
-        <div class="form-row">
-          <label class="form-lb">Email</label>
-          <input class="form-ctl" type="email" name="email" required>
-        </div>
-        <div class="form-row">
-          <label class="form-lb">訊息內容</label>
-          <textarea class="form-ctl" rows="4" name="message" required></textarea>
-        </div>
-      </div>
-      <div class="modal-ft">
-        <button type="button" class="btn-line" id="btnContactCancel">取消</button>
-        <button type="submit" class="btn-primary">送出</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- 你的 SPA 腳本（維持原樣） -->
-<script type="module" src="assets/js/app.js"></script>
-
-<script>
-/* ------------------ 共用：JWT 解析（避免中文亂碼） ------------------ */
-function parseGoogleJWT(credential){
-  const base64Url = credential.split('.')[1];
-  const base64 = base64Url.replace(/-/g,'+').replace(/_/g,'/');
-  const json = decodeURIComponent(
-    atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
-  );
-  return JSON.parse(json);
+/* ---------------------------------------
+   共同小工具 + 台灣發票解析器 (V3-safe)
+--------------------------------------- */
+function normalizeText(t){
+  return (t || '').replace(/\r/g,'').replace(/[ \t]+/g,' ').trim();
+}
+function cleanNumberToken(s){
+  return s.replace(/[Oo]/g,'0')
+          .replace(/[Il]/g,'1')
+          .replace(/[,\，]/g,'')
+          .replace(/[^\d.]/g,'');
+}
+function findVendor(lines){
+  const shopHint = /(公司|商行|商店|門市|百貨|豆腐|咖啡|茶|便當|早餐|飲|餐|廚|冰|麵|館|家|炸|燒|堂|屋|藥|超商|全家|萊爾富|OK|7-?ELEVEN|COLD ?STONE)/i;
+  const cand = [];
+  lines.forEach((L,idx)=>{ if (shopHint.test(L)) cand.push([idx,L]); });
+  if (cand.length) return cand[0][1].slice(0,40);
+  const ti = lines.findIndex(s => /\d{4}[-\/\.]\d{1,2}[-\/\.]\d{1,2}.*\d{1,2}:\d{2}/.test(s));
+  if (ti > 0) return lines[ti-1].slice(0,40);
+  return '';
 }
 
-/* ------------------ 共用：在帳號卡片顯示歡迎 ------------------ */
-window.__showWelcomeInAuth = function(name){
-  let slot = document.getElementById('welcome-slot');
-  if(!slot){
-    const card = document.querySelector('#auth-card');
-    if(card){
-      slot = document.createElement('div');
-      slot.id = 'welcome-slot';
-      card.insertBefore(slot, card.firstChild ? card.firstChild.nextSibling : null);
-    }
-  }
-  if(slot){ slot.innerHTML = `<div class="welcome-chip">👋 歡迎 ${name}</div>`; }
-};
-
-/* ------------------ Google 初始化 & 登入回呼 ------------------ */
-function handleCredentialResponse(res){
+/* 更嚴格的台灣發票金額擷取（加上安全條件，避免整頁報錯） */
+function parseTaiwanReceiptV3(raw){
   try{
-    const payload = parseGoogleJWT(res.credential);
-    const user = {
-      email: payload.email, name: payload.name,
-      picture: payload.picture, sub: payload.sub
+    const text  = normalizeText(raw);
+    const lines = text.split(/\n/).map(s=>s.trim()).filter(Boolean);
+
+    // 日期
+    let date = '';
+    const dm = text.match(/(20\d{2}|19\d{2})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+    if (dm){
+      date = `${dm[1]}-${String(+dm[2]).padStart(2,'0')}-${String(+dm[3]).padStart(2,'0')}`;
+    }
+
+    // 應忽略的行
+    const ignoreLine = (L) =>
+      /(末\d{3,4}|授權|授\d+|載具|會員|統編|電話|店號|序號|機|APP|卡|點|稅率|稅額|門市|地址|發票號碼|共通載具|機號|收銀)/.test(L);
+
+    const keyRe = /(發\s*票\s*金\s*額|應\s*付\s*金\s*額|應\s*收\s*金\s*額|總\s*計|合\s*計|小\s*計)/;
+    const numRe = /(\d[\d,，\.]{0,10})(?!\d)/g;
+
+    // 先統計每個數字出現次數
+    const freq = new Map();
+    function incFreq(n){
+      if (!Number.isFinite(n)) return;
+      const k = String(n);
+      freq.set(k, (freq.get(k)||0)+1);
+    }
+
+    // 候選池：n -> {score,freq}
+    const bucket = new Map();
+    function push(n, scoreDelta){
+      if (!(Number.isFinite(n) && n>0 && n<100000)) return;
+      const k = String(n);
+      const o = bucket.get(k) || {score:0, freq: (freq.get(k)||0)};
+      o.score += scoreDelta;
+      bucket.set(k,o);
+    }
+
+    // 預掃頻率
+    lines.forEach(L=>{
+      for (const m of L.matchAll(numRe)){
+        const n = parseFloat(cleanNumberToken(m[1]));
+        if (Number.isFinite(n)) incFreq(n);
+      }
+    });
+
+    // 計分
+    for (let i=0;i<lines.length;i++){
+      const L = lines[i];
+      const next = lines[i+1] || '';
+
+      const isKey     = keyRe.test(L);
+      const isKeyNext = keyRe.test(next);
+
+      const safeLine = !ignoreLine(L);
+
+      for (const m of L.matchAll(numRe)){
+        const raw = m[1];
+        const n   = parseFloat(cleanNumberToken(raw));
+        if (!Number.isFinite(n)) continue;
+
+        const idx0   = m.index ?? 0;
+        const around = L.slice(Math.max(0, idx0-2), idx0+raw.length+2);
+
+        // 與英文字母緊鄰（例：TK89405809 的 5809）→ 強降分
+        if (/[A-Z][0-9]|[0-9][A-Z]/i.test(around)) { push(n, -8); continue; }
+
+        // 4 碼且沒千分位、又不在關鍵字行 → 視為店號/尾碼
+        if (String(Math.trunc(n)).length === 4 && !/,|，/.test(raw) && !(isKey || isKeyNext)) continue;
+
+        let s = 0;
+        if (safeLine) s += 1;                         // 基礎分
+        if (/,|，/.test(raw)) s += 3;                 // 有千分位
+        if (/\bTX\b/i.test(L)) s += 1;                // 列上有 TX
+        if (idx0 >= Math.max(0, L.length - 8)) s += 2;// 靠右
+        if (isKey) s += 6;                            // 關鍵字同行
+        if (isKeyNext) s += 3;                        // 關鍵字下一行
+
+        const f = freq.get(String(n)) || 0;           // 次數越多越像總額
+        if (f >= 2) s += 4;
+        if (f >= 3) s += 2;
+
+        push(n, s);
+      }
+
+      // 關鍵字下一行也掃
+      if (!ignoreLine(next)){
+        for (const m of next.matchAll(numRe)){
+          const n = parseFloat(cleanNumberToken(m[1]));
+          if (Number.isFinite(n)) push(n, isKey ? 2 : 0);
+        }
+      }
+    }
+
+    // 若無候選，再寬鬆掃一輪
+    if (bucket.size === 0){
+      for (const L of lines){
+        if (ignoreLine(L)) continue;
+        for (const m of L.matchAll(numRe)){
+          const n = parseFloat(cleanNumberToken(m[1]));
+          push(n, 1);
+        }
+      }
+    }
+
+    // 取分數最高 → 次數最多 → 數值較大
+    let picked = 0, best = {score:-1, freq:-1};
+    for (const [k, v] of bucket.entries()){
+      const n = parseFloat(k);
+      if (
+        v.score > best.score ||
+        (v.score === best.score && v.freq > best.freq) ||
+        (v.score === best.score && v.freq === best.freq && n > picked)
+      ){
+        picked = n; best = v;
+      }
+    }
+
+    // 品項 / 商家
+    const itemLine = lines.find(s => /(餐飲|餐點|食品|飲料|便當|豆腐|咖啡|藥|麵|飯|湯)/.test(s));
+    let item = itemLine ? itemLine.replace(/\s+TX\b/i,'').slice(0,40) : '';
+    const vendor = findVendor(lines);
+    if (!item) item = vendor || '餐飲食品';
+
+    const items = picked ? [{ name: item, amount: picked }] : [];
+    return { date, vendor, items, total: picked };
+  }catch(e){
+    console.error('[parseTaiwanReceiptV3] error:', e);
+    return { date:'', vendor:'', items:[], total:0 };
+  }
+}
+
+/* ---------------------------------------
+   頁面
+--------------------------------------- */
+export function CameraExpensePage(){
+  const el = document.createElement('div'); 
+  el.className = 'container card';
+  el.innerHTML = `
+    <h3>拍照記帳</h3>
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <button class="ghost" id="openCam">開啟相機 / 擷取</button>
+      <button class="ghost" id="runOCR">OCR 辨識</button>
+      <button class="ghost" id="runCloudOCR">雲端 OCR</button>
+      <select id="lang" class="form-control" style="min-width:100px"></select>
+    </div>
+    <video id="v" playsinline style="width:100%;max-height:240px;display:none;border-radius:12px"></video>
+    <canvas id="c" style="display:none"></canvas>
+    <img id="img" style="max-width:100%;display:none;border-radius:12px"/>
+    <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+      <input id="item" placeholder="品項" class="form-control"/>
+      <input id="cat" placeholder="分類" class="form-control"/>
+      <input id="date" type="date" class="form-control"/>
+      <input id="amt" type="text" inputmode="decimal" placeholder="金額" class="form-control"/>
+      <input id="note" placeholder="備註（可留空）" class="form-control" />
+      <button class="primary btn btn-primary" id="save">存為支出</button>
+    </div>
+  `;
+
+  // 元素
+  const v   = el.querySelector('#v');
+  const c   = el.querySelector('#c');
+  const img = el.querySelector('#img');
+
+  const date = el.querySelector('#date');
+  const amt  = el.querySelector('#amt');
+  const item = el.querySelector('#item');
+  const cat  = el.querySelector('#cat');
+  const note = el.querySelector('#note');
+
+  date.value = new Date().toISOString().slice(0,10);
+
+  let stream = null, dataUrl = null;
+
+  // 語系選單
+  const langSel = el.querySelector('#lang');
+  (OCR_LANGS || ['chi_tra','eng']).forEach(l=>{
+    const o = document.createElement('option');
+    o.value = l; o.textContent = l;
+    langSel.appendChild(o);
+  });
+  langSel.value = OCR_DEFAULT_LANG || 'chi_tra';
+
+  // 開相機 / 擷取
+  el.querySelector('#openCam').addEventListener('click', async ()=>{
+    if (!stream){
+      stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } }).catch(()=>null);
+      if (!stream){ alert('相機啟動失敗'); return; }
+      v.srcObject = stream;
+      await v.play();
+      v.style.display = 'block';
+      img.style.display = 'none';
+    }else{
+      c.width  = v.videoWidth; 
+      c.height = v.videoHeight;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(v,0,0);
+      dataUrl = c.toDataURL('image/jpeg',0.92);
+      img.src = dataUrl;
+      img.style.display='block';
+      v.pause();
+      stream.getTracks().forEach(t=>t.stop());
+      stream = null;
+      v.style.display='none';
+    }
+  });
+
+  // 金額輸入安全清理
+  amt.addEventListener('input', () => {
+    amt.value = amt.value.replace(/[^\d.,\-]/g, '');
+  });
+
+  /* ===== 將 OCR 結果自動帶入（使用 V3 解析器） ===== */
+  async function applyReceiptText(text){
+    try{
+      const { date: d, vendor, items, total } = parseTaiwanReceiptV3(text || '');
+      if (d) date.value = d;
+
+      if (items.length === 1){
+        const one = items[0];
+        item.value = one.name || vendor || item.value || '餐飲食品';
+        if (!cat.value && /餐|飲|食品|便當|豆腐|咖啡|藥/.test(item.value)) cat.value = '餐飲';
+        if (!amt.value) amt.value = String(one.amount);
+        return;
+      }
+
+      if (items.length > 1){
+        const preview = items.slice(0,7).map(i=>`• ${i.name} ${i.amount}`).join('\n') + (items.length>7?'\n...':'');
+        const ok = confirm(`偵測到 ${items.length} 筆品項：\n${preview}\n\n【確定】= 每筆分開記\n【取消】= 全部合併成一筆`);
+        if (ok){
+          const user = auth.currentUser;
+          if (!user?.email){ alert('請先登入再儲存'); return; }
+          const ymd = date.value || new Date().toISOString().slice(0,10);
+          for (const it of items){
+            await saveToFirestore(user.email, {
+              date: ymd,
+              item: it.name || vendor || '收據',
+              categoryId: (/餐|飲|食品|便當|豆腐|咖啡|藥/.test(it.name||'')) ? '餐飲' : (cat.value || '其他'),
+              amount: it.amount,
+              note: note.value || ''
+            });
+          }
+          alert('已分開記帳完成');
+        }else{
+          item.value = vendor || (items[0]?.name) || '收據';
+          if (!cat.value && /餐|飲|食品|便當|豆腐|咖啡|藥/.test(item.value)) cat.value = '餐飲';
+          if (!amt.value) amt.value = String(total || items.reduce((s,i)=>s+i.amount,0));
+        }
+      }else{
+        if (vendor) item.value = vendor;
+      }
+    }catch(err){
+      console.error('[applyReceiptText] error:', err);
+      alert('解析發票時發生錯誤，先幫你保留圖片與欄位，金額請手動輸入。');
+    }
+  }
+
+  // 本地 OCR
+  el.querySelector('#runOCR').addEventListener('click', async ()=>{
+    if (!dataUrl){ alert('請先拍照或上傳'); return; }
+    const text = await ocrImage(dataUrl, langSel.value).catch(()=> '');
+    await applyReceiptText(text);
+  });
+
+  // 雲端 OCR
+  el.querySelector('#runCloudOCR').addEventListener('click', async ()=>{
+    if (!dataUrl){ alert('請先拍照或上傳'); return; }
+    if (!cloudReady()){ alert('尚未設定 Supabase'); return; }
+    const res = await cloudOCR(dataUrl, langSel.value).catch(()=> null);
+    const text = res?.text || '';
+    await applyReceiptText(text);
+  });
+
+  // Firestore 寫入（統一寫到 expenses/{email}/entries）
+  async function saveToFirestore(userEmail, rec){
+    await setDoc(
+      doc(db, 'expenses', userEmail),
+      { email: userEmail, updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+    await addDoc(collection(db, 'expenses', userEmail, 'entries'), {
+      amount: rec.amount,
+      categoryId: rec.categoryId,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      date: rec.date,
+      item: rec.item,
+      note: rec.note || '',
+      type: 'expense',      // 固定本頁為支出
+      source: 'camera'
+    });
+  }
+
+  // 存為支出（單筆）
+  el.querySelector('#save').addEventListener('click', async ()=>{
+    const user = auth.currentUser;
+    if (!user || !user.email){
+      alert('請先登入帳號再記帳');
+      return;
+    }
+    const rec = {
+      date: date.value || new Date().toISOString().slice(0,10),
+      item: item.value || '未命名品項',
+      categoryId: cat.value || '其他',
+      amount: parseFloat(String(amt.value || '0').replace(/[,\，]/g, '')),
+      note: note.value || ''
     };
-    localStorage.setItem('session_user', JSON.stringify(user));
-    try{ google.accounts.id.cancel(); }catch(e){}
-    window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name);
-    if(location.hash !== '#auth'){ location.hash = '#dashboard'; }
-  }catch(e){ console.error('解析 Google Token 失敗：', e); }
-}
-
-function initGoogle(){
-  if(!window.google || !google.accounts || !google.accounts.id) return;
-  google.accounts.id.initialize({
-    client_id: "225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com",
-    callback: handleCredentialResponse,
-    auto_select: false,
-    cancel_on_tap_outside: true
-  });
-  window.__renderGoogleBtn = function(){
-    const mount = document.getElementById('googleBtnMount') || document.querySelector('.g_id_signin');
-    if(mount){ google.accounts.id.renderButton(mount, { theme: "outline", size: "large" }); }
-  };
-  function refreshAuthUI(){
-    let user = null; try{ user = JSON.parse(localStorage.getItem('session_user')||'null'); }catch{}
-    if(location.hash === '#auth'){
-      if(user && user.name){ window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name); }
-      else{ window.__renderGoogleBtn && window.__renderGoogleBtn(); }
+    if (!Number.isFinite(rec.amount) || rec.amount <= 0){
+      alert('金額需為正數');
+      return;
     }
-  }
-  refreshAuthUI();
-  window.addEventListener('hashchange', refreshAuthUI);
-}
-
-window.addEventListener('load', () => {
-  const ready = () => initGoogle();
-  if(window.google && google.accounts && google.accounts.id){ ready(); }
-  else{
-    let tries = 0;
-    const timer = setInterval(()=>{
-      tries++;
-      if(window.google && google.accounts && google.accounts.id){ clearInterval(timer); ready(); }
-      else if(tries>50){ clearInterval(timer); }
-    },100);
-  }
-});
-</script>
-
-<script>
-  if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
-
-  /* ===== 聯絡我們 Modal 開關 ===== */
-  const modal = document.getElementById('contactModal');
-  const btnOpen = document.getElementById('btnContact');
-  const btnClose = document.getElementById('btnContactCancel');
-
-  function openModal(){ modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); }
-  function closeModal(){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); }
-
-  btnOpen.addEventListener('click', openModal);
-  btnClose.addEventListener('click', closeModal);
-  modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
-  window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeModal(); });
-
-  // 送出後給提示（不阻塞 Formspree 提交）
-  document.getElementById('contactForm').addEventListener('submit', function(){
-    setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
+    try{
+      await saveToFirestore(user.email, rec);
+      alert('已儲存支出');
+      // 視需求清空欄位：
+      // amt.value = ''; item.value=''; cat.value=''; note.value='';
+    }catch(e){
+      console.error(e);
+      alert('寫入失敗：' + (e?.message || e));
+    }
   });
 
-  /* ===== 自動把彩色漸層套到內容卡片（保留字與功能） =====
-     - 只處理 .gradient-wrap 裡的卡片
-     - 第一張（英雄卡）維持你的深色樣式
-     - 想保留黑色的卡片 → 加上 .keep-dark
-  */
-  (function(){
-    const container = document.querySelector('.gradient-wrap');
-    if(!container) return;
-
-    // 你頁面卡片的可能 class（依你的版面而定），可自行加減
-    const selectors = ['.card', '.panel', '.box'];
-    const all = container.querySelectorAll(selectors.join(','));
-    if(!all.length) return;
-
-    const gradients = ['st-g1','st-g2','st-g3','st-g4','st-g5','st-g6','st-g7','st-g8'];
-    let idx = 0;
-
-    all.forEach((el, i)=>{
-      // 跳過英雄卡（第一張）與標記 keep-dark 的卡片
-      if(i === 0) return;
-      if(el.classList.contains('keep-dark')) return;
-
-      el.classList.add('st-colored-card', gradients[idx % gradients.length]);
-      idx++;
-    });
-  })();
-
-  /* ===== 手機漢堡選單開合（新增） ===== */
-  (function(){
-    const toggle = document.getElementById('menuToggle');
-    const nav = document.getElementById('mainNav');
-    if(!toggle || !nav) return;
-
-    const mq = window.matchMedia('(max-width: 768px)');
-
-    function closeMenu(){
-      nav.classList.remove('open');
-      toggle.classList.remove('active');
-      toggle.setAttribute('aria-expanded','false');
-    }
-
-    toggle.addEventListener('click', ()=>{
-      const opened = nav.classList.toggle('open');
-      toggle.classList.toggle('active', opened);
-      toggle.setAttribute('aria-expanded', opened ? 'true' : 'false');
-    });
-
-    // 視窗放大回桌機尺寸時，自動收起
-    window.addEventListener('resize', ()=>{ if(!mq.matches) closeMenu(); });
-
-    // 點擊外部時收起（僅在手機）
-    document.addEventListener('click', (e)=>{
-      if (!mq.matches) return;
-      if (e.target === toggle || toggle.contains(e.target)) return;
-      if (!nav.contains(e.target)) closeMenu();
-    });
-  })();
-</script>
-</body>
-</html>
+  return el;
+}
