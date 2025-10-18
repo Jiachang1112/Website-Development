@@ -12,22 +12,22 @@
   <style>
     /* 頂部導覽列 */
     .top{
-      background:#17202a; color:#fff; padding:.6rem 1rem;
-      display:flex; align-items:center; justify-content:space-between;
-      border-bottom:1px solid #2b313a; position:sticky; top:0; z-index:50;
+      background:#17202a;color:#fff;padding:.6rem 1rem;
+      display:flex;align-items:center;justify-content:space-between;
+      border-bottom:1px solid #2b313a;position:sticky;top:0;z-index:50;
     }
-    .brand{ display:flex; align-items:center; gap:.5rem; color:#fff; text-decoration:none; font-weight:800; }
-    .brand img{ height:28px; }
-    .top .nav button,.top .nav .btn{ margin-right:.35rem; }
+    .brand{display:flex;align-items:center;gap:.5rem;color:#fff;text-decoration:none;font-weight:800;}
+    .brand img{height:28px;}
+    .top .nav button,.top .nav .btn{margin-right:.35rem;}
 
     /* 手機漢堡 */
-    .hamburger{ display:none; width:40px;height:34px;border:1px solid #2b313a;border-radius:8px;background:#111722;cursor:pointer;margin-left:8px; }
-    .hamburger span{ display:block;height:4px;margin:5px 7px;background:#fff;border-radius:999px;transition:.25s; }
-    .hamburger.active span:nth-child(1){ transform:translateY(9px) rotate(45deg); }
-    .hamburger.active span:nth-child(2){ opacity:0; }
-    .hamburger.active span:nth-child(3){ transform:translateY(-9px) rotate(-45deg); }
+    .hamburger{display:none;width:40px;height:34px;border:1px solid #2b313a;border-radius:8px;background:#111722;cursor:pointer;margin-left:8px;}
+    .hamburger span{display:block;height:4px;margin:5px 7px;background:#fff;border-radius:999px;transition:.25s;}
+    .hamburger.active span:nth-child(1){transform:translateY(9px) rotate(45deg);}
+    .hamburger.active span:nth-child(2){opacity:0;}
+    .hamburger.active span:nth-child(3){transform:translateY(-9px) rotate(-45deg);}
     @media (max-width:992px){
-      .hamburger{ display:inline-block; }
+      .hamburger{display:inline-block;}
       .top .nav{display:none;position:absolute;left:0;right:0;top:100%;background:#17202a;border-top:1px solid #2b313a;padding:12px;}
       .top .nav.open{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
       .top .nav .btn,.top .nav button{width:100%;border-radius:10px;}
@@ -35,7 +35,7 @@
 
     /* 背景動態漸層 */
     .gradient-wrap{
-      background: linear-gradient(135deg,#1e3a8a 0%,#2563eb 20%,#7e22ce 40%,#db2777 60%,#f97316 80%,#fde047 100%);
+      background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 20%,#7e22ce 40%,#db2777 60%,#f97316 80%,#fde047 100%);
       background-size:300% 300%;animation:gradientShift 10s ease-in-out infinite;
       min-height:100vh;padding-bottom:56px;
     }
@@ -79,11 +79,14 @@
     }
 
     /* 🔒 隱藏那排頁籤按鈕 */
-    #app .tab-header, 
-    #app .nav, 
-    #app .tabs, 
-    #app .tab-buttons, 
-    #app .btn-group { display:none !important; }
+    #app .tab-header,#app .nav,#app .tabs,#app .tab-buttons,#app .btn-group{display:none!important;}
+
+    /* 帳本樣式 */
+    .ledger-item{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.08);padding:10px 12px;border-radius:8px;margin:6px 0;}
+    .ledger-item span{font-weight:600;}
+    .add-box{display:flex;margin-top:12px;}
+    .add-box input{flex:1;padding:6px 10px;border-radius:6px;border:none;margin-right:8px;}
+    .add-box button{background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;}
   </style>
 </head>
 <body>
@@ -111,69 +114,91 @@
 
 <div class="gradient-wrap">
   <div class="settings-shell">
-
     <!-- 左側功能 -->
     <aside class="side-panel">
       <div class="side-title">記帳設定</div>
       <ul class="side-menu" id="sideMenu">
-        <li><a href="#ledgers" data-tab="ledgers" class="active">管理帳本</a></li>
-        <li><a href="#budget" data-tab="budget">管理預算</a></li>
-        <li><a href="#currency" data-tab="currency">管理貨幣</a></li>
-        <li><a href="#categories" data-tab="categories">管理類型</a></li>
-        <li><a href="#chat" data-tab="chat">聊天設定</a></li>
-        <li><a href="#general" data-tab="general">一般設定</a></li>
+        <li><a href="#ledgers" class="active">管理帳本</a></li>
+        <li><a href="#budget">管理預算</a></li>
+        <li><a href="#currency">管理貨幣</a></li>
+        <li><a href="#categories">管理類型</a></li>
+        <li><a href="#chat">聊天設定</a></li>
+        <li><a href="#general">一般設定</a></li>
       </ul>
     </aside>
 
     <!-- 右側內容 -->
     <main class="page-slot">
       <section class="content-card">
-        <h2>記帳設定</h2>
-        <div id="app"></div>
+        <h2>管理帳本</h2>
+        <div id="ledgerList"></div>
+        <div class="add-box">
+          <input id="ledgerInput" placeholder="輸入新帳本名稱">
+          <button onclick="addLedger()">新增</button>
+        </div>
       </section>
     </main>
-
   </div>
 </div>
 
-<script type="module" src="../assets/js/pages/accounting-settings.js"></script>
-
 <script>
-  // 手機導覽開關
-  (function(){
-    const toggle=document.getElementById('menuToggle');
-    const nav=document.getElementById('mainNav');
-    const mq=window.matchMedia('(max-width:992px)');
-    function closeMenu(){
-      nav.classList.remove('open');toggle.classList.remove('active');
-    }
-    toggle.addEventListener('click',()=>{
-      const opened=nav.classList.toggle('open');
-      toggle.classList.toggle('active',opened);
-    });
-    window.addEventListener('resize',()=>{if(!mq.matches)closeMenu();});
-  })();
+const DEFAULT_LEDGERS=[
+  {name:'預設帳本'},{name:'悠遊付'},{name:'Line pay'},{name:'Apple pay'},{name:'澳洲遊學'}
+];
+let ledgers=[];
 
-  // 🔧 左側選單控制右側內容（保留原功能）
-  const sideMenu=document.getElementById('sideMenu');
-  const app=document.getElementById('app');
+// 初次載入
+window.onload=function(){
+  if(!localStorage.getItem('ledgersSeeded')){
+    ledgers=DEFAULT_LEDGERS;
+    localStorage.setItem('ledgers',JSON.stringify(ledgers));
+    localStorage.setItem('ledgersSeeded','true');
+  }else{
+    ledgers=JSON.parse(localStorage.getItem('ledgers')||'[]');
+  }
+  renderLedgers();
+}
 
-  // 左側點擊時 → 找 #app 內對應 tab 名稱並觸發
-  sideMenu.addEventListener('click',e=>{
-    const a=e.target.closest('a[data-tab]');
-    if(!a)return;
-    e.preventDefault();
-    sideMenu.querySelectorAll('a').forEach(x=>x.classList.remove('active'));
-    a.classList.add('active');
-    const tabName=a.dataset.tab;
-
-    // 嘗試觸發 #app 裡面對應 tab 的按鈕
-    const btn=[...app.querySelectorAll('button,a')].find(el=>{
-      const t=(el.textContent||'').trim();
-      return t.includes(a.textContent.trim()) || el.id===tabName;
-    });
-    if(btn) btn.click();
+// 顯示帳本清單
+function renderLedgers(){
+  const list=document.getElementById('ledgerList');
+  list.innerHTML='';
+  if(ledgers.length===0){
+    list.innerHTML='<p class="muted">尚未有帳本。</p>';
+    return;
+  }
+  ledgers.forEach(item=>{
+    const div=document.createElement('div');
+    div.className='ledger-item';
+    div.innerHTML=`<span>${item.name}</span>`;
+    list.appendChild(div);
   });
+}
+
+// 新增帳本
+function addLedger(){
+  const input=document.getElementById('ledgerInput');
+  const name=input.value.trim();
+  if(!name)return alert('請輸入帳本名稱');
+  if(ledgers.some(l=>l.name.toLowerCase()===name.toLowerCase())){
+    alert('此帳本已存在');
+    return;
+  }
+  ledgers.push({name});
+  localStorage.setItem('ledgers',JSON.stringify(ledgers));
+  input.value='';
+  renderLedgers();
+}
+
+// 手機導覽開關
+(function(){
+  const toggle=document.getElementById('menuToggle');
+  const nav=document.getElementById('mainNav');
+  const mq=window.matchMedia('(max-width:992px)');
+  function closeMenu(){nav.classList.remove('open');toggle.classList.remove('active');}
+  toggle.addEventListener('click',()=>{const opened=nav.classList.toggle('open');toggle.classList.toggle('active',opened);});
+  window.addEventListener('resize',()=>{if(!mq.matches)closeMenu();});
+})();
 </script>
 </body>
 </html>
