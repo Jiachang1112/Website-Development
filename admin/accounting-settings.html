@@ -5,138 +5,83 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>記帳設定｜SuperTool</title>
 
-  <!-- 你的 favicon -->
   <link rel="icon" type="image/png" href="../assets/img/app-favicon.png">
-
-  <!-- 共用樣式 -->
   <link rel="stylesheet" href="../assets/css/style.css" />
   <link rel="manifest" href="../manifest.json" />
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
   <style>
-    /* ===== 頂部導覽列（與首頁一致） ===== */
+    /* ===== 頂部導覽 ===== */
     .top{
-      background: var(--panel-dark, #17202a);
-      color: #fff;
-      padding: .6rem 1rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border-dark, #2b313a);
-      position: sticky;
-      top: 0;
-      z-index: 20;
+      background:#111722;
+      color:#fff;
+      padding:.6rem 1rem;
+      display:flex;align-items:center;justify-content:space-between;
+      border-bottom:1px solid #2b313a;
+      position:sticky;top:0;z-index:50;
     }
-    .brand{
-      color: inherit; text-decoration: none; font-weight: 700;
-      font-size: 20px; cursor: pointer; display:flex; align-items:center; gap:10px;
-    }
-    .brand img{ height:36px; }
-    .brand:hover{ opacity: .85; }
-    .nav button{ margin-right:.4rem; }
-    .nav .gap{ display:inline-block; width:10px; }
+    .brand{color:#fff;text-decoration:none;font-weight:700;font-size:20px;display:flex;align-items:center;gap:8px;}
+    .brand img{height:34px;}
+    .nav button{margin-right:.4rem;}
 
-    /* ===== 背景漸層（與首頁相同） ===== */
-    .gradient-wrap{
-      background: linear-gradient(135deg,
-        #1e3a8a 0%,
-        #2563eb 20%,
-        #7e22ce 40%,
-        #db2777 60%,
-        #f97316 80%,
-        #fde047 100%
-      );
-      background-size: 300% 300%;
-      animation: gradientShift 10s ease-in-out infinite;
-      min-height: calc(100vh - 64px);
-      padding-bottom: 64px;
+    /* ===== 手機漢堡 ===== */
+    .hamburger{display:none;width:40px;height:34px;border:1px solid #444;border-radius:8px;background:#000;cursor:pointer;}
+    .hamburger span{display:block;height:4px;margin:5px 7px;background:#fff;border-radius:999px;transition:.25s;}
+    .hamburger.active span:nth-child(1){transform:translateY(9px) rotate(45deg);}
+    .hamburger.active span:nth-child(2){opacity:0;}
+    .hamburger.active span:nth-child(3){transform:translateY(-9px) rotate(-45deg);}
+    @media(max-width:768px){
+      .hamburger{display:inline-block;}
+      .top .nav{display:none;position:absolute;left:0;right:0;top:100%;background:#111722;padding:12px;}
+      .top .nav.open{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+      .top .nav.open button{width:100%;border-radius:10px;}
+    }
+
+    /* ===== 背景漸層 ===== */
+    body{
+      background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 25%,#7e22ce 50%,#db2777 75%,#f97316 100%);
+      background-size:300% 300%;
+      animation:gradientShift 8s ease-in-out infinite;
+      color:#fff;
     }
     @keyframes gradientShift{
-      0%{ background-position: 0% 50%; }
-      50%{ background-position: 100% 50%; }
-      100%{ background-position: 0% 50%; }
+      0%{background-position:0% 50%;}
+      50%{background-position:100% 50%;}
+      100%{background-position:0% 50%;}
     }
 
-    /* 卡片陰影 */
-    .gradient-wrap .card{
-      box-shadow: 0 3px 12px rgba(0,0,0,0.35);
-      border-radius: 14px;
+    /* ===== 分頁按鈕（橫向） ===== */
+    .nav-tabs{border-bottom:none;justify-content:center;margin-bottom:1rem;}
+    .nav-tabs .nav-link{
+      color:#fff;
+      border:none;
+      margin:0 6px;
+      font-weight:600;
+      border-bottom:3px solid transparent;
+      background:rgba(0,0,0,0.25);
+      border-radius:10px 10px 0 0;
+      transition:.3s;
+    }
+    .nav-tabs .nav-link:hover{background:rgba(255,255,255,0.15);}
+    .nav-tabs .nav-link.active{
+      border-color:#ffd700;
+      background:rgba(0,0,0,0.6);
+      color:#ffd700;
     }
 
-    /* ===== 手機漢堡選單 ===== */
-    .hamburger{
-      display:none;
-      position:relative;
-      width:40px; height:34px;
-      border:1px solid var(--border-dark, #2b313a);
-      border-radius:8px;
-      background:#111722;
-      cursor:pointer;
-      margin-left:8px;
-    }
-    .hamburger span{
-      display:block; height:4px; margin:5px 7px;
-      background:#fff; border-radius:999px;
-      transition:transform .25s ease, opacity .2s ease;
-    }
-    .hamburger.active span:nth-child(1){ transform:translateY(9px) rotate(45deg); }
-    .hamburger.active span:nth-child(2){ opacity:0; }
-    .hamburger.active span:nth-child(3){ transform:translateY(-9px) rotate(-45deg); }
-
-    @media (max-width: 768px){
-      .hamburger{ display:inline-block; }
-      .top .nav{
-        display:none;
-        position:absolute; left:0; right:0; top:100%;
-        background: var(--panel-dark, #17202a);
-        border-top:1px solid var(--border-dark, #2b313a);
-        padding:12px;
-        box-shadow:0 10px 30px rgba(0,0,0,.35);
-      }
-      .top .nav.open{
-        display:grid;
-        grid-template-columns: repeat(3, minmax(0,1fr));
-        gap:8px;
-      }
-      .top .nav.open .gap{ display:none; }
-      .top .nav.open button{
-        width:100%;
-        justify-content:center;
-        border-radius:10px;
-      }
-    }
-
-    /* ===== 橫向分頁樣式（六個功能按鈕） ===== */
-    .nav-tabs .nav-link {
-      color: #fff;
-      border: none;
-      border-bottom: 3px solid transparent;
-      font-weight: 600;
-      background: transparent;
-      transition: all 0.3s ease;
-    }
-    .nav-tabs .nav-link.active {
-      border-color: #ffd700;
-      color: #ffd700;
-      background: rgba(255,255,255,0.1);
-    }
-    .nav-tabs {
-      border-bottom: 1px solid rgba(255,255,255,0.3);
-    }
+    .tab-content .card{background:rgba(0,0,0,0.65);border:none;color:#fff;box-shadow:0 4px 15px rgba(0,0,0,0.3);}
   </style>
 </head>
 <body>
 
-<!-- ===== 頂部導覽列 ===== -->
 <header class="top">
   <a href="../index.html#dashboard" class="brand">
     <img src="../assets/img/supertool-logo.png" alt="SuperTool">
     <span>SuperTool</span>
   </a>
 
-  <button id="menuToggle" class="hamburger" aria-label="開啟選單" aria-controls="mainNav" aria-expanded="false">
-    <span></span><span></span><span></span>
-  </button>
+  <button id="menuToggle" class="hamburger" aria-label="選單"><span></span><span></span><span></span></button>
 
   <nav class="nav" id="mainNav">
     <button onclick="location.href='../index.html#dashboard'">首頁</button>
@@ -146,48 +91,41 @@
     <button onclick="location.href='../index.html#acct_detail'">明細</button>
     <button onclick="location.href='../index.html#acct_analysis'">分析</button>
     <button onclick="location.href='../cart-demo.html'">購物</button>
-    <button onclick="location.href='../index.html#admin'">後台</button>
-    <button onclick="location.href='../index.html#settings'">設定</button>
     <button onclick="location.href='../index.html#backup'">備份</button>
-    <button class="btn btn-primary" onclick="location.href='../stock/stocks.html'">股票</button>
-    <span class="gap"></span>
-    <button class="btn btn-outline-light" onclick="location.href='../index.html#contact'">聯絡我們</button>
   </nav>
 </header>
 
-<!-- ===== 主體背景區 ===== -->
-<div class="gradient-wrap">
-  <main id="app" class="container py-4"></main>
+<div class="container py-4">
+  <h3 class="mb-3">記帳設定</h3>
+  <p class="text-light mb-4">請選擇上方標籤以進行設定。</p>
+
+  <!-- 🔹 六個橫排按鈕 -->
+  <ul class="nav nav-tabs" id="setTabs" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-ledger" type="button">管理帳本</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-budget" type="button">管理預算</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-currency" type="button">管理貨幣</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-category" type="button">管理類型</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-chat" type="button">聊天設定</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-general" type="button">一般設定</button></li>
+  </ul>
+
+  <div class="tab-content border-0 rounded-bottom p-3">
+    <!-- 記帳設定內容由 JS 自動生成 -->
+    <main id="app"></main>
+  </div>
 </div>
 
-<!-- ===== 漢堡選單 JS ===== -->
 <script>
-  (function(){
-    const toggle = document.getElementById('menuToggle');
-    const nav = document.getElementById('mainNav');
-    if(!toggle || !nav) return;
-    const mq = window.matchMedia('(max-width: 768px)');
-    function closeMenu(){
-      nav.classList.remove('open');
-      toggle.classList.remove('active');
-      toggle.setAttribute('aria-expanded','false');
-    }
-    toggle.addEventListener('click', ()=>{
-      const opened = nav.classList.toggle('open');
-      toggle.classList.toggle('active', opened);
-      toggle.setAttribute('aria-expanded', opened ? 'true' : 'false');
-    });
-    window.addEventListener('resize', ()=>{ if(!mq.matches) closeMenu(); });
-    document.addEventListener('click', (e)=>{
-      if (!mq.matches) return;
-      if (e.target === toggle || toggle.contains(e.target)) return;
-      if (!nav.contains(e.target)) closeMenu();
-    });
-  })();
+  // 手機漢堡開關
+  const toggle=document.getElementById('menuToggle');
+  const nav=document.getElementById('mainNav');
+  toggle.addEventListener('click',()=>{
+    const opened=nav.classList.toggle('open');
+    toggle.classList.toggle('active',opened);
+  });
 </script>
 
-<!-- ===== 主要功能（Firebase + 記帳設定） ===== -->
 <script type="module" src="../assets/js/pages/accounting-settings.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
