@@ -149,90 +149,6 @@
     html:not(.light) .modal-card{ background:#f8fafc; color:#111; }
     html:not(.light) .modal-hd, html:not(.light) .modal-ft{ background:#eef2f7; }
 
-    /* ====== 彩色卡片主題（由 JS 輪流套用） ====== */
-    .st-colored-card{ color:#fff; }
-    .st-g1{ background: linear-gradient(135deg,#2563eb,#60a5fa); }
-    .st-g2{ background: linear-gradient(135deg,#10b981,#34d399); }
-    .st-g3{ background: linear-gradient(135deg,#f59e0b,#fbbf24); color:#1f2937; } /* 黃色系深字 */
-    .st-g4{ background: linear-gradient(135deg,#9333ea,#c084fc); }
-    .st-g5{ background: linear-gradient(135deg,#db2777,#f472b6); }
-    .st-g6{ background: linear-gradient(135deg,#0ea5e9,#22d3ee); }
-    .st-g7{ background: linear-gradient(135deg,#ef4444,#f97316); }
-    .st-g8{ background: linear-gradient(135deg,#14b8a6,#84cc16); }
-
-    /* ========= 只針對 #contactModal 美化（新增；其餘不動） ========= */
-    #contactModal.modal-mask{
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(4px);
-    }
-    #contactModal .modal-card{
-      border: none;
-      border-radius: 16px;
-      overflow: hidden;
-      box-shadow: 0 18px 50px rgba(0,0,0,.35);
-    }
-    #contactModal .modal-hd{
-      padding: 16px 20px;
-      background: #f5f7fb;
-      border-bottom: 1px solid #e5e7eb;
-      font-weight: 800;
-      font-size: 16px;
-    }
-    #contactModal .modal-bd{
-      background: #fff;
-      padding: 20px;
-    }
-    #contactModal .form-row{ margin-bottom: 14px; }
-    #contactModal .form-lb{
-      display:block;
-      margin-bottom: 8px;
-      font-weight: 700;
-    }
-    #contactModal .form-ctl{
-      width: 100%;
-      padding: 12px 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 12px;
-      background: #ffffff;
-      color: #0f172a;
-      box-shadow: inset 0 1px 0 rgba(0,0,0,.03);
-      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
-    }
-    #contactModal textarea.form-ctl{
-      min-height: 130px;
-      resize: vertical;
-    }
-    #contactModal .form-ctl:focus{
-      outline: none;
-      border-color: #60a5fa;
-      box-shadow: 0 0 0 4px rgba(96,165,250,.25);
-    }
-    #contactModal .modal-ft{
-      padding: 14px 20px;
-      background: #f5f7fb;
-      border-top: 1px solid #e5e7eb;
-      display: flex; gap: 10px; justify-content: flex-end;
-    }
-    #contactModal .btn-line{
-      border:1px solid #cbd5e1; background:#fff; color:#111;
-      padding:10px 16px; border-radius: 10px; cursor:pointer;
-    }
-    #contactModal .btn-line:hover{ background:#eef2f7; }
-    #contactModal .btn-primary{
-      border:1px solid #1d4ed8; background:#2563eb; color:#fff;
-      padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600;
-    }
-    #contactModal .btn-primary:hover{ background:#1d4ed8; }
-
-    /* 深色主題時仍維持淺底高對比 */
-    html:not(.light) #contactModal .modal-card{ background:#f8fafc; color:#111; }
-    html:not(.light) #contactModal .modal-hd,
-    html:not(.light) #contactModal .modal-ft{ background:#eef2f7; }
-    html:not(.light) #contactModal .modal-bd{ background:#ffffff; }
-    html:not(.light) #contactModal .form-ctl{
-      background:#ffffff; color:#0f172a; border-color:#d1d5db;
-    }
-
     /* ======= 手機版漢堡選單（新增） ======= */
     .hamburger{
       display:none;
@@ -288,6 +204,7 @@
       transition: transform .25s ease, box-shadow .25s ease, filter .25s ease;
       will-change: transform;
       backdrop-filter: saturate(110%);
+      color:#fff;
     }
     .st-colored-card:hover{
       transform: translateY(-6px) scale(1.02);
@@ -303,6 +220,16 @@
       70%  { transform: scale(0.99) }
       100% { transform: scale(1) }
     }
+
+    /* ====== 彩色卡片主題（由 JS 輪流套用） ====== */
+    .st-g1{ background: linear-gradient(135deg,#2563eb,#60a5fa); }
+    .st-g2{ background: linear-gradient(135deg,#10b981,#34d399); }
+    .st-g3{ background: linear-gradient(135deg,#f59e0b,#fbbf24); color:#1f2937; } /* 黃色系深字 */
+    .st-g4{ background: linear-gradient(135deg,#9333ea,#c084fc); }
+    .st-g5{ background: linear-gradient(135deg,#db2777,#f472b6); }
+    .st-g6{ background: linear-gradient(135deg,#0ea5e9,#22d3ee); }
+    .st-g7{ background: linear-gradient(135deg,#ef4444,#f97316); }
+    .st-g8{ background: linear-gradient(135deg,#14b8a6,#84cc16); }
   </style>
 </head>
 <body>
