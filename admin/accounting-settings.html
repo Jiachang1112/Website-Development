@@ -35,41 +35,64 @@
       min-height:100vh;padding-bottom:56px;
     }
     @keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-    .settings-shell{max-width:1200px;margin:0 auto;padding:28px 16px;display:grid;grid-template-columns:280px 1fr;gap:22px;}
+
+    .settings-shell{max-width:1200px;margin:0 auto;padding:28px 16px;
+      display:grid;grid-template-columns:280px 1fr;gap:22px;}
     @media(max-width:992px){.settings-shell{grid-template-columns:1fr;}}
 
     /* ======== 左側面板 ======== */
     .side-panel{backdrop-filter:blur(6px);background:rgba(0,0,0,.35);
-      border:1px solid rgba(255,255,255,.08);border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);color:#fff;overflow:hidden;}
+      border:1px solid rgba(255,255,255,.08);border-radius:12px;
+      box-shadow:0 6px 20px rgba(0,0,0,.25);color:#fff;overflow:hidden;}
     .side-title{padding:14px 16px;font-weight:800;font-size:18px;border-bottom:1px solid rgba(255,255,255,.08);}
     .side-menu{list-style:none;margin:0;padding:8px;}
     .side-menu li{margin:6px 0;}
-    .side-menu a{display:block;padding:10px 12px;border-radius:8px;color:#e5e7eb;text-decoration:none;background:rgba(255,255,255,.04);transition:background .25s;}
+    .side-menu a{display:block;padding:10px 12px;border-radius:8px;color:#e5e7eb;text-decoration:none;
+      background:rgba(255,255,255,.04);transition:background .25s;}
     .side-menu a:hover{background:rgba(255,255,255,.08);}
     .side-menu a.active{background:#2563eb;color:#fff;}
 
-    /* ======== 右側卡片 ======== */
-    .content-card{background:linear-gradient(145deg,#0f172a,#1e293b);color:#fff;
+    /* ======== 右側卡片內容 ======== */
+    .content-card{
+      background:linear-gradient(145deg,#0f172a,#1e293b);color:#fff;
       border:2px solid transparent;border-image:linear-gradient(90deg,#60a5fa,#a855f7,#f472b6) 1;
-      border-radius:14px;padding:20px;box-shadow:0 8px 26px rgba(0,0,0,.45);}
-    .content-card h2{margin:0 0 8px 0;font-size:22px;font-weight:800;
-      background:linear-gradient(90deg,#60a5fa,#a855f7,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+      border-radius:14px;padding:20px;box-shadow:0 8px 26px rgba(0,0,0,.45);
+    }
+    .content-card h2{
+      margin:0 0 8px 0;font-size:22px;font-weight:800;
+      background:linear-gradient(90deg,#60a5fa,#a855f7,#f472b6);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    }
 
-    /* ======== 帳本卡片 ======== */
-    .ledger-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:16px;}
-    .ledger-card{position:relative;border-radius:14px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.35);
-      background:linear-gradient(145deg,#0b1220,#182235);border:1px solid rgba(255,255,255,.06);color:#e5e7eb;}
+    /* ======== 帳本卡片樣式 ======== */
+    .ledger-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+      gap:16px;margin-top:16px;
+    }
+    .ledger-card{
+      position:relative;border-radius:14px;overflow:hidden;
+      box-shadow:0 8px 22px rgba(0,0,0,.35);
+      background:linear-gradient(145deg,#0b1220,#182235);
+      border:1px solid rgba(255,255,255,.06);
+      color:#e5e7eb;
+    }
     .ledger-card .cover{height:72px;background:linear-gradient(135deg,#2563eb,#9333ea);}
     .ledger-card .body{padding:14px;display:flex;align-items:center;justify-content:space-between;}
     .ledger-name{font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .ledger-actions{display:flex;gap:8px;}
-    .ledger-actions .btn{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;padding:6px 10px;border-radius:10px;cursor:pointer;}
+    .ledger-actions .btn{
+      border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);
+      color:#fff;padding:6px 10px;border-radius:10px;cursor:pointer;
+    }
     .ledger-actions .btn:hover{background:rgba(255,255,255,.12);}
     .badge-default{background:#22c55e;color:#062814;border-radius:999px;padding:4px 8px;font-weight:700;font-size:12px;margin-top:4px;display:inline-block;}
     .ledger-card.add{border:1px dashed rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;min-height:170px;}
     .add-inner{text-align:center;padding:14px;}
     .add-inner input{margin-top:10px;width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:#0b1220;color:#fff;}
     .add-inner .btn{margin-top:10px;width:100%;background:#2563eb;border:1px solid #1d4ed8;color:#fff;padding:10px;border-radius:10px;cursor:pointer;}
+    .rename-wrap{display:flex;gap:8px;align-items:center;}
+    .rename-wrap input{width:130px;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:#0b1220;color:#fff;}
   </style>
 </head>
 <body>
@@ -117,117 +140,116 @@
   </div>
 </div>
 
-<!-- ✅ 使用「你全站的 firebase.js」來共用同一個登入狀態 -->
+<!-- ✅ Firebase 功能 -->
 <script type="module">
-/* 直接用你專案的共用實例 */
-import { auth, db } from '../assets/js/firebase.js';
-import {
-  collection, getDocs, addDoc, doc, deleteDoc, updateDoc,
-  query, orderBy, where, serverTimestamp
-} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
-import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, doc, deleteDoc, updateDoc, query, orderBy, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+
+// ⚙️ 你的 Firebase 設定
+const firebaseConfig = {
+  apiKey: "你的API_KEY",
+  authDomain: "你的PROJECT.firebaseapp.com",
+  projectId: "你的PROJECT",
+  storageBucket: "你的PROJECT.appspot.com",
+  messagingSenderId: "你的SenderID",
+  appId: "你的AppID"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
 
 let UID = null;
 
 onAuthStateChanged(auth, async (user)=>{
-  const grid = document.getElementById('ledgerGrid');
-  if(!user){
-    grid.innerHTML = '<p>請先登入帳號</p>';
-    return;
-  }
+  if(!user){ document.getElementById("ledgerGrid").innerHTML="<p>請先登入帳號</p>"; return; }
   UID = user.uid;
   await ensureDefaultLedger();
   await renderLedgers();
 });
 
-// 確保每位使用者至少有一個「預設帳本」
+// === 確保有預設帳本 ===
 async function ensureDefaultLedger(){
-  const q = query(collection(db,'users',UID,'ledgers'), where('isDefault','==', true));
+  const q = query(collection(db,"users",UID,"ledgers"), where("name","==","預設帳本"));
   const snap = await getDocs(q);
-  if (snap.empty){
-    await addDoc(collection(db,'users',UID,'ledgers'), {
-      name: '預設帳本',
-      isDefault: true,
-      createdAt: serverTimestamp()
+  if(snap.empty){
+    await addDoc(collection(db,"users",UID,"ledgers"),{
+      name:"預設帳本",isDefault:true,createdAt:serverTimestamp()
     });
   }
 }
 
-// 讀取並渲染帳本卡片
+// === 渲染帳本卡片 ===
 async function renderLedgers(){
-  const grid = document.getElementById('ledgerGrid');
-  grid.innerHTML = '載入中…';
-
-  const snap = await getDocs(query(collection(db,'users',UID,'ledgers'), orderBy('createdAt','asc')));
-  const html = [];
-
+  const grid = document.getElementById("ledgerGrid");
+  grid.innerHTML = "<p>載入中...</p>";
+  const snap = await getDocs(query(collection(db,"users",UID,"ledgers"), orderBy("createdAt","asc")));
+  const cards = [];
   snap.forEach(d=>{
     const v = d.data();
-    html.push(`
+    cards.push(`
       <div class="ledger-card" data-id="${d.id}">
         <div class="cover"></div>
         <div class="body">
           <div>
-            <div class="ledger-name">${v.name || '未命名'}</div>
-            ${v.isDefault ? '<div class="badge-default">預設</div>' : ''}
+            <div class="ledger-name">${v.name||"未命名"}</div>
+            ${v.isDefault?'<div class="badge-default">預設</div>':''}
           </div>
           <div class="ledger-actions">
-            <button class="btn rename" title="重新命名"><i class="bi bi-pencil"></i></button>
-            ${v.isDefault ? '' : '<button class="btn del" title="刪除"><i class="bi bi-trash"></i></button>'}
+            <button class="btn rename"><i class="bi bi-pencil"></i></button>
+            <button class="btn delete"><i class="bi bi-trash"></i></button>
           </div>
         </div>
       </div>
     `);
   });
-
   // 新增卡片
-  html.push(`
+  cards.push(`
     <div class="ledger-card add">
       <div class="add-inner">
-        <div>＋ 新增帳本</div>
+        <div class="big">＋ 新增帳本</div>
         <input id="newLedger" placeholder="輸入帳本名稱">
         <button id="btnAdd" class="btn">新增</button>
       </div>
-    </div>
-  `);
-
-  grid.innerHTML = html.join('');
-  bindEvents(grid);
+    </div>`);
+  grid.innerHTML = cards.join("");
+  bindCardEvents(grid);
 }
 
-// 綁定卡片上的事件
-function bindEvents(grid){
-  const addBtn = grid.querySelector('#btnAdd');
-  addBtn?.addEventListener('click', async ()=>{
-    const input = grid.querySelector('#newLedger');
-    const name = (input.value || '').trim();
-    if(!name) return alert('請輸入帳本名稱');
-    await addDoc(collection(db,'users',UID,'ledgers'), { name, createdAt: serverTimestamp(), isDefault: false });
-    input.value = '';
+// === 綁定事件 ===
+function bindCardEvents(grid){
+  grid.querySelector("#btnAdd")?.addEventListener("click", async()=>{
+    const name = grid.querySelector("#newLedger").value.trim();
+    if(!name) return alert("請輸入帳本名稱");
+    await addDoc(collection(db,"users",UID,"ledgers"),{name,createdAt:serverTimestamp()});
     renderLedgers();
   });
 
-  grid.querySelectorAll('.rename').forEach(btn=>{
-    btn.onclick = async ()=>{
-      const card = btn.closest('.ledger-card');
+  grid.querySelectorAll(".rename").forEach(btn=>{
+    btn.onclick = async()=>{
+      const card = btn.closest(".ledger-card");
       const id = card.dataset.id;
-      const nameEl = card.querySelector('.ledger-name');
-      const old = nameEl.textContent;
-      const val = prompt('新名稱：', old);
-      if(val === null) return;
-      const name = val.trim();
-      if(!name) return alert('名稱不可為空');
-      await updateDoc(doc(db,'users',UID,'ledgers',id), { name, updatedAt: serverTimestamp() });
-      renderLedgers();
+      const nameEl = card.querySelector(".ledger-name");
+      const oldName = nameEl.textContent;
+      const input = document.createElement("input");
+      input.value = oldName;
+      nameEl.replaceWith(input);
+      btn.textContent="💾";
+      btn.onclick = async()=>{
+        const val = input.value.trim();
+        if(!val) return alert("請輸入名稱");
+        await updateDoc(doc(db,"users",UID,"ledgers",id),{name:val,updatedAt:serverTimestamp()});
+        renderLedgers();
+      };
     };
   });
 
-  grid.querySelectorAll('.del').forEach(btn=>{
-    btn.onclick = async ()=>{
-      const card = btn.closest('.ledger-card');
+  grid.querySelectorAll(".delete").forEach(btn=>{
+    btn.onclick = async()=>{
+      const card = btn.closest(".ledger-card");
       const id = card.dataset.id;
-      if(!confirm('確定要刪除此帳本？')) return;
-      await deleteDoc(doc(db,'users',UID,'ledgers',id));
+      if(!confirm("確定要刪除此帳本？")) return;
+      await deleteDoc(doc(db,"users",UID,"ledgers",id));
       renderLedgers();
     };
   });
@@ -235,7 +257,6 @@ function bindEvents(grid){
 </script>
 
 <script>
-/* 手機漢堡 */
 (function(){
   const toggle=document.getElementById('menuToggle');
   const nav=document.getElementById('mainNav');
