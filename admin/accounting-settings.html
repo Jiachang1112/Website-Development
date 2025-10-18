@@ -5,11 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>記帳設定｜SuperTool</title>
 
-  <!-- Favicon：若你的檔名不同，改這行 href -->
-  <link rel="icon" type="image/png" href="assets/img/supertool-favicon.png" />
-
-  <!-- 你的全站樣式 -->
-  <link rel="stylesheet" href="assets/css/style.css" />
+  <!-- Favicon / 全站樣式（注意：這份檔案位於 admin/，所以要 ../assets/...） -->
+  <link rel="icon" type="image/png" href="../assets/img/supertool-favicon.png" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 
   <style>
@@ -87,6 +85,7 @@
     .side-menu a{
       display:block; padding:10px 12px; border-radius:8px; color:#e5e7eb; text-decoration:none;
       background: rgba(255,255,255,.04);
+      transition: background .25s;
     }
     .side-menu a:hover{ background: rgba(255,255,255,.08); }
     .side-menu a.active{ background:#2563eb; color:#fff; }
@@ -106,7 +105,6 @@
     }
     .content-card .muted{ color:#cbd5e1; }
 
-    /* ───────── 你原本頁面要放內容的位置（右側） ───────── */
     .page-slot{ display:grid; gap:16px; }
 
     /* 隱藏：上方那一整排快速按鈕（已移除，不再使用） */
@@ -118,7 +116,7 @@
   <!-- 頂部導覽 -->
   <header class="top">
     <a class="brand" href="../index.html#dashboard">
-      <img src="assets/img/supertool-favicon.png" alt="logo">
+      <img src="../assets/img/supertool-favicon.png" alt="SuperTool">
       <span>SuperTool</span>
     </a>
 
@@ -129,15 +127,15 @@
     <nav class="nav" id="mainNav">
       <button onclick="location.href='../index.html#dashboard'">首頁</button>
       <button onclick="location.href='../index.html#auth'">帳號</button>
-      <button onclick="location.href='https://jiachang1112.github.io/Website-Development/book.html'">記帳</button>
-      <button onclick="location.href='https://jiachang1112.github.io/Website-Development/admin/accounting-settings.html#ledgers'">我的</button>
+      <button onclick="location.href='../book.html'">記帳</button>
+      <button onclick="location.href='./accounting-settings.html#ledgers'">我的</button>
       <button onclick="location.href='../index.html#acct_detail'">明細</button>
       <button onclick="location.href='../index.html#acct_analysis'">分析</button>
-      <button onclick="location.href='https://jiachang1112.github.io/Website-Development/cart-demo.html'">購物</button>
+      <button onclick="location.href='../cart-demo.html'">購物</button>
       <button onclick="location.href='../index.html#admin'">後台</button>
       <button onclick="location.href='../index.html#settings'">設定</button>
       <button onclick="location.href='../index.html#backup'">備份</button>
-      <button class="btn btn-primary" onclick="location.href='https://jiachang1112.github.io/Website-Development/stock/stocks.html'">股票</button>
+      <button class="btn btn-primary" onclick="location.href='../stock/stocks.html'">股票</button>
       <button class="btn btn-outline-light" onclick="alert('聯絡我們：之後可串接表單')">聯絡我們</button>
     </nav>
   </header>
@@ -161,23 +159,19 @@
 
       <!-- 右側內容 -->
       <main class="page-slot">
-        <!-- 這張是主要內容卡片：你可以把原本的設定表單/區塊放進來 -->
         <section class="content-card">
           <h2>聊天設定</h2>
           <p class="muted">設定專屬角色、記帳指令（示意）。</p>
-
-          <!-- 下面放你的實際內容。若你是用 SPA/JS 注入，這個容器給你掛載 -->
-          <div id="app">
-            <!-- 你的 JS 會在這裡渲染（assets/js/pages/accounting-settings.js） -->
-          </div>
+          <!-- 你的 JS 會在這裡渲染（accounting-settings.js） -->
+          <div id="app"></div>
         </section>
       </main>
 
     </div>
   </div>
 
-  <!-- 你的頁面腳本（保留） -->
-  <script type="module" src="assets/js/pages/accounting-settings.js"></script>
+  <!-- 你的頁面腳本（注意：相對路徑 ../assets/...） -->
+  <script type="module" src="../assets/js/pages/accounting-settings.js"></script>
 
   <script>
     // 手機：漢堡開關
