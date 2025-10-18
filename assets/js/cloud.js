@@ -1,3 +1,23 @@
+// cloud.js
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
-export function cloudReady(){ return !!(SUPABASE_URL && SUPABASE_ANON_KEY); }
-export async function cloudOCR(dataUrl, lang='auto'){ const url = `${SUPABASE_URL}/functions/v1/ocr-receipt`; const body={ imageBase64:(dataUrl||'').replace(/^data:image\/\w+;base64,/,''), lang }; const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`,'apikey':SUPABASE_ANON_KEY}, body:JSON.stringify(body)}); if(!res.ok){ throw new Error('Cloud OCR failed'); } return await res.json(); }
+
+export function cloudReady() {
+  return !!SUPABASE_URL;               // 只檢查 URL
+}
+
+export async function cloudOCR(imageBase64, language = 'eng') {
+  if (!cloudReady()) throw new Error('Supabase 未設定');
+
+  const headers = {};
+  if (SUPABASE_ANON_KEY) headers['Authorization'] = `Bearer ${SUPABASE_ANON_KEY}`; // 有就帶
+
+  const res = await fetch(SUPABASE_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ imageBase64, language }),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error || '雲端 OCR 失敗');
+  return json; // { text: "...", ... }
+}
