@@ -1,129 +1,506 @@
-<!doctype html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>記帳設定｜SuperTool</title>
+// assets/js/pages/accounting-settings.js
+// 設定頁（帳本/預算/類型/貨幣、聊天設定、匯入/匯出、每日提醒）
 
-  <!-- 你的 favicon（請把圖片放在 assets/img/app-favicon.png） -->
-  <link rel="icon" type="image/png" href="../assets/img/app-favicon.png">
+import { auth, db } from '../firebase.js';
+import {
+  doc, getDoc, setDoc, updateDoc, serverTimestamp,
+  collection, addDoc, deleteDoc, onSnapshot, query, orderBy, getDocs
+} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-  <!-- 共用樣式（保留你的原有 CSS） -->
-  <link rel="stylesheet" href="../assets/css/style.css" />
-  <link rel="manifest" href="../manifest.json" />
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+// 小工具
+const $  = (s, r=document)=>r.querySelector(s);
+const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
+const toast = (m)=>alert(m);
 
-  <style>
-    /* ===== 頂部導覽（沿用首頁風格） ===== */
-    .top{
-      background: var(--panel-dark, #17202a);
-      color:#fff;
-      padding:.6rem 1rem;
-      display:flex; align-items:center; justify-content:space-between;
-      border-bottom:1px solid var(--border-dark, #2b313a);
-      position:sticky; top:0; z-index:20;
-    }
-    .brand{ color:inherit; text-decoration:none; font-weight:700; font-size:20px; display:flex; align-items:center; gap:10px; }
-    .brand img{ height:36px; }
-    .nav button{ margin-right:.4rem; }
-    .nav .gap{ display:inline-block; width:10px; }
+// 根元素（請在 admin/設定 頁，放一個<div id="app">）
+const mount = $('#app') || document.body;
 
-    /* ===== 背景漸層（與首頁一致） ===== */
-    .gradient-wrap{
-      background: linear-gradient(135deg,
-        #1e3a8a 0%,
-        #2563eb 20%,
-        #7e22ce 40%,
-        #db2777 60%,
-        #f97316 80%,
-        #fde047 100%
-      );
-      background-size:300% 300%;
-      animation: gradientShift 10s ease-in-out infinite;
-      min-height:calc(100vh - 64px);
-      padding-bottom:64px;
-    }
-    @keyframes gradientShift{
-      0%{ background-position:0% 50% } 50%{ background-position:100% 50% } 100%{ background-position:0% 50% }
-    }
-    /* 讓內容卡片有立體感（不動你的 DOM 結構） */
-    .gradient-wrap .card{ box-shadow:0 3px 12px rgba(0,0,0,.35); border-radius:14px; }
+// ========== 畫面骨架 ==========
+function renderShell(){
+  const el = document.createElement('div');
+  el.className = 'container py-4';
+  el.innerHTML = `
+  <h3 class="mb-3">記帳設定</h3>
 
-    /* ===== 手機漢堡 ===== */
-    .hamburger{
-      display:none; position:relative; width:40px; height:34px;
-      border:1px solid var(--border-dark, #2b313a); border-radius:8px; background:#111722; cursor:pointer; margin-left:8px;
-    }
-    .hamburger span{ display:block; height:4px; margin:5px 7px; background:#fff; border-radius:999px; transition:transform .25s, opacity .2s; }
-    .hamburger.active span:nth-child(1){ transform:translateY(9px) rotate(45deg); }
-    .hamburger.active span:nth-child(2){ opacity:0; }
-    .hamburger.active span:nth-child(3){ transform:translateY(-9px) rotate(-45deg); }
-    @media (max-width:768px){
-      .hamburger{ display:inline-block; }
-      .top .nav{ display:none; position:absolute; left:0; right:0; top:100%;
-        background:var(--panel-dark, #17202a); border-top:1px solid var(--border-dark, #2b313a); padding:12px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
-      .top .nav.open{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
-      .top .nav.open .gap{ display:none; }
-      .top .nav.open button{ width:100%; justify-content:center; border-radius:10px; }
-    }
-  </style>
-</head>
-<body>
+  <ul class="nav nav-tabs" id="setTabs" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-ledger" type="button">記帳設定</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-chat" type="button">聊天設定</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-general" type="button">一般設定</button></li>
+  </ul>
 
-<!-- ===== 導覽列 ===== -->
-<header class="top">
-  <a href="../index.html#dashboard" class="brand">
-    <img src="../assets/img/supertool-logo.png" alt="SuperTool">
-    <span>SuperTool</span>
-  </a>
+  <div class="tab-content border border-top-0 rounded-bottom p-3">
+    <!-- 記帳設定 -->
+    <div class="tab-pane fade show active" id="tab-ledger">
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card">
+            <div class="card-header">管理帳本</div>
+            <div class="card-body">
+              <div class="mb-2 d-flex gap-2">
+                <input id="newLedgerName" class="form-control" placeholder="帳本名稱（例如：個人）">
+                <button id="addLedger" class="btn btn-primary">新增</button>
+              </div>
+              <div id="ledgerList" class="list-group small"></div>
+            </div>
+          </div>
+        </div>
 
-  <!-- 手機版漢堡 -->
-  <button id="menuToggle" class="hamburger" aria-label="開啟選單" aria-controls="mainNav" aria-expanded="false">
-    <span></span><span></span><span></span>
-  </button>
+        <div class="col-lg-6">
+          <div class="card mb-3">
+            <div class="card-header">管理類型（目前帳本）</div>
+            <div class="card-body">
+              <div class="mb-2 d-flex gap-2">
+                <select id="catType" class="form-select" style="max-width:140px">
+                  <option value="expense">支出</option>
+                  <option value="income">收入</option>
+                </select>
+                <input id="newCatName" class="form-control" placeholder="新增類型名稱…">
+                <button id="addCat" class="btn btn-outline-primary">新增</button>
+              </div>
+              <div id="catList" class="list-group small"></div>
+            </div>
+          </div>
 
-  <nav class="nav" id="mainNav">
-    <button onclick="location.href='../index.html#dashboard'">首頁</button>
-    <button onclick="location.href='../index.html#auth'">帳號</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/book.html'">記帳</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/admin/accounting-settings.html#ledgers'">我的</button>
-    <button onclick="location.href='../index.html#acct_detail'">明細</button>
-    <button onclick="location.href='../index.html#acct_analysis'">分析</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/cart-demo.html'">購物</button>
-    <button onclick="location.href='../index.html#admin'">後台</button>
-    <button onclick="location.href='../index.html#settings'">設定</button>
-    <button onclick="location.href='../index.html#backup'">備份</button>
-    <button class="btn btn-primary" onclick="location.href='https://jiachang1112.github.io/Website-Development/stock/stocks.html'">股票</button>
-    <span class="gap"></span>
-    <button class="btn btn-outline-light" onclick="location.href='../index.html#contact'">聯絡我們</button>
-  </nav>
-</header>
+          <div class="card">
+            <div class="card-header">管理預算（目前帳本）</div>
+            <div class="card-body">
+              <div class="row g-2 mb-2">
+                <div class="col-md-4"><input id="budgetName" class="form-control" placeholder="名稱（如10月餐飲）"></div>
+                <div class="col-md-3"><input id="budgetAmount" type="number" class="form-control" placeholder="金額"></div>
+                <div class="col-md-5 d-flex gap-2">
+                  <input id="budgetStart" type="date" class="form-control">
+                  <input id="budgetEnd" type="date" class="form-control">
+                  <button id="addBudget" class="btn btn-outline-primary">新增</button>
+                </div>
+              </div>
+              <div id="budgetList" class="list-group small"></div>
+            </div>
+          </div>
+        </div>
 
-<!-- ===== 與首頁一致的漸層包住內容 ===== -->
-<div class="gradient-wrap">
-  <!-- 這裡交給你的 JS 動態渲染（原本邏輯不變） -->
-  <main id="app" class="container py-4"></main>
-</div>
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">管理貨幣（目前帳本）</div>
+            <div class="card-body">
+              <div class="row g-2 align-items-center mb-2">
+                <div class="col-auto">主貨幣：</div>
+                <div class="col-auto"><input id="baseCurrency" class="form-control" style="width:120px" placeholder="TWD"></div>
+                <div class="col-auto"><button id="saveBaseCurrency" class="btn btn-outline-secondary">儲存</button></div>
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col-md-3"><input id="rateCode" class="form-control" placeholder="幣別（USD）"></div>
+                <div class="col-md-3"><input id="rateValue" class="form-control" placeholder="對主幣匯率（如 32.1）"></div>
+                <div class="col-md-2"><button id="addRate" class="btn btn-outline-primary">新增匯率</button></div>
+              </div>
+              <div id="rateList" class="list-group small"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-<!-- 手機漢堡行為（只負責開關，不碰你的業務邏輯） -->
-<script>
-  (function(){
-    const toggle = document.getElementById('menuToggle');
-    const nav = document.getElementById('mainNav');
-    if(!toggle || !nav) return;
-    const mq = window.matchMedia('(max-width:768px)');
-    function closeMenu(){ nav.classList.remove('open'); toggle.classList.remove('active'); toggle.setAttribute('aria-expanded','false'); }
-    toggle.addEventListener('click', ()=>{
-      const opened = nav.classList.toggle('open');
-      toggle.classList.toggle('active', opened);
-      toggle.setAttribute('aria-expanded', opened ? 'true' : 'false');
+    <!-- 聊天設定 -->
+    <div class="tab-pane fade" id="tab-chat">
+      <div class="card">
+        <div class="card-header">專屬角色與指令</div>
+        <div class="card-body">
+          <div class="row g-2 mb-3">
+            <div class="col-md-4">
+              <label class="form-label">角色（Persona）</label>
+              <select id="persona" class="form-select">
+                <option value="minimal_accountant">極簡會計師（精簡、重點）</option>
+                <option value="friendly_helper">溫暖助手（鼓勵、貼心）</option>
+                <option value="strict_coach">節制教練（嚴謹、控管）</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">自定義描述（可留白）</label>
+              <textarea id="personaCustom" class="form-control" rows="3" placeholder="描述語氣、風格、輸出格式重點…"></textarea>
+            </div>
+          </div>
+          <div class="form-check form-switch mb-3">
+            <input id="cmdEnabled" class="form-check-input" type="checkbox">
+            <label class="form-check-label" for="cmdEnabled">啟用記帳快速指令（/add /sum /budget…）</label>
+          </div>
+          <button id="saveChat" class="btn btn-primary">儲存聊天設定</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 一般設定 -->
+    <div class="tab-pane fade" id="tab-general">
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card">
+            <div class="card-header">每日提醒</div>
+            <div class="card-body">
+              <div class="form-check form-switch mb-2">
+                <input id="remindEnable" class="form-check-input" type="checkbox">
+                <label class="form-check-label" for="remindEnable">啟用每日提醒</label>
+              </div>
+              <div class="d-flex gap-2">
+                <input id="remindTime" type="time" class="form-control" style="max-width:160px" value="21:00">
+                <button id="saveRemind" class="btn btn-outline-primary">儲存</button>
+              </div>
+              <div class="text-muted small mt-2">（前端提醒版：使用者回到網頁會提示；之後可升級成 Cloud Functions/FCM 推播）</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-6">
+          <div class="card">
+            <div class="card-header">匯入 / 匯出</div>
+            <div class="card-body">
+              <div class="mb-2">
+                <button id="exportJson" class="btn btn-outline-secondary me-2">匯出 JSON（目前帳本）</button>
+                <input id="importFile" type="file" accept=".json,.csv" class="form-control" style="max-width:320px;display:inline-block">
+                <button id="importBtn" class="btn btn-outline-primary ms-2">匯入</button>
+              </div>
+              <div class="text-muted small">建議先匯出一次查看格式；匯入支援 JSON（完整資料）與簡易 CSV。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>`;
+  return el;
+}
+
+// ========== 狀態 ==========
+let UID = null;
+let currentLedgerId = null;
+
+// 取得使用者 settings 文檔
+async function getUserDoc(){
+  const ref = doc(db, 'users', UID);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) await setDoc(ref, { createdAt: serverTimestamp() }, { merge: true });
+  return (await getDoc(ref)).data() || {};
+}
+
+// ========== 帳本 CRUD ==========
+async function addLedger(name){
+  const ref = collection(db, 'users', UID, 'ledgers');
+  await addDoc(ref, { name, currency: 'TWD', members: { [UID]: 'owner' }, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+}
+async function listLedgers(){
+  const listEl = $('#ledgerList', mount);
+  listEl.innerHTML = '<div class="list-group-item">載入中…</div>';
+
+  const q = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt','desc'));
+  const snap = await getDocs(q);
+  if (snap.empty){ listEl.innerHTML = '<div class="list-group-item text-muted">尚無帳本</div>'; return; }
+
+  listEl.innerHTML = '';
+  snap.forEach(d=>{
+    const v = d.data();
+    const row = document.createElement('button');
+    row.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+    row.innerHTML = `
+      <div>
+        <div class="fw-bold">${v.name || '(未命名)'}</div>
+        <div class="text-muted small">主貨幣：${v.currency || 'TWD'}　ID：${d.id}</div>
+      </div>
+      <div>
+        <button data-id="${d.id}" class="btn btn-sm btn-outline-secondary me-2 pick-ledger">使用</button>
+        <button data-id="${d.id}" class="btn btn-sm btn-outline-danger del-ledger">刪除</button>
+      </div>`;
+    listEl.appendChild(row);
+  });
+
+  // 事件
+  $$('.pick-ledger', listEl).forEach(b=>{
+    b.onclick = ()=>{ currentLedgerId = b.dataset.id; toast(`已切換帳本：${currentLedgerId}`); refreshForLedger(); };
+  });
+  $$('.del-ledger', listEl).forEach(b=>{
+    b.onclick = async ()=>{
+      if (!confirm('確定要刪除此帳本與其資料？')) return;
+      await deleteDoc(doc(db, 'users', UID, 'ledgers', b.dataset.id));
+      toast('已刪除帳本'); listLedgers();
+    };
+  });
+}
+
+// ========== 類別 ==========
+async function addCategory(type, name){
+  if (!currentLedgerId) return toast('請先選帳本');
+  await addDoc(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'categories'), {
+    name, type, order: Date.now(), color: '#60a5fa', parentId: null,
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+  });
+}
+async function listCategories(){
+  const el = $('#catList', mount);
+  if (!currentLedgerId){ el.innerHTML = '<div class="list-group-item">尚未選擇帳本</div>'; return; }
+  el.innerHTML = '載入中…';
+  const type = $('#catType', mount).value;
+
+  const q = query(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'categories'), orderBy('order','asc'));
+  const snap = await getDocs(q);
+
+  const rows = [];
+  snap.forEach(d=>{
+    const v = d.data(); if (v.type !== type) return;
+    rows.push(`<div class="list-group-item d-flex justify-content-between align-items-center">
+      <div><span class="badge me-2" style="background:${v.color||'#ccc'}">&nbsp;</span>${v.name}</div>
+      <button class="btn btn-sm btn-outline-danger" data-id="${d.id}">刪除</button>
+    </div>`);
+  });
+  el.innerHTML = rows.join('') || '<div class="list-group-item text-muted">尚無類型</div>';
+
+  $$('button[data-id]', el).forEach(b=>{
+    b.onclick = async ()=>{ await deleteDoc(doc(db,'users', UID, 'ledgers', currentLedgerId, 'categories', b.dataset.id)); listCategories(); };
+  });
+}
+
+// ========== 預算 ==========
+async function addBudget({ name, amount, start, end }){
+  if (!currentLedgerId) return toast('請先選帳本');
+  await addDoc(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'budgets'), {
+    name, amount: Number(amount)||0, period: 'custom',
+    startAt: new Date(start+'T00:00:00'), endAt: new Date(end+'T23:59:59'),
+    currency: 'TWD', rollover: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+  });
+}
+async function listBudgets(){
+  const el = $('#budgetList', mount);
+  if (!currentLedgerId){ el.innerHTML = '<div class="list-group-item">尚未選擇帳本</div>'; return; }
+  el.innerHTML = '載入中…';
+  const q = query(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'budgets'), orderBy('createdAt','desc'));
+  const snap = await getDocs(q);
+
+  const rows = [];
+  snap.forEach(d=>{
+    const v = d.data();
+    const s = (v.startAt?.toDate?.() || new Date(v.startAt)).toISOString().slice(0,10);
+    const e = (v.endAt?.toDate?.() || new Date(v.endAt)).toISOString().slice(0,10);
+    rows.push(`<div class="list-group-item d-flex justify-content-between align-items-center">
+      <div><b>${v.name}</b>｜金額 ${v.amount}｜${s} ~ ${e}</div>
+      <button class="btn btn-sm btn-outline-danger" data-id="${d.id}">刪除</button>
+    </div>`);
+  });
+  el.innerHTML = rows.join('') || '<div class="list-group-item text-muted">尚無預算</div>';
+
+  $$('button[data-id]', el).forEach(b=>{
+    b.onclick = async ()=>{ await deleteDoc(doc(db,'users', UID, 'ledgers', currentLedgerId, 'budgets', b.dataset.id)); listBudgets(); };
+  });
+}
+
+// ========== 貨幣 ==========
+async function saveBaseCurrency(code){
+  if (!currentLedgerId) return toast('請先選帳本');
+  await updateDoc(doc(db,'users', UID, 'ledgers', currentLedgerId), { currency: code, updatedAt: serverTimestamp() });
+  toast('主貨幣已更新');
+}
+async function addRate(code, value){
+  if (!currentLedgerId) return toast('請先選帳本');
+  const userRef = doc(db, 'users', UID);
+  const snap = await getDoc(userRef);
+  const settings = snap.data()?.settings || {};
+  const rates = settings.currencies?.rates || {};
+  rates[code.toUpperCase()] = Number(value)||0;
+
+  await updateDoc(userRef, {
+    'settings.currencies.base': $('#baseCurrency', mount).value || 'TWD',
+    'settings.currencies.rates': rates,
+    updatedAt: serverTimestamp()
+  });
+  listRates();
+}
+async function listRates(){
+  const list = $('#rateList', mount);
+  const user = await getUserDoc();
+  const rates = user.settings?.currencies?.rates || {};
+  const rows = Object.keys(rates).map(k=>`
+    <div class="list-group-item d-flex justify-content-between align-items-center">
+      <div>${k} → ${rates[k]}</div>
+      <button class="btn btn-sm btn-outline-danger" data-k="${k}">刪除</button>
+    </div>
+  `);
+  list.innerHTML = rows.join('') || '<div class="list-group-item text-muted">尚無匯率</div>';
+  $$('button[data-k]', list).forEach(b=>{
+    b.onclick = async ()=>{
+      const userRef = doc(db,'users', UID);
+      const snap = await getDoc(userRef);
+      const cur = snap.data()?.settings?.currencies || {};
+      if (cur.rates) delete cur.rates[b.dataset.k];
+      await updateDoc(userRef, { 'settings.currencies': cur, updatedAt: serverTimestamp() });
+      listRates();
+    };
+  });
+
+  // 也把 base 帶回 input
+  $('#baseCurrency', mount).value = user.settings?.currencies?.base || 'TWD';
+}
+
+// ========== 聊天設定 ==========
+async function loadChat(){
+  const u = await getUserDoc();
+  const chat = u.settings?.chat || {};
+  $('#persona', mount).value = chat.persona || 'minimal_accountant';
+  $('#personaCustom', mount).value = chat.custom || '';
+  $('#cmdEnabled', mount).checked = !!chat.commandsEnabled;
+}
+async function saveChat(){
+  await updateDoc(doc(db,'users', UID), {
+    'settings.chat': {
+      persona: $('#persona', mount).value,
+      custom: $('#personaCustom', mount).value,
+      commandsEnabled: $('#cmdEnabled', mount).checked
+    },
+    updatedAt: serverTimestamp()
+  });
+  toast('已儲存聊天設定');
+}
+
+// ========== 一般設定：每日提醒、匯入/匯出 ==========
+async function loadGeneral(){
+  const u = await getUserDoc();
+  $('#remindEnable', mount).checked = !!u.settings?.general?.reminderEnabled;
+  $('#remindTime', mount).value   = u.settings?.general?.reminderTime || '21:00';
+}
+async function saveRemind(){
+  await updateDoc(doc(db,'users', UID), {
+    'settings.general': {
+      reminderEnabled: $('#remindEnable', mount).checked,
+      reminderTime: $('#remindTime', mount).value || '21:00'
+    },
+    updatedAt: serverTimestamp()
+  });
+  toast('已儲存每日提醒設定');
+}
+
+// 匯出目前帳本（JSON）
+async function exportJson(){
+  if (!currentLedgerId) return toast('請先選帳本');
+  // 拉帳本、類別、預算、entries
+  const pack = { ledgerId: currentLedgerId };
+
+  const getAll = async (sub)=>{
+    const q = query(collection(db,'users',UID,'ledgers',currentLedgerId, sub));
+    const snap = await getDocs(q);
+    return snap.docs.map(d=>({ id:d.id, ...d.data() }));
+  };
+
+  pack.ledger   = (await getDoc(doc(db,'users',UID,'ledgers',currentLedgerId))).data();
+  pack.categories = await getAll('categories');
+  pack.budgets    = await getAll('budgets');
+  pack.entries    = await getAll('entries');
+
+  const blob = new Blob([JSON.stringify(pack,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `ledger-${currentLedgerId}.json`; a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+// 匯入（簡版：只支援 JSON pack）
+async function importFile(files){
+  if (!files?.length) return;
+  const file = files[0];
+  const text = await file.text();
+  let json;
+  try{ json = JSON.parse(text); }catch{ return toast('不是有效的 JSON'); }
+  if (!currentLedgerId) { return toast('請先選帳本後再匯入'); }
+
+  // 類別
+  for (const c of (json.categories || [])){
+    await setDoc(doc(collection(db,'users',UID,'ledgers',currentLedgerId,'categories')), {
+      ...c, id: undefined, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
     });
-    window.addEventListener('resize', ()=>{ if(!mq.matches) closeMenu(); });
-    document.addEventListener('click', (e)=>{ if(!mq.matches) return; if(e.target===toggle||toggle.contains(e.target)) return; if(!nav.contains(e.target)) closeMenu(); });
-  })();
-</script>
+  }
+  // 預算
+  for (const b of (json.budgets || [])){
+    await setDoc(doc(collection(db,'users',UID,'ledgers',currentLedgerId,'budgets')), {
+      ...b, id: undefined, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    });
+  }
+  // 交易
+  for (const e of (json.entries || [])){
+    await setDoc(doc(collection(db,'users',UID,'ledgers',currentLedgerId,'entries')), {
+      ...e, id: undefined, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    });
+  }
+  toast('匯入完成');
+  refreshForLedger();
+}
 
-<!-- 掛上你原本的頁面腳本（完全不動） -->
-<script type="module" src="../assets/js/pages/accounting-settings.js"></script>
-</body>
-</html>
+// ========== 依帳本刷新區塊 ==========
+async function refreshForLedger(){
+  await listCategories();
+  await listBudgets();
+  await listRates();
+}
+
+// ========== 啟動 ==========
+(async function init(){
+  // 登入就緒
+  const unsub = auth.onAuthStateChanged(async (user)=>{
+    if (!user){ mount.innerHTML = '<div class="p-4">請先登入</div>'; return; }
+    UID = user.uid;
+
+    // 畫面
+    const shell = renderShell();
+    mount.replaceChildren(shell);
+
+    // 載入清單
+    await listLedgers();
+    await loadChat();
+    await loadGeneral();
+
+    // 事件：帳本
+    $('#addLedger', mount).onclick = async ()=>{
+      const name = $('#newLedgerName', mount).value.trim();
+      if (!name) return;
+      await addLedger(name);
+      $('#newLedgerName', mount).value = '';
+      listLedgers();
+    };
+
+    // 事件：類別
+    $('#addCat', mount).onclick = async ()=>{
+      const type = $('#catType', mount).value;
+      const name = $('#newCatName', mount).value.trim();
+      if (!name) return;
+      await addCategory(type, name);
+      $('#newCatName', mount).value = '';
+      listCategories();
+    };
+    $('#catType', mount).onchange = listCategories;
+
+    // 事件：預算
+    $('#addBudget', mount).onclick = async ()=>{
+      const name = $('#budgetName', mount).value.trim();
+      const amount = $('#budgetAmount', mount).value;
+      const start = $('#budgetStart', mount).value;
+      const end   = $('#budgetEnd', mount).value;
+      if (!name || !amount || !start || !end) return toast('請完整填寫');
+      await addBudget({ name, amount, start, end });
+      $('#budgetName', mount).value = ''; $('#budgetAmount', mount).value = '';
+      $('#budgetStart', mount).value = ''; $('#budgetEnd', mount).value = '';
+      listBudgets();
+    };
+
+    // 事件：貨幣
+    $('#saveBaseCurrency', mount).onclick = async ()=>{
+      const code = ($('#baseCurrency', mount).value || 'TWD').toUpperCase();
+      await saveBaseCurrency(code);
+      listLedgers(); // 讓帳本卡片也更新
+    };
+    $('#addRate', mount).onclick = async ()=>{
+      const code = $('#rateCode', mount).value.trim();
+      const val  = $('#rateValue', mount).value;
+      if (!code || !val) return;
+      await addRate(code, val);
+      $('#rateCode', mount).value = ''; $('#rateValue', mount).value = '';
+    };
+
+    // 事件：聊天
+    $('#saveChat', mount).onclick = saveChat;
+
+    // 事件：一般設定
+    $('#saveRemind', mount).onclick = saveRemind;
+    $('#exportJson', mount).onclick = exportJson;
+    $('#importBtn', mount).onclick = ()=> importFile($('#importFile', mount).files);
+  });
+})();
