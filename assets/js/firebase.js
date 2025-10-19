@@ -16,7 +16,6 @@ export const app  = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db   = getFirestore(app);
 
-export { auth, db };
 // 🚫 不要在這裡寫任何 onAuthStateChanged 去記錄登入！
 // 登入紀錄一律交給 assets/js/pages/auth.js 的 handleCredentialResponse 處理。
 
