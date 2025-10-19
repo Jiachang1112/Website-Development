@@ -6,6 +6,7 @@ import {
   doc, getDoc, setDoc, updateDoc, serverTimestamp,
   collection, addDoc, deleteDoc, query, orderBy, getDocs
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
 // 小工具
 const $  = (s, r=document)=>r.querySelector(s);
@@ -16,7 +17,7 @@ const toast = (m)=>alert(m);
 const mount = $('#app') || document.body;
 
 /* ==============================
-   畫面骨架（保持原有三個分頁群）
+   畫面骨架
    ============================== */
 function renderShell(){
   const el = document.createElement('div');
@@ -24,7 +25,6 @@ function renderShell(){
   el.innerHTML = `
   <div class="row g-0">
     <div class="col-12">
-      <!-- 頁面所有內容容器：各分頁內容會動態塞進來 -->
       <div id="pageHost"></div>
     </div>
   </div>`;
@@ -69,50 +69,66 @@ function renderLedgersView(){
 
 /* Firestore：新增帳本（若是第一本 → 設成預設） */
 async function addLedger(name){
-  const ref = collection(db, 'users', UID, 'ledgers');
+  if (!UID) return toast('請先登入');
+  try{
+    const ref = collection(db, 'users', UID, 'ledgers');
+    // 檢查是否第一本
+    const qy = query(ref, orderBy('createdAt','asc'));
+    const snap = await getDocs(qy);
+    const isFirst = snap.empty;
 
-  // 檢查是否第一本
-  const q = query(ref, orderBy('createdAt','asc'));
-  const snap = await getDocs(q);
-  const isFirst = snap.empty;
-
-  await addDoc(ref, {
-    name,
-    currency: 'TWD',
-    members: { [UID]: 'owner' },
-    isDefault: isFirst ? true : false,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
+    await addDoc(ref, {
+      name,
+      currency: 'TWD',
+      members: { [UID]: 'owner' },
+      isDefault: isFirst ? true : false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  }catch(e){
+    console.error(e); toast('新增帳本失敗，請稍後再試');
+  }
 }
 
 /* Firestore：列出帳本並渲染卡片 */
 async function listLedgers(){
   const grid = $('#ledgerGrid', mount);
   if(!grid) return;
+  if(!UID){ grid.innerHTML = '<div class="muted">請先登入帳號</div>'; return; }
   grid.innerHTML = '<div class="muted">載入中…</div>';
 
-  const q = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt','asc'));
-  const snap = await getDocs(q);
+  try{
+    const qy = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt','asc'));
+    const snap = await getDocs(qy);
 
-  // 若沒有任何帳本 → 自動建立「預設帳本」
-  if (snap.empty){
-    await addLedger('預設帳本');
-    return listLedgers();
+    // 若沒有任何帳本 → 自動建立「預設帳本」
+    if (snap.empty){
+      await addLedger('預設帳本');
+      const snap2 = await getDocs(qy);
+      if (snap2.empty){
+        grid.innerHTML = '<div class="muted">建立預設帳本失敗，請重新整理</div>';
+        return;
+      }
+      renderLedgerCards(snap2);
+      return;
+    }
+
+    renderLedgerCards(snap);
+  }catch(e){
+    console.error(e);
+    grid.innerHTML = '<div class="muted">讀取失敗</div>';
   }
+}
 
+function renderLedgerCards(snap){
+  const grid = $('#ledgerGrid', mount);
   const cards = [];
   snap.forEach(d=>{
     const v = d.data();
     cards.push(ledgerCardTpl({ id:d.id, ...v }));
   });
-
-  // 追加一張「新增帳本」卡
   cards.push(addCardTpl());
-
   grid.innerHTML = cards.join('');
-
-  // 綁定事件：重新命名 / 刪除 / 新增
   bindLedgerCardEvents(grid);
 }
 
@@ -182,10 +198,14 @@ function bindLedgerCardEvents(grid){
       wrap.querySelector('.btn-save').onclick = async ()=>{
         const val = wrap.querySelector('input').value.trim();
         if(!val) return toast('請輸入帳本名稱');
-        await updateDoc(doc(db,'users',UID,'ledgers',id), {
-          name: val, updatedAt: serverTimestamp()
-        });
-        listLedgers();
+        try{
+          await updateDoc(doc(db,'users',UID,'ledgers',id), {
+            name: val, updatedAt: serverTimestamp()
+          });
+          listLedgers();
+        }catch(e){
+          console.error(e); toast('更新失敗');
+        }
       };
     });
   });
@@ -216,34 +236,35 @@ async function tryDeleteByCard(card){
   if(!card) return;
   const id = card.dataset.id;
 
-  // 找出是否預設帳本
-  const ref = doc(db,'users',UID,'ledgers',id);
-  const data = (await getDoc(ref)).data();
-  const isDefault = !!data?.isDefault;
+  try{
+    // 找出是否預設帳本
+    const ref = doc(db,'users',UID,'ledgers',id);
+    const data = (await getDoc(ref)).data();
+    const isDefault = !!data?.isDefault;
 
-  if(!confirm(`確定刪除「${data?.name||'未命名'}」？`)) return;
+    if(!confirm(`確定刪除「${data?.name||'未命名'}」？`)) return;
 
-  // 先刪
-  await deleteDoc(ref);
+    // 先刪
+    await deleteDoc(ref);
 
-  // 如果刪到預設帳本 → 指派最早的一本為預設
-  if(isDefault){
-    const q = query(collection(db,'users',UID,'ledgers'), orderBy('createdAt','asc'));
-    const snap = await getDocs(q);
-    if(!snap.empty){
-      const first = snap.docs[0];
-      await updateDoc(doc(db,'users',UID,'ledgers', first.id), { isDefault:true, updatedAt: serverTimestamp() });
+    // 如果刪到預設帳本 → 指派最早的一本為預設
+    if(isDefault){
+      const qy = query(collection(db,'users',UID,'ledgers'), orderBy('createdAt','asc'));
+      const snap = await getDocs(qy);
+      if(!snap.empty){
+        const first = snap.docs[0];
+        await updateDoc(doc(db,'users',UID,'ledgers', first.id), { isDefault:true, updatedAt: serverTimestamp() });
+      }
     }
+    listLedgers();
+  }catch(e){
+    console.error(e); toast('刪除失敗');
   }
-  listLedgers();
 }
 
 /* ==============================
-   其他原功能：分類 / 預算 / 貨幣 / 聊天 / 一般
-   （維持你原本的實作，只把「帳本」那段換成卡片版）
+   其他原功能：分類 / 預算 / 貨幣 / 聊天 / 一般（保留）
    ============================== */
-
-/* 類別 */
 async function addCategory(type, name){
   if (!currentLedgerId) return toast('請先選帳本');
   await addDoc(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'categories'), {
@@ -256,11 +277,10 @@ async function listCategories(){
   el.className = 'content-card';
   el.innerHTML = `
     <h2>管理類型</h2>
-    <div class="muted">請在這裡維持你原本的類型管理 UI（程式未變更）。</div>`;
+    <div class="muted">（保留原本的類型管理 UI 掛載點）</div>`;
   $('#pageHost', mount).replaceChildren(el);
 }
 
-/* 預算 */
 async function addBudget({ name, amount, start, end }){
   if (!currentLedgerId) return toast('請先選帳本');
   await addDoc(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'budgets'), {
@@ -274,11 +294,10 @@ async function listBudgets(){
   el.className = 'content-card';
   el.innerHTML = `
     <h2>管理預算</h2>
-    <div class="muted">（保留原本的預算 UI；這裡僅示意掛載點）</div>`;
+    <div class="muted">（保留原本的預算 UI 掛載點）</div>`;
   $('#pageHost', mount).replaceChildren(el);
 }
 
-/* 匯率 */
 async function saveBaseCurrency(code){
   if (!currentLedgerId) return toast('請先選帳本');
   await updateDoc(doc(db,'users', UID, 'ledgers', currentLedgerId), { currency: code, updatedAt: serverTimestamp() });
@@ -304,27 +323,25 @@ async function listRates(){
   el.className = 'content-card';
   el.innerHTML = `
     <h2>管理貨幣</h2>
-    <div class="muted">（保留原本的貨幣 UI；這裡僅示意掛載點）</div>`;
+    <div class="muted">（保留原本的貨幣 UI 掛載點）</div>`;
   $('#pageHost', mount).replaceChildren(el);
 }
 
-/* 聊天設定 */
 async function loadChat(){
   const el = document.createElement('div');
   el.className = 'content-card';
   el.innerHTML = `
     <h2>聊天設定</h2>
-    <div class="muted">（保留原本聊天設定；這裡僅示意掛載點）</div>`;
+    <div class="muted">（保留原本聊天設定掛載點）</div>`;
   $('#pageHost', mount).replaceChildren(el);
 }
 
-/* 一般設定 */
 async function loadGeneral(){
   const el = document.createElement('div');
   el.className = 'content-card';
   el.innerHTML = `
     <h2>一般設定</h2>
-    <div class="muted">（保留原本一般設定；這裡僅示意掛載點）</div>`;
+    <div class="muted">（保留原本一般設定掛載點）</div>`;
   $('#pageHost', mount).replaceChildren(el);
 }
 
@@ -332,7 +349,6 @@ async function loadGeneral(){
    依帳本刷新：保留
    ============================== */
 async function refreshForLedger(){
-  // 你的原流程會在真正切帳本後呼叫
   await listRates();
 }
 
@@ -344,10 +360,16 @@ async function refreshForLedger(){
   const shell = renderShell();
   mount.replaceChildren(shell);
 
-  // 登入就緒（沿用你既有的 Auth 機制）
-  auth.onAuthStateChanged(async (user)=>{
+  // 先用 currentUser（已登入就立刻渲染）
+  if (auth.currentUser) {
+    UID = auth.currentUser.uid;
+    renderLedgersView();
+  }
+
+  // 標準監聽（避免有些瀏覽器載入時 currentUser 尚未就緒）
+  onAuthStateChanged(auth, (user)=>{
     if(!user){
-      // 沒登入就顯示最小訊息，但不阻擋其它頁簽切換
+      UID = null;
       $('#pageHost', mount).innerHTML = `
         <section class="content-card">
           <h2>管理帳本</h2>
@@ -356,22 +378,20 @@ async function refreshForLedger(){
       return;
     }
     UID = user.uid;
-
-    // 預設進入「管理帳本」
     renderLedgersView();
   });
 
-  /* 左側選單與 hash 對應（你的外層 HTML 已經處理 UI 高亮，這裡負責載入內容） */
+  // hash 路由（左側選單）
   function route(){
     const h = (location.hash||'').replace('#','') || 'ledgers';
     switch(h){
-      case 'ledgers':   renderLedgersView(); break;
-      case 'budget':    listBudgets(); break;
-      case 'currency':  listRates(); break;
-      case 'categories':listCategories(); break;
-      case 'chat':      loadChat(); break;
-      case 'general':   loadGeneral(); break;
-      default:          renderLedgersView(); break;
+      case 'ledgers':    renderLedgersView(); break;
+      case 'budget':     listBudgets(); break;
+      case 'currency':   listRates(); break;
+      case 'categories': listCategories(); break;
+      case 'chat':       loadChat(); break;
+      case 'general':    loadGeneral(); break;
+      default:           renderLedgersView(); break;
     }
   }
   window.addEventListener('hashchange', route);
@@ -386,3 +406,4 @@ function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function escapeHtmlAttr(s){ return escapeHtml(s).replace(/\n/g,' '); }
+
