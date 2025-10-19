@@ -10,7 +10,13 @@ import {
 // -------------------- 工具函式 --------------------
 const $ = (s, r=document)=>r.querySelector(s);
 const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
-const toast = (m)=>alert(m);
+const toast = (m)=>{
+  const div = document.createElement('div');
+  div.textContent = m;
+  div.style.cssText = 'position:fixed;top:20px;right:20px;background:#1f2937;color:#fff;padding:12px 20px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;animation:slideIn 0.3s;';
+  document.body.appendChild(div);
+  setTimeout(()=>div.remove(), 3000);
+};
 const mount = $('#app') || document.body;
 
 // ===============================
@@ -38,6 +44,7 @@ let currentLedgerId = null;
 // Firestore 共用工具
 // ===============================
 async function getUserDoc(){
+  if(!UID) return {};
   const ref = doc(db, 'users', UID);
   const snap = await getDoc(ref);
   if (!snap.exists()){
@@ -63,6 +70,8 @@ async function getDefaultLedger(){
 // ===============================
 function renderLedgersView(){
   const host = $('#pageHost', mount);
+  if(!host) return;
+  
   host.innerHTML = `
     <section class="content-card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">
@@ -209,6 +218,8 @@ async function tryDeleteByCard(card){
 // ===============================
 async function listBudgets(){ 
   const host = $('#pageHost', mount);
+  if(!host) return;
+  
   if(!UID){
     host.innerHTML = `<section class="content-card"><h2>管理預算</h2><div class="muted">請先登入</div></section>`;
     return;
@@ -266,6 +277,7 @@ async function listBudgets(){
     $('#budgetAmount', host).value = '';
     $('#budgetStart', host).value = '';
     $('#budgetEnd', host).value = '';
+    toast('預算已新增');
     loadBudgetList();
   });
 }
@@ -307,6 +319,7 @@ async function loadBudgetList(){
       const id = item.dataset.id;
       if(!confirm('確定刪除此預算？')) return;
       await deleteDoc(doc(db, 'users', UID, 'ledgers', currentLedgerId, 'budgets', id));
+      toast('預算已刪除');
       loadBudgetList();
     });
   });
@@ -317,6 +330,8 @@ async function loadBudgetList(){
 // ===============================
 async function listCategories(){ 
   const host = $('#pageHost', mount);
+  if(!host) return;
+  
   if(!UID){
     host.innerHTML = `<section class="content-card"><h2>管理類型</h2><div class="muted">請先登入</div></section>`;
     return;
@@ -360,19 +375,21 @@ async function listCategories(){
   
   loadCategoryList();
   
-  $('#btnAddExpense', host).addEventListener('click', async ()=>{
+  $('#btnAddExpense', host)?.addEventListener('click', async ()=>{
     const name = $('#expenseName', host).value.trim();
     if(!name) return toast('請輸入類型名稱');
     await addCategory('expense', name);
     $('#expenseName', host).value = '';
+    toast('支出類型已新增');
     loadCategoryList();
   });
   
-  $('#btnAddIncome', host).addEventListener('click', async ()=>{
+  $('#btnAddIncome', host)?.addEventListener('click', async ()=>{
     const name = $('#incomeName', host).value.trim();
     if(!name) return toast('請輸入類型名稱');
     await addCategory('income', name);
     $('#incomeName', host).value = '';
+    toast('收入類型已新增');
     loadCategoryList();
   });
 }
@@ -424,6 +441,7 @@ async function loadCategoryList(){
       const id = item.dataset.id;
       if(!confirm('確定刪除此類型？')) return;
       await deleteDoc(doc(db, 'users', UID, 'ledgers', currentLedgerId, 'categories', id));
+      toast('類型已刪除');
       loadCategoryList();
     });
   });
@@ -434,6 +452,8 @@ async function loadCategoryList(){
 // ===============================
 async function listRates(){ 
   const host = $('#pageHost', mount);
+  if(!host) return;
+  
   if(!UID){
     host.innerHTML = `<section class="content-card"><h2>管理貨幣</h2><div class="muted">請先登入</div></section>`;
     return;
@@ -459,7 +479,7 @@ async function listRates(){
   
   loadRateList();
   
-  $('#btnAddRate', host).addEventListener('click', async ()=>{
+  $('#btnAddRate', host)?.addEventListener('click', async ()=>{
     const code = $('#currencyCode', host).value.trim().toUpperCase();
     const rate = $('#currencyRate', host).value.trim();
     
@@ -480,6 +500,7 @@ async function listRates(){
     
     $('#currencyCode', host).value = '';
     $('#currencyRate', host).value = '';
+    toast('匯率已新增');
     loadRateList();
   });
 }
@@ -525,6 +546,7 @@ async function loadRateList(){
         'settings.currencies.rates': rates,
         updatedAt: serverTimestamp()
       });
+      toast('匯率已刪除');
       loadRateList();
     });
   });
@@ -534,17 +556,21 @@ async function loadRateList(){
 // 其他功能保留
 // ===============================
 async function loadChat(){ 
+  const host = $('#pageHost', mount);
+  if(!host) return;
   const el=document.createElement('div'); 
   el.className='content-card'; 
   el.innerHTML=`<h2>聊天設定</h2><div class="muted">（保留原本聊天設定掛載點）</div>`; 
-  $('#pageHost', mount).replaceChildren(el);
+  host.replaceChildren(el);
 }
 
 async function loadGeneral(){ 
+  const host = $('#pageHost', mount);
+  if(!host) return;
   const el=document.createElement('div'); 
   el.className='content-card'; 
   el.innerHTML=`<h2>一般設定</h2><div class="muted">（保留原本一般設定掛載點）</div>`; 
-  $('#pageHost', mount).replaceChildren(el);
+  host.replaceChildren(el);
 }
 
 // ===============================
@@ -552,6 +578,7 @@ async function loadGeneral(){
 // ===============================
 function route(){
   const h = (location.hash||'').replace('#','') || 'ledgers';
+  console.log('🔄 切換到:', h, '登入狀態:', !!UID);
   switch(h){
     case 'ledgers':    renderLedgersView(); break;
     case 'budget':     listBudgets(); break;
@@ -567,25 +594,46 @@ function route(){
 // 啟動流程
 // ===============================
 (async function init(){
+  console.log('🚀 初始化設定頁面...');
+  
   const shell = renderShell();
   mount.replaceChildren(shell);
 
+  // 等待 Auth 初始化
+  let authReady = false;
+  
   auth.onAuthStateChanged(async (user)=>{
+    console.log('👤 Auth 狀態變更:', user ? `已登入 (${user.uid})` : '未登入');
+    
     if(!user){
       UID = null;
-      $('#pageHost', mount).innerHTML = `
-        <section class="content-card">
-          <h2>設定</h2>
-          <div class="muted">請先登入帳號</div>
-        </section>`;
+      const host = $('#pageHost', mount);
+      if(host){
+        host.innerHTML = `
+          <section class="content-card">
+            <h2>設定</h2>
+            <div class="muted">請先登入帳號</div>
+          </section>`;
+      }
       return;
     }
 
     UID = user.uid;
-    route();
+    console.log('✅ UID 已設定:', UID);
+    
+    // 首次載入或登入後，執行路由
+    if(!authReady){
+      authReady = true;
+      route();
+    }
   });
 
-  window.addEventListener('hashchange', route);
+  // 監聽 hash 變化
+  window.addEventListener('hashchange', ()=>{
+    if(UID) route(); // 只有登入時才路由
+  });
+  
+  // 初始化 hash
   if(!location.hash) location.hash = '#ledgers';
 })();
 
