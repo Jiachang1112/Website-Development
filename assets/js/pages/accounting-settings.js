@@ -1,24 +1,35 @@
 // assets/js/pages/accounting-settings.js
-// 設定頁（帳本/預算/類型/貨幣、聊天設定、匯入/匯出、每日提醒）
+// 設定頁（帳本 / 預算 / 類型 / 貨幣 / 聊天設定 / 一般設定）
 
 import { auth, db } from '../firebase.js';
 import {
   doc, getDoc, setDoc, updateDoc, serverTimestamp,
   collection, addDoc, deleteDoc, query, orderBy, getDocs
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
-import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
+import { onAuthStateChanged, getAuth } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
-// 小工具
-const $  = (s, r=document)=>r.querySelector(s);
+// -------------------- 工具函式 --------------------
+const $ = (s, r=document)=>r.querySelector(s);
 const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
 const toast = (m)=>alert(m);
-
-// 根元素
 const mount = $('#app') || document.body;
 
-/* ==============================
-   畫面骨架
-   ============================== */
+// ===============================
+// 等待 Firebase Auth 初始化
+// ===============================
+async function waitForAuthInit() {
+  const auth = getAuth();
+  return new Promise(resolve => {
+    const unsub = onAuthStateChanged(auth, user => {
+      unsub();
+      resolve(user);
+    });
+  });
+}
+
+// ===============================
+// 畫面骨架
+// ===============================
 function renderShell(){
   const el = document.createElement('div');
   el.className = 'container-fluid p-0';
@@ -31,28 +42,27 @@ function renderShell(){
   return el;
 }
 
-/* ==============================
-   狀態
-   ============================== */
+// ===============================
+// 狀態
+// ===============================
 let UID = null;
 let currentLedgerId = null;
 
-/* ==============================
-   共用：取得/建立使用者文件
-   ============================== */
+// ===============================
+// Firestore 共用工具
+// ===============================
 async function getUserDoc(){
   const ref = doc(db, 'users', UID);
   const snap = await getDoc(ref);
   if (!snap.exists()){
     await setDoc(ref, { createdAt: serverTimestamp() }, { merge: true });
   }
-  const data = (await getDoc(ref)).data() || {};
-  return data;
+  return (await getDoc(ref)).data() || {};
 }
 
-/* ==============================
-   「管理帳本」UI（卡片式）
-   ============================== */
+// ===============================
+// 管理帳本
+// ===============================
 function renderLedgersView(){
   const host = $('#pageHost', mount);
   host.innerHTML = `
@@ -64,64 +74,40 @@ function renderLedgersView(){
       <div id="ledgerGrid" class="ledger-grid"></div>
     </section>
   `;
-  listLedgers(); // 初次載入
+  listLedgers();
 }
 
-/* Firestore：新增帳本（若是第一本 → 設成預設） */
 async function addLedger(name){
   if (!UID) return toast('請先登入');
-  try{
-    const ref = collection(db, 'users', UID, 'ledgers');
-    // 檢查是否第一本
-    const qy = query(ref, orderBy('createdAt','asc'));
-    const snap = await getDocs(qy);
-    const isFirst = snap.empty;
+  const ref = collection(db, 'users', UID, 'ledgers');
+  const qy = query(ref, orderBy('createdAt','asc'));
+  const snap = await getDocs(qy);
+  const isFirst = snap.empty;
 
-    await addDoc(ref, {
-      name,
-      currency: 'TWD',
-      members: { [UID]: 'owner' },
-      isDefault: isFirst ? true : false,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-  }catch(e){
-    console.error(e); toast('新增帳本失敗，請稍後再試');
-  }
+  await addDoc(ref, {
+    name,
+    currency: 'TWD',
+    members: { [UID]: 'owner' },
+    isDefault: isFirst,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
 }
 
-/* Firestore：列出帳本並渲染卡片 */
 async function listLedgers(){
   const grid = $('#ledgerGrid', mount);
   if(!grid) return;
   if(!UID){ grid.innerHTML = '<div class="muted">請先登入帳號</div>'; return; }
   grid.innerHTML = '<div class="muted">載入中…</div>';
 
-  try{
-    const qy = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt','asc'));
-    const snap = await getDocs(qy);
+  const qy = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt','asc'));
+  const snap = await getDocs(qy);
 
-    // 若沒有任何帳本 → 自動建立「預設帳本」
-    if (snap.empty){
-      await addLedger('預設帳本');
-      const snap2 = await getDocs(qy);
-      if (snap2.empty){
-        grid.innerHTML = '<div class="muted">建立預設帳本失敗，請重新整理</div>';
-        return;
-      }
-      renderLedgerCards(snap2);
-      return;
-    }
-
-    renderLedgerCards(snap);
-  }catch(e){
-    console.error(e);
-    grid.innerHTML = '<div class="muted">讀取失敗</div>';
+  if (snap.empty){
+    await addLedger('預設帳本');
+    return listLedgers();
   }
-}
 
-function renderLedgerCards(snap){
-  const grid = $('#ledgerGrid', mount);
   const cards = [];
   snap.forEach(d=>{
     const v = d.data();
@@ -132,7 +118,6 @@ function renderLedgerCards(snap){
   bindLedgerCardEvents(grid);
 }
 
-/* 卡片 HTML 範本：一般帳本 */
 function ledgerCardTpl({ id, name, isDefault }){
   return `
   <div class="ledger-card" data-id="${id}">
@@ -150,7 +135,6 @@ function ledgerCardTpl({ id, name, isDefault }){
   </div>`;
 }
 
-/* 卡片 HTML 範本：新增帳本 */
 function addCardTpl(){
   return `
   <div class="ledger-card add">
@@ -162,9 +146,7 @@ function addCardTpl(){
   </div>`;
 }
 
-/* 綁定卡片事件（rename / delete / swipe / add） */
 function bindLedgerCardEvents(grid){
-  // 新增
   $('#btnAddLedger', grid)?.addEventListener('click', async ()=>{
     const name = ($('#newLedgerName', grid)?.value || '').trim();
     if(!name) return toast('請輸入帳本名稱');
@@ -172,18 +154,13 @@ function bindLedgerCardEvents(grid){
     listLedgers();
   });
 
-  // 重新命名
   $$('.act-rename', grid).forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const card = btn.closest('.ledger-card');
-      if(!card) return;
       const id = card.dataset.id;
       const titleEl = card.querySelector('.ledger-name');
-
-      // 變成輸入模式
       const old = titleEl.textContent.trim();
       card.querySelector('.ledger-actions').style.display='none';
-
       const wrap = document.createElement('div');
       wrap.className='rename-wrap';
       wrap.innerHTML = `
@@ -192,196 +169,70 @@ function bindLedgerCardEvents(grid){
         <button class="btn btn-cancel">取消</button>
       `;
       titleEl.replaceWith(wrap);
-
-      wrap.querySelector('.btn-cancel').onclick = ()=>{ listLedgers(); };
-
+      wrap.querySelector('.btn-cancel').onclick = ()=>listLedgers();
       wrap.querySelector('.btn-save').onclick = async ()=>{
         const val = wrap.querySelector('input').value.trim();
         if(!val) return toast('請輸入帳本名稱');
-        try{
-          await updateDoc(doc(db,'users',UID,'ledgers',id), {
-            name: val, updatedAt: serverTimestamp()
-          });
-          listLedgers();
-        }catch(e){
-          console.error(e); toast('更新失敗');
-        }
+        await updateDoc(doc(db,'users',UID,'ledgers',id), { name: val, updatedAt: serverTimestamp() });
+        listLedgers();
       };
     });
   });
 
-  // 刪除（按鈕）
   $$('.act-delete', grid).forEach(btn=>{
     btn.addEventListener('click', ()=> tryDeleteByCard(btn.closest('.ledger-card')));
   });
-
-  // 手機左滑刪除
-  $$('.ledger-card', grid).forEach(card=>{
-    if(card.classList.contains('add')) return;
-    let startX = 0;
-    card.addEventListener('touchstart', e=>{
-      startX = e.changedTouches[0].clientX;
-    }, {passive:true});
-    card.addEventListener('touchend', e=>{
-      const dx = e.changedTouches[0].clientX - startX;
-      if(dx < -70){
-        tryDeleteByCard(card);
-      }
-    });
-  });
 }
 
-/* 嘗試刪除（處理預設帳本交接） */
 async function tryDeleteByCard(card){
   if(!card) return;
   const id = card.dataset.id;
-
-  try{
-    // 找出是否預設帳本
-    const ref = doc(db,'users',UID,'ledgers',id);
-    const data = (await getDoc(ref)).data();
-    const isDefault = !!data?.isDefault;
-
-    if(!confirm(`確定刪除「${data?.name||'未命名'}」？`)) return;
-
-    // 先刪
-    await deleteDoc(ref);
-
-    // 如果刪到預設帳本 → 指派最早的一本為預設
-    if(isDefault){
-      const qy = query(collection(db,'users',UID,'ledgers'), orderBy('createdAt','asc'));
-      const snap = await getDocs(qy);
-      if(!snap.empty){
-        const first = snap.docs[0];
-        await updateDoc(doc(db,'users',UID,'ledgers', first.id), { isDefault:true, updatedAt: serverTimestamp() });
-      }
+  const ref = doc(db,'users',UID,'ledgers',id);
+  const data = (await getDoc(ref)).data();
+  const isDefault = !!data?.isDefault;
+  if(!confirm(`確定刪除「${data?.name||'未命名'}」？`)) return;
+  await deleteDoc(ref);
+  if(isDefault){
+    const qy = query(collection(db,'users',UID,'ledgers'), orderBy('createdAt','asc'));
+    const snap = await getDocs(qy);
+    if(!snap.empty){
+      const first = snap.docs[0];
+      await updateDoc(doc(db,'users',UID,'ledgers', first.id), { isDefault:true, updatedAt: serverTimestamp() });
     }
-    listLedgers();
-  }catch(e){
-    console.error(e); toast('刪除失敗');
   }
+  listLedgers();
 }
 
-/* ==============================
-   其他原功能：分類 / 預算 / 貨幣 / 聊天 / 一般（保留）
-   ============================== */
-async function addCategory(type, name){
-  if (!currentLedgerId) return toast('請先選帳本');
-  await addDoc(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'categories'), {
-    name, type, order: Date.now(), color: '#60a5fa', parentId: null,
-    createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-  });
-}
-async function listCategories(){
-  const el = document.createElement('div');
-  el.className = 'content-card';
-  el.innerHTML = `
-    <h2>管理類型</h2>
-    <div class="muted">（保留原本的類型管理 UI 掛載點）</div>`;
-  $('#pageHost', mount).replaceChildren(el);
-}
+// ===============================
+// 其他功能保留
+// ===============================
+async function listCategories(){ const el=document.createElement('div'); el.className='content-card'; el.innerHTML=`<h2>管理類型</h2><div class="muted">（保留原本類型管理掛載點）</div>`; $('#pageHost', mount).replaceChildren(el);}
+async function listBudgets(){ const el=document.createElement('div'); el.className='content-card'; el.innerHTML=`<h2>管理預算</h2><div class="muted">（保留原本預算掛載點）</div>`; $('#pageHost', mount).replaceChildren(el);}
+async function listRates(){ const el=document.createElement('div'); el.className='content-card'; el.innerHTML=`<h2>管理貨幣</h2><div class="muted">（保留原本貨幣掛載點）</div>`; $('#pageHost', mount).replaceChildren(el);}
+async function loadChat(){ const el=document.createElement('div'); el.className='content-card'; el.innerHTML=`<h2>聊天設定</h2><div class="muted">（保留原本聊天設定掛載點）</div>`; $('#pageHost', mount).replaceChildren(el);}
+async function loadGeneral(){ const el=document.createElement('div'); el.className='content-card'; el.innerHTML=`<h2>一般設定</h2><div class="muted">（保留原本一般設定掛載點）</div>`; $('#pageHost', mount).replaceChildren(el);}
 
-async function addBudget({ name, amount, start, end }){
-  if (!currentLedgerId) return toast('請先選帳本');
-  await addDoc(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'budgets'), {
-    name, amount: Number(amount)||0, period: 'custom',
-    startAt: new Date(start+'T00:00:00'), endAt: new Date(end+'T23:59:59'),
-    currency: 'TWD', rollover: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-  });
-}
-async function listBudgets(){
-  const el = document.createElement('div');
-  el.className = 'content-card';
-  el.innerHTML = `
-    <h2>管理預算</h2>
-    <div class="muted">（保留原本的預算 UI 掛載點）</div>`;
-  $('#pageHost', mount).replaceChildren(el);
-}
-
-async function saveBaseCurrency(code){
-  if (!currentLedgerId) return toast('請先選帳本');
-  await updateDoc(doc(db,'users', UID, 'ledgers', currentLedgerId), { currency: code, updatedAt: serverTimestamp() });
-  toast('主貨幣已更新');
-}
-async function addRate(code, value){
-  if (!currentLedgerId) return toast('請先選帳本');
-  const userRef = doc(db, 'users', UID);
-  const snap = await getDoc(userRef);
-  const settings = snap.data()?.settings || {};
-  const rates = settings.currencies?.rates || {};
-  rates[code.toUpperCase()] = Number(value)||0;
-
-  await updateDoc(userRef, {
-    'settings.currencies.base': 'TWD',
-    'settings.currencies.rates': rates,
-    updatedAt: serverTimestamp()
-  });
-  listRates();
-}
-async function listRates(){
-  const el = document.createElement('div');
-  el.className = 'content-card';
-  el.innerHTML = `
-    <h2>管理貨幣</h2>
-    <div class="muted">（保留原本的貨幣 UI 掛載點）</div>`;
-  $('#pageHost', mount).replaceChildren(el);
-}
-
-async function loadChat(){
-  const el = document.createElement('div');
-  el.className = 'content-card';
-  el.innerHTML = `
-    <h2>聊天設定</h2>
-    <div class="muted">（保留原本聊天設定掛載點）</div>`;
-  $('#pageHost', mount).replaceChildren(el);
-}
-
-async function loadGeneral(){
-  const el = document.createElement('div');
-  el.className = 'content-card';
-  el.innerHTML = `
-    <h2>一般設定</h2>
-    <div class="muted">（保留原本一般設定掛載點）</div>`;
-  $('#pageHost', mount).replaceChildren(el);
-}
-
-/* ==============================
-   依帳本刷新：保留
-   ============================== */
-async function refreshForLedger(){
-  await listRates();
-}
-
-/* ==============================
-   啟動流程
-   ============================== */
+// ===============================
+// 啟動流程
+// ===============================
 (async function init(){
-  // 畫面骨架
   const shell = renderShell();
   mount.replaceChildren(shell);
 
-  // 先用 currentUser（已登入就立刻渲染）
-  if (auth.currentUser) {
-    UID = auth.currentUser.uid;
-    renderLedgersView();
+  const user = await waitForAuthInit(); // ✅ 等待登入狀態初始化完成
+  if(!user){
+    UID = null;
+    $('#pageHost', mount).innerHTML = `
+      <section class="content-card">
+        <h2>管理帳本</h2>
+        <div class="muted">請先登入帳號</div>
+      </section>`;
+    return;
   }
 
-  // 標準監聽（避免有些瀏覽器載入時 currentUser 尚未就緒）
-  onAuthStateChanged(auth, (user)=>{
-    if(!user){
-      UID = null;
-      $('#pageHost', mount).innerHTML = `
-        <section class="content-card">
-          <h2>管理帳本</h2>
-          <div class="muted">請先登入帳號</div>
-        </section>`;
-      return;
-    }
-    UID = user.uid;
-    renderLedgersView();
-  });
+  UID = user.uid;
+  renderLedgersView();
 
-  // hash 路由（左側選單）
   function route(){
     const h = (location.hash||'').replace('#','') || 'ledgers';
     switch(h){
@@ -399,11 +250,9 @@ async function refreshForLedger(){
   else route();
 })();
 
-/* ==============================
-   小工具：escape
-   ============================== */
-function escapeHtml(s){
-  return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-function escapeHtmlAttr(s){ return escapeHtml(s).replace(/\n/g,' '); }
+// ===============================
+// Escape 工具
+// ===============================
+function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function escapeHtmlAttr(s){return escapeHtml(s).replace(/\n/g,' ');}
 
