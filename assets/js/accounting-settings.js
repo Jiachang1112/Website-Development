@@ -4,7 +4,7 @@
 import { auth, db } from '../firebase.js';
 import {
   doc, getDoc, setDoc, updateDoc, serverTimestamp,
-  collection, addDoc, deleteDoc, onSnapshot, query, orderBy, getDocs
+  collection, addDoc, deleteDoc, query, orderBy, getDocs
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
 // 小工具
@@ -19,35 +19,21 @@ const mount = $('#app') || document.body;
 (function injectTopbarButtons(){
   const css = document.createElement('style');
   css.textContent = `
-  /* 容器作用域，避免影響其它頁 */
   #accset .topbar-btn{
-    -webkit-appearance: none; appearance: none;
-    display:inline-flex; align-items:center; justify-content:center;
-    gap:8px;
-    padding:10px 14px; border-radius:999px;
-    background:transparent;
-    border:1px solid rgba(255,255,255,.22);
-    color:#fff; font-weight:600; line-height:1; cursor:pointer;
-    transition:background .15s ease, border-color .15s ease, transform .02s ease;
-    user-select:none; text-decoration:none;
+    -webkit-appearance:none;appearance:none;display:inline-flex;align-items:center;justify-content:center;
+    gap:8px;padding:10px 14px;border-radius:999px;background:transparent;
+    border:1px solid rgba(255,255,255,.22);color:#fff;font-weight:600;line-height:1;cursor:pointer;
+    transition:background .15s ease,border-color .15s ease,transform .02s ease;user-select:none;text-decoration:none;
   }
-  #accset .topbar-btn:hover{ background:rgba(255,255,255,.08); }
-  #accset .topbar-btn:active{ transform:translateY(1px); }
-  #accset .topbar-btn.-primary{
-    background:linear-gradient(180deg,#ff7ab6,#ff4d6d);
-    border-color:transparent; color:#fff;
-  }
-  #accset .topbar-btn.-primary:hover{ filter:saturate(1.05) brightness(1.05); }
-  #accset .topbar-btn.-danger{ background:#ef4444; border-color:transparent; color:#fff; }
-  #accset .topbar-btn.-danger:hover{ filter:brightness(1.05); }
-  #accset .topbar-btn.-secondary{
-    background:rgba(255,255,255,.10); border-color:rgba(255,255,255,.10);
-  }
-  #accset .topbar-btn.-ghost{
-    background:transparent; border-color:rgba(255,255,255,.22);
-  }
-  /* 小尺寸（列表右側的操作鍵） */
-  #accset .topbar-btn.-sm{ padding:6px 10px; font-size:.92rem; }
+  #accset .topbar-btn:hover{background:rgba(255,255,255,.08)}
+  #accset .topbar-btn:active{transform:translateY(1px)}
+  #accset .topbar-btn.-primary{background:linear-gradient(180deg,#ff7ab6,#ff4d6d);border-color:transparent;color:#fff}
+  #accset .topbar-btn.-primary:hover{filter:saturate(1.05) brightness(1.05)}
+  #accset .topbar-btn.-danger{background:#ef4444;border-color:transparent;color:#fff}
+  #accset .topbar-btn.-danger:hover{filter:brightness(1.05)}
+  #accset .topbar-btn.-secondary{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.10)}
+  #accset .topbar-btn.-ghost{background:transparent;border-color:rgba(255,255,255,.22)}
+  #accset .topbar-btn.-sm{padding:6px 10px;font-size:.92rem}
   `;
   document.head.appendChild(css);
 })();
@@ -59,18 +45,10 @@ function renderShell(){
   el.className = 'container py-4';
   el.innerHTML = `
   <h3 class="mb-3">記帳設定</h3>
-
-  <!-- 頁籤仍用 Bootstrap 行為，但按鈕換成 topbar 風格 -->
   <ul class="nav nav-tabs" id="setTabs" role="tablist" style="border-color:rgba(255,255,255,.12)">
-    <li class="nav-item">
-      <button class="topbar-btn -secondary" data-bs-toggle="tab" data-bs-target="#tab-ledger" type="button">記帳設定</button>
-    </li>
-    <li class="nav-item">
-      <button class="topbar-btn -ghost" data-bs-toggle="tab" data-bs-target="#tab-chat" type="button">聊天設定</button>
-    </li>
-    <li class="nav-item">
-      <button class="topbar-btn -ghost" data-bs-toggle="tab" data-bs-target="#tab-general" type="button">一般設定</button>
-    </li>
+    <li class="nav-item"><button class="topbar-btn -secondary" data-bs-toggle="tab" data-bs-target="#tab-ledger" type="button">記帳設定</button></li>
+    <li class="nav-item"><button class="topbar-btn -ghost" data-bs-toggle="tab" data-bs-target="#tab-chat" type="button">聊天設定</button></li>
+    <li class="nav-item"><button class="topbar-btn -ghost" data-bs-toggle="tab" data-bs-target="#tab-general" type="button">一般設定</button></li>
   </ul>
 
   <div class="tab-content border border-top-0 rounded-bottom p-3" style="border-color:rgba(255,255,255,.12)">
@@ -254,7 +232,6 @@ async function listLedgers(){
     listEl.appendChild(row);
   });
 
-  // 事件
   $$('.pick-ledger', listEl).forEach(b=>{
     b.onclick = ()=>{ currentLedgerId = b.dataset.id; toast(`已切換帳本：${currentLedgerId}`); refreshForLedger(); };
   });
@@ -375,7 +352,6 @@ async function listRates(){
     };
   });
 
-  // 也把 base 帶回 input
   $('#baseCurrency', mount).value = user.settings?.currencies?.base || 'TWD';
 }
 
@@ -419,16 +395,13 @@ async function saveRemind(){
 // 匯出目前帳本（JSON）
 async function exportJson(){
   if (!currentLedgerId) return toast('請先選帳本');
-  // 拉帳本、類別、預算、entries
   const pack = { ledgerId: currentLedgerId };
-
   const getAll = async (sub)=>{
     const q = query(collection(db,'users',UID,'ledgers',currentLedgerId, sub));
     const snap = await getDocs(q);
     return snap.docs.map(d=>({ id:d.id, ...d.data() }));
   };
-
-  pack.ledger    = (await getDoc(doc(db,'users',UID,'ledgers',currentLedgerId))).data();
+  pack.ledger     = (await getDoc(doc(db,'users',UID,'ledgers',currentLedgerId))).data();
   pack.categories = await getAll('categories');
   pack.budgets    = await getAll('budgets');
   pack.entries    = await getAll('entries');
@@ -444,30 +417,25 @@ async function importFile(files){
   if (!files?.length) return;
   const file = files[0];
   const text = await file.text();
-  let json;
-  try{ json = JSON.parse(text); }catch{ return toast('不是有效的 JSON'); }
-  if (!currentLedgerId) { return toast('請先選帳本後再匯入'); }
+  let json; try{ json = JSON.parse(text); }catch{ return toast('不是有效的 JSON'); }
+  if (!currentLedgerId) return toast('請先選帳本後再匯入');
 
-  // 類別
   for (const c of (json.categories || [])){
     await setDoc(doc(collection(db,'users',UID,'ledgers',currentLedgerId,'categories')), {
       ...c, id: undefined, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
     });
   }
-  // 預算
   for (const b of (json.budgets || [])){
     await setDoc(doc(collection(db,'users',UID,'ledgers',currentLedgerId,'budgets')), {
       ...b, id: undefined, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
     });
   }
-  // 交易
   for (const e of (json.entries || [])){
     await setDoc(doc(collection(db,'users',UID,'ledgers',currentLedgerId,'entries')), {
       ...e, id: undefined, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
     });
   }
-  toast('匯入完成');
-  refreshForLedger();
+  toast('匯入完成'); refreshForLedger();
 }
 
 // ========== 依帳本刷新區塊 ==========
@@ -477,22 +445,21 @@ async function refreshForLedger(){
   await listRates();
 }
 
-/* ========== 啟動：等待 Auth 就緒，再初始化（修正登入判斷過早） ========== */
-function waitForAuthUser(timeoutMs = 4000) {
-  return new Promise((resolve) => {
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      resolve(auth.currentUser || null);
-    }, timeoutMs);
-
-    const unsub = auth.onAuthStateChanged((u) => {
-      if (settled) return;
-      clearTimeout(timer);
-      unsub && unsub();
-      settled = true;
-      resolve(u || null);
+/* ========== 啟動：等 Auth 就緒（優先使用 auth.authStateReady） ========== */
+async function waitForAuthUser(timeoutMs = 7000){
+  // v10+ 有 authStateReady：最可靠
+  try{
+    if (typeof auth.authStateReady === 'function'){
+      await auth.authStateReady();
+      return auth.currentUser || null;
+    }
+  }catch{}
+  // 後援：onAuthStateChanged + 超時保底
+  return await new Promise((resolve)=>{
+    let done=false;
+    const t=setTimeout(()=>{ if(done) return; done=true; resolve(auth.currentUser||null); }, timeoutMs);
+    const unsub = auth.onAuthStateChanged((u)=>{
+      if(done) return; done=true; clearTimeout(t); unsub && unsub(); resolve(u||null);
     });
   });
 }
@@ -514,11 +481,9 @@ function waitForAuthUser(timeoutMs = 4000) {
 
   UID = user.uid;
 
-  // 畫面
   const shell = renderShell();
   mount.replaceChildren(shell);
 
-  // 載入清單
   await listLedgers();
   await loadChat();
   await loadGeneral();
@@ -560,7 +525,7 @@ function waitForAuthUser(timeoutMs = 4000) {
   $('#saveBaseCurrency', mount).onclick = async ()=>{
     const code = ($('#baseCurrency', mount).value || 'TWD').toUpperCase();
     await saveBaseCurrency(code);
-    listLedgers(); // 讓帳本卡片也更新
+    listLedgers();
   };
   $('#addRate', mount).onclick = async ()=>{
     const code = $('#rateCode', mount).value.trim();
