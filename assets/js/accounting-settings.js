@@ -1,6 +1,5 @@
 // assets/js/pages/accounting-settings.js
 // 設定頁（帳本/預算/類型/貨幣、聊天設定、匯入/匯出、每日提醒）
-// ★ 支援「未登入時的展示模式(Demo)」：資料存在記憶體，操作會即時反映（重整後回到預設）
 
 import { auth, db } from '../firebase.js';
 import {
@@ -11,8 +10,18 @@ import {
 // ---------- 小工具 ----------
 const $  = (s, r=document)=>r.querySelector(s);
 const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
-const toast = (m)=>alert(m);
+const toast = (m)=>{
+  const div = document.createElement('div');
+  div.textContent = m;
+  div.style.cssText = 'position:fixed;top:80px;right:20px;background:#1f2937;color:#fff;padding:12px 20px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.5);z-index:9999;';
+  document.body.appendChild(div);
+  setTimeout(()=>div.remove(), 2500);
+};
 const mount = $('#app') || document.body;
+
+console.log('🚀 accounting-settings.js 載入完成');
+console.log('📦 Firebase Auth:', typeof auth);
+console.log('📦 Firebase DB:', typeof db);
 
 // ---------- 頂部膠囊按鈕樣式（與主頁一致） ----------
 (function injectTopbarButtons(){
@@ -55,7 +64,7 @@ function renderShell(demo=false){
   ` : ''}
 
   <ul class="nav nav-tabs" id="setTabs" role="tablist" style="border-color:rgba(255,255,255,.12)">
-    <li class="nav-item"><button class="topbar-btn -secondary" data-bs-toggle="tab" data-bs-target="#tab-ledger" type="button">管理帳本</button></li>
+    <li class="nav-item"><button class="topbar-btn -secondary active" data-bs-toggle="tab" data-bs-target="#tab-ledger" type="button">管理帳本</button></li>
     <li class="nav-item"><button class="topbar-btn -ghost" data-bs-toggle="tab" data-bs-target="#tab-budget" type="button">管理預算</button></li>
     <li class="nav-item"><button class="topbar-btn -ghost" data-bs-toggle="tab" data-bs-target="#tab-category" type="button">管理類型</button></li>
     <li class="nav-item"><button class="topbar-btn -ghost" data-bs-toggle="tab" data-bs-target="#tab-currency" type="button">管理貨幣</button></li>
@@ -63,14 +72,14 @@ function renderShell(demo=false){
     <li class="nav-item"><button class="topbar-btn -ghost" data-bs-toggle="tab" data-bs-target="#tab-general" type="button">一般設定</button></li>
   </ul>
 
-  <div class="tab-content border border-top-0 rounded-bottom p-3" style="border-color:rgba(255,255,255,.12)">
+  <div class="tab-content border border-top-0 rounded-bottom p-3" style="border-color:rgba(255,255,255,.12);background:rgba(0,0,0,0.2)">
     <!-- 帳本 -->
     <div class="tab-pane fade show active" id="tab-ledger">
-      <div class="card">
-        <div class="card-header">管理帳本</div>
+      <div class="card" style="background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1)">
+        <div class="card-header" style="background:rgba(255,255,255,0.05);color:#fff">管理帳本</div>
         <div class="card-body">
           <div class="mb-2 d-flex gap-2">
-            <input id="newLedgerName" class="form-control" placeholder="帳本名稱（例如：個人）">
+            <input id="newLedgerName" class="form-control" placeholder="帳本名稱（例如：個人）" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff">
             <button id="addLedger" class="topbar-btn -primary">新增</button>
           </div>
           <div id="ledgerList" class="list-group small"></div>
@@ -80,15 +89,15 @@ function renderShell(demo=false){
 
     <!-- 預算 -->
     <div class="tab-pane fade" id="tab-budget">
-      <div class="card">
-        <div class="card-header">管理預算（目前帳本）</div>
+      <div class="card" style="background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1)">
+        <div class="card-header" style="background:rgba(255,255,255,0.05);color:#fff">管理預算（目前帳本）</div>
         <div class="card-body">
           <div class="row g-2 mb-2">
-            <div class="col-md-4"><input id="budgetName" class="form-control" placeholder="名稱（如10月餐飲）"></div>
-            <div class="col-md-3"><input id="budgetAmount" type="number" class="form-control" placeholder="金額"></div>
+            <div class="col-md-4"><input id="budgetName" class="form-control" placeholder="名稱（如10月餐飲）" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff"></div>
+            <div class="col-md-3"><input id="budgetAmount" type="number" class="form-control" placeholder="金額" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff"></div>
             <div class="col-md-5 d-flex gap-2">
-              <input id="budgetStart" type="date" class="form-control">
-              <input id="budgetEnd" type="date" class="form-control">
+              <input id="budgetStart" type="date" class="form-control" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff">
+              <input id="budgetEnd" type="date" class="form-control" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff">
               <button id="addBudget" class="topbar-btn -primary">新增</button>
             </div>
           </div>
@@ -99,15 +108,15 @@ function renderShell(demo=false){
 
     <!-- 類型 -->
     <div class="tab-pane fade" id="tab-category">
-      <div class="card">
-        <div class="card-header">管理類型（目前帳本）</div>
+      <div class="card" style="background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1)">
+        <div class="card-header" style="background:rgba(255,255,255,0.05);color:#fff">管理類型（目前帳本）</div>
         <div class="card-body">
           <div class="mb-2 d-flex gap-2">
-            <select id="catType" class="form-select" style="max-width:140px">
+            <select id="catType" class="form-select" style="max-width:140px;background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff">
               <option value="expense">支出</option>
               <option value="income">收入</option>
             </select>
-            <input id="newCatName" class="form-control" placeholder="新增類型名稱…">
+            <input id="newCatName" class="form-control" placeholder="新增類型名稱…" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff">
             <button id="addCat" class="topbar-btn -primary">新增</button>
           </div>
           <div id="catList" class="list-group small"></div>
@@ -117,17 +126,17 @@ function renderShell(demo=false){
 
     <!-- 貨幣 -->
     <div class="tab-pane fade" id="tab-currency">
-      <div class="card">
-        <div class="card-header">管理貨幣（目前帳本）</div>
+      <div class="card" style="background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1)">
+        <div class="card-header" style="background:rgba(255,255,255,0.05);color:#fff">管理貨幣（目前帳本）</div>
         <div class="card-body">
           <div class="row g-2 align-items-center mb-2">
-            <div class="col-auto">主貨幣：</div>
-            <div class="col-auto"><input id="baseCurrency" class="form-control" style="width:120px" placeholder="TWD"></div>
+            <div class="col-auto" style="color:#fff">主貨幣：</div>
+            <div class="col-auto"><input id="baseCurrency" class="form-control" style="width:120px;background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff" placeholder="TWD"></div>
             <div class="col-auto"><button id="saveBaseCurrency" class="topbar-btn -ghost">儲存</button></div>
           </div>
           <div class="row g-2 mb-2">
-            <div class="col-md-3"><input id="rateCode" class="form-control" placeholder="幣別（USD）"></div>
-            <div class="col-md-3"><input id="rateValue" class="form-control" placeholder="對主幣匯率（如 32.1）"></div>
+            <div class="col-md-3"><input id="rateCode" class="form-control" placeholder="幣別（USD）" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff"></div>
+            <div class="col-md-3"><input id="rateValue" class="form-control" placeholder="對主幣匯率（如 32.1）" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff"></div>
             <div class="col-md-2"><button id="addRate" class="topbar-btn -primary">新增匯率</button></div>
           </div>
           <div id="rateList" class="list-group small"></div>
@@ -137,26 +146,26 @@ function renderShell(demo=false){
 
     <!-- 聊天設定 -->
     <div class="tab-pane fade" id="tab-chat">
-      <div class="card">
-        <div class="card-header">專屬角色與指令</div>
+      <div class="card" style="background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1)">
+        <div class="card-header" style="background:rgba(255,255,255,0.05);color:#fff">專屬角色與指令</div>
         <div class="card-body">
           <div class="row g-2 mb-3">
             <div class="col-md-4">
-              <label class="form-label">角色（Persona）</label>
-              <select id="persona" class="form-select">
+              <label class="form-label" style="color:#fff">角色（Persona）</label>
+              <select id="persona" class="form-select" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff">
                 <option value="minimal_accountant">極簡會計師（精簡、重點）</option>
                 <option value="friendly_helper">溫暖助手（鼓勵、貼心）</option>
                 <option value="strict_coach">節制教練（嚴謹、控管）</option>
               </select>
             </div>
             <div class="col-md-8">
-              <label class="form-label">自定義描述（可留白）</label>
-              <textarea id="personaCustom" class="form-control" rows="3" placeholder="描述語氣、風格、輸出格式重點…"></textarea>
+              <label class="form-label" style="color:#fff">自定義描述（可留白）</label>
+              <textarea id="personaCustom" class="form-control" rows="3" placeholder="描述語氣、風格、輸出格式重點…" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff"></textarea>
             </div>
           </div>
           <div class="form-check form-switch mb-3">
             <input id="cmdEnabled" class="form-check-input" type="checkbox">
-            <label class="form-check-label" for="cmdEnabled">啟用記帳快速指令（/add /sum /budget…）</label>
+            <label class="form-check-label" for="cmdEnabled" style="color:#fff">啟用記帳快速指令（/add /sum /budget…）</label>
           </div>
           <button id="saveChat" class="topbar-btn -primary">儲存聊天設定</button>
         </div>
@@ -165,15 +174,15 @@ function renderShell(demo=false){
 
     <!-- 一般設定 -->
     <div class="tab-pane fade" id="tab-general">
-      <div class="card">
-        <div class="card-header">每日提醒</div>
+      <div class="card" style="background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1)">
+        <div class="card-header" style="background:rgba(255,255,255,0.05);color:#fff">每日提醒</div>
         <div class="card-body">
           <div class="form-check form-switch mb-2">
             <input id="remindEnable" class="form-check-input" type="checkbox">
-            <label class="form-check-label" for="remindEnable">啟用每日提醒</label>
+            <label class="form-check-label" for="remindEnable" style="color:#fff">啟用每日提醒</label>
           </div>
           <div class="d-flex gap-2">
-            <input id="remindTime" type="time" class="form-control" style="max-width:160px" value="21:00">
+            <input id="remindTime" type="time" class="form-control" style="max-width:160px;background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff" value="21:00">
             <button id="saveRemind" class="topbar-btn -primary">儲存</button>
           </div>
           <div class="text-muted small mt-2">（展示模式也能切換，重整即恢復預設）</div>
@@ -241,7 +250,7 @@ async function addLedger(name){
 
 async function listLedgers(){
   const listEl = $('#ledgerList', mount);
-  listEl.innerHTML = '<div class="list-group-item">載入中…</div>';
+  listEl.innerHTML = '<div class="list-group-item" style="background:rgba(255,255,255,0.05);color:#fff;border-color:rgba(255,255,255,0.1)">載入中…</div>';
 
   let rows = [];
   if (DEMO) {
@@ -252,12 +261,16 @@ async function listLedgers(){
     rows = snap.docs.map(d=>({ id:d.id, ...d.data() }));
   }
 
-  if (!rows.length){ listEl.innerHTML = '<div class="list-group-item text-muted">尚無帳本</div>'; return; }
+  if (!rows.length){ 
+    listEl.innerHTML = '<div class="list-group-item text-muted" style="background:rgba(255,255,255,0.05);color:#aaa;border-color:rgba(255,255,255,0.1)">尚無帳本</div>'; 
+    return; 
+  }
 
   listEl.innerHTML = '';
   rows.forEach(v=>{
     const row = document.createElement('div');
     row.className = 'list-group-item d-flex justify-content-between align-items-center';
+    row.style.cssText = 'background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1);color:#fff';
     row.innerHTML = `
       <div>
         <div class="fw-bold">${v.name || '(未命名)'}</div>
@@ -288,7 +301,10 @@ async function listLedgers(){
   });
 
   // 預設選第一個帳本
-  if (!currentLedgerId && rows.length) { currentLedgerId = rows[0].id; }
+  if (!currentLedgerId && rows.length) { 
+    currentLedgerId = rows[0].id;
+    console.log('✅ 預設選擇帳本:', currentLedgerId);
+  }
 }
 
 // ================== 類別 ==================
@@ -307,7 +323,10 @@ async function addCategory(type, name){
 
 async function listCategories(){
   const el = $('#catList', mount);
-  if (!currentLedgerId){ el.innerHTML = '<div class="list-group-item">尚未選擇帳本</div>'; return; }
+  if (!currentLedgerId){ 
+    el.innerHTML = '<div class="list-group-item" style="background:rgba(255,255,255,0.05);color:#aaa;border-color:rgba(255,255,255,0.1)">尚未選擇帳本</div>'; 
+    return; 
+  }
   el.innerHTML = '載入中…';
   const type = $('#catType', mount).value;
 
@@ -321,11 +340,11 @@ async function listCategories(){
   }
 
   el.innerHTML = rows.map(v=>`
-    <div class="list-group-item d-flex justify-content-between align-items-center">
+    <div class="list-group-item d-flex justify-content-between align-items-center" style="background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1);color:#fff">
       <div><span class="badge me-2" style="background:${v.color||'#ccc'}">&nbsp;</span>${v.name}</div>
       <button class="topbar-btn -sm -danger" data-id="${v.id}">刪除</button>
     </div>
-  `).join('') || '<div class="list-group-item text-muted">尚無類型</div>';
+  `).join('') || '<div class="list-group-item text-muted" style="background:rgba(255,255,255,0.05);color:#aaa;border-color:rgba(255,255,255,0.1)">尚無類型</div>';
 
   $$('button[data-id]', el).forEach(b=>{
     b.onclick = async ()=>{
@@ -357,7 +376,10 @@ async function addBudget({ name, amount, start, end }){
 
 async function listBudgets(){
   const el = $('#budgetList', mount);
-  if (!currentLedgerId){ el.innerHTML = '<div class="list-group-item">尚未選擇帳本</div>'; return; }
+  if (!currentLedgerId){ 
+    el.innerHTML = '<div class="list-group-item" style="background:rgba(255,255,255,0.05);color:#aaa;border-color:rgba(255,255,255,0.1)">尚未選擇帳本</div>'; 
+    return; 
+  }
   el.innerHTML = '載入中…';
 
   let rows = [];
@@ -379,11 +401,11 @@ async function listBudgets(){
   }
 
   el.innerHTML = rows.map(v=>`
-    <div class="list-group-item d-flex justify-content-between align-items-center">
+    <div class="list-group-item d-flex justify-content-between align-items-center" style="background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1);color:#fff">
       <div><b>${v.name}</b>｜金額 ${v.amount}｜${v.startAt} ~ ${v.endAt}</div>
       <button class="topbar-btn -sm -danger" data-id="${v.id}">刪除</button>
     </div>
-  `).join('') || '<div class="list-group-item text-muted">尚無預算</div>';
+  `).join('') || '<div class="list-group-item text-muted" style="background:rgba(255,255,255,0.05);color:#aaa;border-color:rgba(255,255,255,0.1)">尚無預算</div>';
 
   $$('button[data-id]', el).forEach(b=>{
     b.onclick = async ()=>{
@@ -433,231 +455,4 @@ async function listRates(){
   const user = await getUserDoc();
   const rates = user.settings?.currencies?.rates || {};
   const rows = Object.keys(rates).map(k=>`
-    <div class="list-group-item d-flex justify-content-between align-items-center">
-      <div>${k} → ${rates[k]}</div>
-      <button class="topbar-btn -sm -danger" data-k="${k}">刪除</button>
-    </div>
-  `);
-  list.innerHTML = rows.join('') || '<div class="list-group-item text-muted">尚無匯率</div>';
-
-  $$('button[data-k]', list).forEach(b=>{
-    b.onclick = async ()=>{
-      const u = await getUserDoc();
-      const cur = u.settings?.currencies || {};
-      if (cur.rates) delete cur.rates[b.dataset.k];
-
-      if (DEMO) {
-        DEMO_STORE.user.settings.currencies = cur;
-      } else {
-        await updateDoc(doc(db,'users', UID), { 'settings.currencies': cur, updatedAt: serverTimestamp() });
-      }
-      listRates();
-    };
-  });
-
-  // 帶回 base
-  $('#baseCurrency', mount).value = user.settings?.currencies?.base || 'TWD';
-}
-
-// ================== 聊天設定 ==================
-async function loadChat(){
-  const u = await getUserDoc();
-  const chat = u.settings?.chat || {};
-  $('#persona', mount).value = chat.persona || 'minimal_accountant';
-  $('#personaCustom', mount).value = chat.custom || '';
-  $('#cmdEnabled', mount).checked = !!chat.commandsEnabled;
-}
-async function saveChat(){
-  const data = {
-    'settings.chat': {
-      persona: $('#persona', mount).value,
-      custom: $('#personaCustom', mount).value,
-      commandsEnabled: $('#cmdEnabled', mount).checked
-    },
-    updatedAt: serverTimestamp()
-  };
-  if (DEMO) {
-    DEMO_STORE.user.settings.chat = data['settings.chat'];
-    toast('（展示模式）已儲存聊天設定');
-    return;
-  }
-  await updateDoc(doc(db,'users', UID), data);
-  toast('已儲存聊天設定');
-}
-
-// ================== 一般設定 ==================
-async function loadGeneral(){
-  const u = await getUserDoc();
-  $('#remindEnable', mount).checked = !!u.settings?.general?.reminderEnabled;
-  $('#remindTime', mount).value   = u.settings?.general?.reminderTime || '21:00';
-}
-async function saveRemind(){
-  const val = {
-    reminderEnabled: $('#remindEnable', mount).checked,
-    reminderTime: $('#remindTime', mount).value || '21:00'
-  };
-  if (DEMO) {
-    DEMO_STORE.user.settings.general = val;
-    toast('（展示模式）已儲存每日提醒設定');
-    return;
-  }
-  await updateDoc(doc(db,'users', UID), { 'settings.general': val, updatedAt: serverTimestamp() });
-  toast('已儲存每日提醒設定');
-}
-
-// ================== 匯出 / 匯入（展示模式下：匯出示範 JSON、匯入覆蓋記憶體） ==================
-async function exportJson(){
-  if (!currentLedgerId) return toast('請先選帳本');
-  let pack;
-  if (DEMO) {
-    pack = {
-      ledgerId: currentLedgerId,
-      ledger: DEMO_STORE.ledgers.find(x=>x.id===currentLedgerId),
-      categories: (DEMO_STORE.categories[currentLedgerId]||[]),
-      budgets: (DEMO_STORE.budgets[currentLedgerId]||[]),
-      entries: []
-    };
-  } else {
-    const getAll = async (sub)=>{
-      const qy = query(collection(db,'users',UID,'ledgers',currentLedgerId, sub));
-      const snap = await getDocs(qy);
-      return snap.docs.map(d=>({ id:d.id, ...d.data() }));
-    };
-    pack = {
-      ledgerId: currentLedgerId,
-      ledger: (await getDoc(doc(db,'users',UID,'ledgers',currentLedgerId))).data(),
-      categories: await getAll('categories'),
-      budgets: await getAll('budgets'),
-      entries: await getAll('entries')
-    };
-  }
-  const blob = new Blob([JSON.stringify(pack,null,2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `ledger-${currentLedgerId}.json`; a.click(); a.remove(); URL.revokeObjectURL(url);
-}
-
-async function importFile(files){
-  if (!files?.length) return;
-  const file = files[0];
-  const text = await file.text();
-  let json; try{ json = JSON.parse(text); }catch{ return toast('不是有效的 JSON'); }
-  if (!currentLedgerId) return toast('請先選帳本後再匯入');
-
-  if (DEMO) {
-    DEMO_STORE.categories[currentLedgerId] = (json.categories||[]).map(x=>({ ...x, id: x.id || 'c'+Math.random().toString(36).slice(2,7) }));
-    DEMO_STORE.budgets[currentLedgerId] = (json.budgets||[]).map(x=>({ ...x, id: x.id || 'b'+Math.random().toString(36).slice(2,7) }));
-    toast('（展示模式）匯入完成');
-    refreshForLedger();
-    return;
-  }
-
-  // 真實模式：寫入 Firestore
-  for (const c of (json.categories || [])){
-    await setDoc(doc(collection(db,'users',UID,'ledgers',currentLedgerId,'categories')), {
-      ...c, id: undefined, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-    });
-  }
-  for (const b of (json.budgets || [])){
-    await setDoc(doc(collection(db,'users',UID,'ledgers',currentLedgerId,'budgets')), {
-      ...b, id: undefined, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-    });
-  }
-  for (const e of (json.entries || [])){
-    await setDoc(doc(collection(db,'users',UID,'ledgers',currentLedgerId,'entries')), {
-      ...e, id: undefined, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-    });
-  }
-  toast('匯入完成');
-  refreshForLedger();
-}
-
-// ================== 依帳本刷新 ==================
-async function refreshForLedger(){
-  await listCategories();
-  await listBudgets();
-  await listRates();
-}
-
-// ================== 啟動：若未登入 → 啟用展示模式 ==================
-async function waitForAuthUser(timeoutMs = 4000){
-  try{
-    if (typeof auth?.authStateReady === 'function'){ await auth.authStateReady(); return auth.currentUser || null; }
-  }catch{}
-  return await new Promise((resolve)=>{
-    let done=false;
-    const t=setTimeout(()=>{ if(done) return; done=true; resolve(auth?.currentUser||null); }, timeoutMs);
-    try{
-      const unsub = auth.onAuthStateChanged((u)=>{ if(done) return; done=true; clearTimeout(t); unsub&&unsub(); resolve(u||null); });
-    }catch{ clearTimeout(t); resolve(null); }
-  });
-}
-
-(async function init(){
-  const user = await waitForAuthUser();
-  DEMO = !user;
-  UID = user?.uid || 'demo';
-
-  const shell = renderShell(DEMO);
-  mount.replaceChildren(shell);
-
-  // 初始清單
-  await listLedgers();
-  await loadChat();
-  await loadGeneral();
-
-  // 事件：帳本
-  $('#addLedger', mount).onclick = async ()=>{
-    const name = $('#newLedgerName', mount).value.trim();
-    if (!name) return;
-    await addLedger(name);
-    $('#newLedgerName', mount).value = '';
-    listLedgers();
-  };
-
-  // 事件：類別
-  $('#addCat', mount).onclick = async ()=>{
-    const type = $('#catType', mount).value;
-    const name = $('#newCatName', mount).value.trim();
-    if (!name) return;
-    await addCategory(type, name);
-    $('#newCatName', mount).value = '';
-    listCategories();
-  };
-  $('#catType', mount).onchange = listCategories;
-
-  // 事件：預算
-  $('#addBudget', mount).onclick = async ()=>{
-    const name = $('#budgetName', mount).value.trim();
-    const amount = $('#budgetAmount', mount).value;
-    const start = $('#budgetStart', mount).value;
-    const end   = $('#budgetEnd', mount).value;
-    if (!name || !amount || !start || !end) return toast('請完整填寫');
-    await addBudget({ name, amount, start, end });
-    $('#budgetName', mount).value = ''; $('#budgetAmount', mount).value = '';
-    $('#budgetStart', mount).value = ''; $('#budgetEnd', mount).value = '';
-    listBudgets();
-  };
-
-  // 事件：貨幣
-  $('#saveBaseCurrency', mount).onclick = async ()=>{
-    const code = ($('#baseCurrency', mount).value || 'TWD').toUpperCase();
-    await saveBaseCurrency(code);
-    listLedgers(); // 讓帳本卡片也更新（展示模式下只是視覺）
-  };
-  $('#addRate', mount).onclick = async ()=>{
-    const code = $('#rateCode', mount).value.trim();
-    const val  = $('#rateValue', mount).value;
-    if (!code || !val) return;
-    await addRate(code, val);
-    $('#rateCode', mount).value = ''; $('#rateValue', mount).value = '';
-  };
-
-  // 事件：聊天 / 一般
-  $('#saveChat', mount).onclick = saveChat;
-  $('#saveRemind', mount).onclick = saveRemind;
-
-  // 匯出/匯入
-  $('#exportJson', mount).onclick = exportJson;
-  $('#importBtn', mount).onclick = ()=> importFile($('#importFile', mount).files);
-})();
+    <div class="
