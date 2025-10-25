@@ -57,11 +57,6 @@ const TX_CACHE = new Map();
   .spacer{flex:1}
   /* 整塊日期欄可點 */
   .tx-field.clickable{ cursor:pointer; }
-  /* 桌機 Hover 提示（僅在可編輯時 .clickable 才有效） */
-  .tx-field.clickable:hover{
-    outline: 2px solid rgba(59,130,246,.6);
-    background: rgba(59,130,246,.08);
-  }
   @media (hover:none){ .tx-btn{min-height:44px;min-width:44px} }
   `;
   document.head.appendChild(css);
@@ -135,8 +130,10 @@ function ensureTxModal(){
         const node = $('#'+id);
         if (node) node.setAttribute('aria-readonly', String(ro));
       });
+      // 日期區塊的可點手勢只在編輯模式開啟
       const dateField = $('#f-date');
-      if (dateField) dateField.classList.toggle('clickable', !!on); // 只有編輯時可點
+      if (dateField) dateField.classList.toggle('clickable', !!on);
+
       $('#txd-save').style.display = on ? 'inline-block' : 'none';
       $('#txd-edit').textContent = on ? '取消編輯' : '編輯';
       setConfirmBar(false);
@@ -154,14 +151,13 @@ function ensureTxModal(){
       setEdit(modal.dataset.edit !== '1');
     });
 
-    // ===== 整塊日期可點：手機/桌機皆順手 =====
+    // ===== 整塊日期可點：開啟原生日曆 =====
     (function setupDateFieldClick(){
       const field = $('#f-date');
       const input = $('#inp-date');
       if (!field || !input) return;
 
       field.setAttribute('tabindex', '0');
-      field.setAttribute('title', '點一下可開啟日期選擇');
 
       const openPicker = () => {
         if (modal.dataset.edit !== '1') return; // 只在編輯模式
@@ -171,21 +167,10 @@ function ensureTxModal(){
         input.focus(); input.click();
       };
 
-      // 行動/桌機 click
       field.addEventListener('click', (e) => {
-        if (e.target === input) return;
+        if (e.target === input) return; // 避免重複
         openPicker();
       });
-
-      // 桌機 mousedown，更即時
-      field.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;       // 只左鍵
-        if (e.target === input) return;
-        e.preventDefault();               // 避免選字拖曳
-        openPicker();
-      });
-
-      // 鍵盤：Enter / Space
       field.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
       });
@@ -239,7 +224,7 @@ function ensureTxModal(){
       }
     });
 
-    // 暴露在閉包外給 openTxModal 設定
+    // 暴露在閉包外給 openTxModal 初始化時切換用
     modal.__setEdit = setEdit;
   }
   return { backdrop, modal };
