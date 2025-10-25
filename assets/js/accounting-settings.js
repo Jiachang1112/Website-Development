@@ -1,407 +1,572 @@
-/**
- * SuperTool 記帳設定（純前端 Demo 版）
- * 完全不需 Firebase：所有資料存 localStorage（key: st_acc_settings_v1）
- * 分頁：管理帳本 / 管理預算 / 管理類型 / 管理貨幣 / 聊天設定 / 一般設定
- */
+// assets/js/pages/accounting-settings.js
+// 完整記帳設定系統
 
-console.log('[acc-settings DEMO] start', new Date().toISOString());
+import { auth, db } from '../firebase.js';
+import {
+  doc, getDoc, setDoc, updateDoc, serverTimestamp,
+  collection, addDoc, deleteDoc, query, orderBy, getDocs, where
+} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-/* ============= 持久層（localStorage） ============= */
-const STORE_KEY = 'st_acc_settings_v1';
+// ========== 工具函數 ==========
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const toast = (msg, type='info') => {
+  const colors = {info:'#3b82f6', success:'#10b981', error:'#ef4444', warning:'#f59e0b'};
+  const div = document.createElement('div');
+  div.textContent = msg;
+  div.style.cssText = `position:fixed;top:80px;right:20px;background:${colors[type]};color:#fff;padding:14px 20px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.4);z-index:9999;font-weight:600;animation:slideIn 0.3s ease;`;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 3000);
+};
 
-const seed = () => ({
-  ledgers: [
-    { id: 'L1', name: '個人', currency: 'TWD', createdAt: Date.now() },
-    { id: 'L2', name: '家庭', currency: 'TWD', createdAt: Date.now() - 1000 }
-  ],
-  currentLedgerId: 'L1',
-  categories: {
-    L1: [
-      { id: 'c1', name: '餐飲', type: 'expense', order: 1 },
-      { id: 'c2', name: '交通', type: 'expense', order: 2 },
-      { id: 'c3', name: '薪資', type: 'income', order: 3 }
-    ],
-    L2: []
-  },
-  budgets: {
-    L1: [
-      { id: 'b1', name: '10月餐飲', amount: 5000, startAt: '2025-10-01', endAt: '2025-10-31' }
-    ],
-    L2: []
-  },
-  settings: {
-    currencies: { base: 'TWD', rates: { USD: 32.1, JPY: 0.22 } },
-    chat: { persona: 'minimal_accountant', custom: '', commandsEnabled: true },
-    general: { reminderEnabled: true, reminderTime: '21:00' }
-  }
-});
+console.log('🚀 記帳設定系統啟動');
 
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return seed();
-    const obj = JSON.parse(raw);
-    return obj && typeof obj === 'object' ? obj : seed();
-  } catch {
-    return seed();
-  }
-}
-function saveState(s) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(s));
-}
-let S = loadState();
-const gid = () => '_' + Math.random().toString(36).slice(2, 9);
+// ========== 狀態管理 ==========
+let UID = null;
+let currentLedgerId = null;
 
-/* ============= DOM helpers ============= */
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-const money = n => (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 0 });
-
-/* ============= 外觀樣式 ============= */
-(function injectStyle() {
-  const css = document.createElement('style');
-  css.textContent = `
-  .card{background:rgba(15,23,42,.9);border:1px solid rgba(255,255,255,.1);border-radius:16px;color:#fff;margin-bottom:16px}
-  .card-header{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.12);font-weight:700}
-  .card-body{padding:16px}
-  .row{display:flex;gap:8px;flex-wrap:wrap}
-  .list{display:grid;gap:8px}
-  .item{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px}
-  .btn{border:none;border-radius:10px;padding:10px 14px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
-  .btn.ghost{background:rgba(255,255,255,.1)}
-  .btn.danger{background:#ef4444}
-  .btn:disabled{opacity:.6;cursor:not-allowed}
-  input,select,textarea{background:rgba(30,41,59,.6);border:1px solid rgba(148,163,184,.3);border-radius:10px;color:#fff;padding:10px 12px}
-  label.small{opacity:.8;font-size:12px}
-  `;
-  document.head.appendChild(css);
-})();
-
-/* ============= 殼 ============= */
-const mount = document.getElementById('app') || document.body;
-mount.innerHTML = `
-  <div id="banner" class="card" style="border-style:dashed">
-    <div class="card-body">🟡 <b>展示模式</b>：此頁為<strong>純前端</strong>版本，資料儲存在瀏覽器 <code>localStorage</code>。</div>
-  </div>
-
-  <section id="view-ledgers"></section>
-  <section id="view-budgets" style="display:none"></section>
-  <section id="view-categories" style="display:none"></section>
-  <section id="view-currency" style="display:none"></section>
-  <section id="view-chat" style="display:none"></section>
-  <section id="view-general" style="display:none"></section>
-`;
-
-/* ============= Tabs：用 URL hash 控制顯示 ============= */
-const tabs = ['ledgers', 'budgets', 'categories', 'currency', 'chat', 'general'];
-function showTab(name) {
-  tabs.forEach(t => {
-    const on = t === name;
-    const el = document.getElementById('view-' + t);
-    if (el) el.style.display = on ? 'block' : 'none';
-  });
-  // 按鈕 active（使用你 HTML 上方那排）
-  document.querySelectorAll('.tabs button').forEach(b => {
-    b.classList.toggle('active', b.dataset.tab === name);
-  });
-  // 渲染當前頁
-  if (name === 'ledgers') renderLedgers();
-  if (name === 'budgets') renderBudgets();
-  if (name === 'categories') renderCategories();
-  if (name === 'currency') renderCurrency();
-  if (name === 'chat') renderChat();
-  if (name === 'general') renderGeneral();
-}
-window.addEventListener('hashchange', () => showTab((location.hash || '#ledgers').slice(1)));
-showTab((location.hash || '#ledgers').slice(1));
-
-/* ============= Ledgers ============= */
-function renderLedgers() {
-  const el = $('#view-ledgers');
-  const rows = [...S.ledgers].sort((a, b) => b.createdAt - a.createdAt);
-  el.innerHTML = `
-    <div class="card">
-      <div class="card-header">管理帳本</div>
-      <div class="card-body">
-        <div class="row" style="margin-bottom:8px">
-          <input id="newLedgerName" placeholder="帳本名稱（例如：個人）" style="min-width:260px">
-          <button id="addLedger" class="btn">新增</button>
-          <button id="resetDemo" class="btn ghost">重置為預設資料</button>
-        </div>
-        <div class="list" id="ledgerList"></div>
-      </div>
-    </div>
-  `;
-  const list = $('#ledgerList', el);
-  list.innerHTML = rows.map(v => `
-    <div class="item">
-      <div>
-        <div style="font-weight:700">${v.name || '(未命名)'}</div>
-        <div style="opacity:.8;font-size:12px">主貨幣：${v.currency || 'TWD'}　ID：${v.id}${S.currentLedgerId===v.id?'（目前）':''}</div>
-      </div>
-      <div class="row">
-        <button class="btn ghost" data-use="${v.id}">使用</button>
-        <button class="btn danger" data-del="${v.id}">刪除</button>
-      </div>
-    </div>
-  `).join('') || '<div class="item">尚無帳本</div>';
-
-  $('#addLedger', el).onclick = () => {
-    const name = $('#newLedgerName', el).value.trim();
-    if (!name) return;
-    S.ledgers.unshift({ id: gid(), name, currency: 'TWD', createdAt: Date.now() });
-    saveState(S); renderLedgers();
-  };
-  $('#resetDemo', el).onclick = () => {
-    S = seed(); saveState(S); showTab('ledgers');
-  };
-  $$('button[data-use]', el).forEach(b => b.onclick = () => {
-    S.currentLedgerId = b.dataset.use; saveState(S);
-    renderLedgers(); // refresh
-  });
-  $$('button[data-del]', el).forEach(b => b.onclick = () => {
-    if (!confirm('確定刪除此帳本與其資料？')) return;
-    const id = b.dataset.del;
-    S.ledgers = S.ledgers.filter(x => x.id !== id);
-    delete S.categories[id]; delete S.budgets[id];
-    if (S.currentLedgerId === id) S.currentLedgerId = S.ledgers[0]?.id || null;
-    saveState(S); renderLedgers();
-  });
-}
-
-/* ============= Categories ============= */
-function renderCategories() {
-  const el = $('#view-categories');
-  const L = S.currentLedgerId;
-  if (!L) { el.innerHTML = '<div class="card"><div class="card-body">請先建立或選擇帳本</div></div>'; return; }
-  const cats = S.categories[L] || [];
-  el.innerHTML = `
-    <div class="card">
-      <div class="card-header">管理類型（目前帳本：${S.ledgers.find(x=>x.id===L)?.name||'-'}）</div>
-      <div class="card-body">
-        <div class="row" style="margin-bottom:8px">
-          <select id="catType" style="min-width:120px">
-            <option value="expense">支出</option><option value="income">收入</option>
-          </select>
-          <input id="newCatName" placeholder="新增類型名稱…" style="min-width:240px">
-          <button id="addCat" class="btn">新增</button>
-        </div>
-        <div class="list" id="catList"></div>
-      </div>
-    </div>
-  `;
-  const type = $('#catType', el).value = 'expense';
-  drawList(type);
-
-  $('#catType', el).onchange = () => drawList($('#catType', el).value);
-  $('#addCat', el).onclick = () => {
-    const name = $('#newCatName', el).value.trim(); if (!name) return;
-    const t = $('#catType', el).value;
-    (S.categories[L] ||= []).push({ id: gid(), name, type: t, order: Date.now() });
-    saveState(S); $('#newCatName', el).value = ''; drawList(t);
-  };
-
-  function drawList(t) {
-    const list = $('#catList', el);
-    const rows = (S.categories[L] || []).filter(x => x.type === t).sort((a,b)=>a.order-b.order);
-    list.innerHTML = rows.map(v => `
-      <div class="item">
-        <div>${v.name}</div>
-        <button class="btn danger" data-id="${v.id}">刪除</button>
-      </div>
-    `).join('') || '<div class="item">尚無類型</div>';
-    $$('button[data-id]', list).forEach(b => b.onclick = () => {
-      S.categories[L] = (S.categories[L]||[]).filter(x => x.id !== b.dataset.id);
-      saveState(S); drawList(t);
+// ========== 等待 Firebase Auth 初始化 ==========
+async function waitForAuth() {
+  return new Promise((resolve) => {
+    if (auth.currentUser) {
+      console.log('✅ 已登入:', auth.currentUser.uid);
+      resolve(auth.currentUser);
+      return;
+    }
+    
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      unsubscribe();
+      console.log(user ? '✅ 登入成功' : '❌ 未登入');
+      resolve(user);
     });
+    
+    // 5 秒超時保護
+    setTimeout(() => {
+      unsubscribe();
+      console.log('⚠️ Auth 超時，使用當前狀態');
+      resolve(auth.currentUser);
+    }, 5000);
+  });
+}
+
+// ========== 取得預設帳本 ==========
+async function getDefaultLedger() {
+  if (!UID) return null;
+  
+  // 先找 isDefault = true
+  const q1 = query(collection(db, 'users', UID, 'ledgers'), where('isDefault', '==', true));
+  const snap1 = await getDocs(q1);
+  if (!snap1.empty) return snap1.docs[0].id;
+  
+  // 沒有就取第一本
+  const q2 = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt', 'asc'));
+  const snap2 = await getDocs(q2);
+  return snap2.empty ? null : snap2.docs[0].id;
+}
+
+// ========== 1. 管理帳本 ==========
+async function renderLedgers() {
+  const container = $('#content');
+  container.innerHTML = `
+    <div class="settings-card">
+      <h3>📒 管理帳本</h3>
+      <div class="add-form">
+        <input id="newLedgerName" placeholder="輸入新帳本名稱" class="form-input">
+        <button id="btnAddLedger" class="btn btn-primary">新增帳本</button>
+      </div>
+      <div id="ledgerList" class="item-list">載入中...</div>
+    </div>
+  `;
+
+  // 載入帳本列表
+  await loadLedgerList();
+
+  // 新增帳本
+  $('#btnAddLedger').onclick = async () => {
+    const name = $('#newLedgerName').value.trim();
+    if (!name) return toast('請輸入帳本名稱', 'warning');
+    
+    const ref = collection(db, 'users', UID, 'ledgers');
+    const q = query(ref, orderBy('createdAt', 'asc'));
+    const snap = await getDocs(q);
+    const isFirst = snap.empty;
+
+    await addDoc(ref, {
+      name,
+      currency: 'TWD',
+      members: { [UID]: 'owner' },
+      isDefault: isFirst,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    $('#newLedgerName').value = '';
+    toast('帳本已新增', 'success');
+    loadLedgerList();
+  };
+}
+
+async function loadLedgerList() {
+  const list = $('#ledgerList');
+  const q = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt', 'asc'));
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    list.innerHTML = '<div class="empty">尚無帳本</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  snap.forEach(doc => {
+    const data = doc.data();
+    const item = document.createElement('div');
+    item.className = 'list-item';
+    item.innerHTML = `
+      <div class="item-info">
+        <div class="item-name">${data.name}</div>
+        <div class="item-meta">貨幣: ${data.currency || 'TWD'} ${data.isDefault ? '<span class="badge-default">預設</span>' : ''}</div>
+      </div>
+      <div class="item-actions">
+        <button class="btn-sm btn-secondary" onclick="window.selectLedger('${doc.id}')">選擇</button>
+        <button class="btn-sm btn-danger" onclick="window.deleteLedger('${doc.id}', ${data.isDefault})">刪除</button>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+
+  // 設定當前帳本
+  if (!currentLedgerId && !snap.empty) {
+    currentLedgerId = snap.docs[0].id;
   }
 }
 
-/* ============= Budgets ============= */
-function renderBudgets() {
-  const el = $('#view-budgets');
-  const L = S.currentLedgerId;
-  if (!L) { el.innerHTML = '<div class="card"><div class="card-body">請先建立或選擇帳本</div></div>'; return; }
-  const rows = S.budgets[L] || [];
-  el.innerHTML = `
-    <div class="card">
-      <div class="card-header">管理預算（目前帳本）</div>
-      <div class="card-body">
-        <div class="row" style="margin-bottom:8px">
-          <input id="bName" placeholder="名稱（如10月餐飲）" style="min-width:220px">
-          <input id="bAmt" type="number" placeholder="金額" style="width:140px">
-          <input id="bStart" type="date">
-          <input id="bEnd" type="date">
-          <button id="bAdd" class="btn">新增</button>
-        </div>
-        <div class="list" id="bList"></div>
+window.selectLedger = (id) => {
+  currentLedgerId = id;
+  toast('已切換帳本', 'success');
+};
+
+window.deleteLedger = async (id, isDefault) => {
+  if (!confirm('確定刪除此帳本？')) return;
+  
+  await deleteDoc(doc(db, 'users', UID, 'ledgers', id));
+  
+  // 如果刪的是預設，重新指定第一本為預設
+  if (isDefault) {
+    const q = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt', 'asc'));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      await updateDoc(doc(db, 'users', UID, 'ledgers', snap.docs[0].id), {
+        isDefault: true,
+        updatedAt: serverTimestamp()
+      });
+    }
+  }
+  
+  toast('帳本已刪除', 'success');
+  loadLedgerList();
+};
+
+// ========== 2. 管理預算 ==========
+async function renderBudgets() {
+  if (!currentLedgerId) currentLedgerId = await getDefaultLedger();
+  if (!currentLedgerId) {
+    $('#content').innerHTML = '<div class="settings-card"><div class="empty">請先建立帳本</div></div>';
+    return;
+  }
+
+  const container = $('#content');
+  container.innerHTML = `
+    <div class="settings-card">
+      <h3>💰 管理預算</h3>
+      <div class="add-form multi">
+        <input id="budgetName" placeholder="預算名稱" class="form-input">
+        <input id="budgetAmount" type="number" placeholder="金額" class="form-input">
+        <input id="budgetStart" type="date" class="form-input">
+        <input id="budgetEnd" type="date" class="form-input">
+        <button id="btnAddBudget" class="btn btn-primary">新增</button>
       </div>
+      <div id="budgetList" class="item-list">載入中...</div>
     </div>
   `;
-  const list = $('#bList', el);
-  list.innerHTML = rows.map(v => `
-    <div class="item">
-      <div><b>${v.name}</b>｜金額 ${money(v.amount)}｜${v.startAt} ~ ${v.endAt}</div>
-      <button class="btn danger" data-id="${v.id}">刪除</button>
-    </div>
-  `).join('') || '<div class="item">尚無預算</div>';
-  $('#bAdd', el).onclick = () => {
-    const name = $('#bName', el).value.trim();
-    const amount = Number($('#bAmt', el).value || 0);
-    const s = $('#bStart', el).value, e = $('#bEnd', el).value;
-    if (!name || !amount || !s || !e) return alert('請完整填寫');
-    (S.budgets[L] ||= []).unshift({ id: gid(), name, amount, startAt: s, endAt: e });
-    saveState(S); renderBudgets();
+
+  await loadBudgetList();
+
+  $('#btnAddBudget').onclick = async () => {
+    const name = $('#budgetName').value.trim();
+    const amount = $('#budgetAmount').value;
+    const start = $('#budgetStart').value;
+    const end = $('#budgetEnd').value;
+
+    if (!name || !amount || !start || !end) {
+      return toast('請填寫完整資訊', 'warning');
+    }
+
+    await addDoc(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'budgets'), {
+      name,
+      amount: Number(amount),
+      period: 'custom',
+      startAt: new Date(start + 'T00:00:00'),
+      endAt: new Date(end + 'T23:59:59'),
+      currency: 'TWD',
+      rollover: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    $('#budgetName').value = '';
+    $('#budgetAmount').value = '';
+    $('#budgetStart').value = '';
+    $('#budgetEnd').value = '';
+    toast('預算已新增', 'success');
+    loadBudgetList();
   };
-  $$('button[data-id]', list).forEach(b => b.onclick = () => {
-    S.budgets[L] = (S.budgets[L]||[]).filter(x => x.id !== b.dataset.id);
-    saveState(S); renderBudgets();
+}
+
+async function loadBudgetList() {
+  const list = $('#budgetList');
+  const q = query(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'budgets'), orderBy('createdAt', 'desc'));
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    list.innerHTML = '<div class="empty">尚無預算</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  snap.forEach(doc => {
+    const data = doc.data();
+    const start = data.startAt?.toDate?.()?.toLocaleDateString('zh-TW') || '---';
+    const end = data.endAt?.toDate?.()?.toLocaleDateString('zh-TW') || '---';
+    
+    const item = document.createElement('div');
+    item.className = 'list-item';
+    item.innerHTML = `
+      <div class="item-info">
+        <div class="item-name">${data.name}</div>
+        <div class="item-meta">NT$ ${data.amount?.toLocaleString()} | ${start} ~ ${end}</div>
+      </div>
+      <button class="btn-sm btn-danger" onclick="window.deleteBudget('${doc.id}')">刪除</button>
+    `;
+    list.appendChild(item);
   });
 }
 
-/* ============= Currency（使用者設定 + 帳本主幣） ============= */
-function renderCurrency() {
-  const el = $('#view-currency');
-  const L = S.currentLedgerId;
-  if (!L) { el.innerHTML = '<div class="card"><div class="card-body">請先建立或選擇帳本</div></div>'; return; }
-  const ledger = S.ledgers.find(x => x.id === L);
-  const cur = S.settings.currencies || { base: 'TWD', rates: {} };
+window.deleteBudget = async (id) => {
+  if (!confirm('確定刪除此預算？')) return;
+  await deleteDoc(doc(db, 'users', UID, 'ledgers', currentLedgerId, 'budgets', id));
+  toast('預算已刪除', 'success');
+  loadBudgetList();
+};
 
-  el.innerHTML = `
-    <div class="card">
-      <div class="card-header">管理貨幣（目前帳本：${ledger?.name || '-' }）</div>
-      <div class="card-body">
-        <div class="row" style="margin-bottom:10px">
-          <label class="small">主貨幣</label>
-          <input id="baseCurrency" value="${cur.base || 'TWD'}" style="width:120px">
-          <button id="saveBase" class="btn ghost">儲存</button>
-        </div>
+// ========== 3. 管理類型 ==========
+async function renderCategories() {
+  if (!currentLedgerId) currentLedgerId = await getDefaultLedger();
+  if (!currentLedgerId) {
+    $('#content').innerHTML = '<div class="settings-card"><div class="empty">請先建立帳本</div></div>';
+    return;
+  }
 
-        <div class="row" style="margin-bottom:8px">
-          <input id="rateCode" placeholder="幣別（USD）" style="width:140px">
-          <input id="rateVal"  placeholder="對主幣匯率（如 32.1）" style="width:180px">
-          <button id="addRate" class="btn">新增匯率</button>
-        </div>
-        <div class="list" id="rateList"></div>
-
-        <hr style="border-color:rgba(255,255,255,.12);margin:16px 0">
-        <div class="row">
-          <label class="small">帳本主貨幣</label>
-          <input id="ledgerCur" value="${ledger?.currency || 'TWD'}" style="width:120px">
-          <button id="saveLedgerCur" class="btn ghost">儲存帳本</button>
-        </div>
+  const container = $('#content');
+  container.innerHTML = `
+    <div class="settings-card">
+      <h3>🏷️ 管理類型</h3>
+      <div class="category-tabs">
+        <button class="tab-btn active" data-type="expense">支出類型</button>
+        <button class="tab-btn" data-type="income">收入類型</button>
       </div>
+      <div class="add-form">
+        <input id="categoryName" placeholder="類型名稱" class="form-input">
+        <button id="btnAddCategory" class="btn btn-primary">新增</button>
+      </div>
+      <div id="categoryList" class="item-list">載入中...</div>
     </div>
   `;
 
-  const list = $('#rateList', el);
-  const rates = Object.entries(cur.rates || {});
-  list.innerHTML = rates.map(([k, v]) => `
-    <div class="item">
-      <div>${k} → ${v}</div>
-      <button class="btn danger" data-k="${k}">刪除</button>
-    </div>
-  `).join('') || '<div class="item">尚無匯率</div>';
+  let currentType = 'expense';
 
-  $('#saveBase', el).onclick = () => {
-    const base = ($('#baseCurrency', el).value || 'TWD').toUpperCase();
-    S.settings.currencies = { base, rates: cur.rates || {} };
-    saveState(S); renderCurrency();
+  const loadList = async () => {
+    const list = $('#categoryList');
+    const q = query(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'categories'), orderBy('order', 'asc'));
+    const snap = await getDocs(q);
+
+    const filtered = snap.docs.filter(doc => doc.data().type === currentType);
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<div class="empty">尚無類型</div>';
+      return;
+    }
+
+    list.innerHTML = '';
+    filtered.forEach(doc => {
+      const data = doc.data();
+      const item = document.createElement('div');
+      item.className = 'list-item';
+      item.innerHTML = `
+        <div class="item-info">
+          <span class="color-dot" style="background:${data.color || '#60a5fa'}"></span>
+          <div class="item-name">${data.name}</div>
+        </div>
+        <button class="btn-sm btn-danger" onclick="window.deleteCategory('${doc.id}')">刪除</button>
+      `;
+      list.appendChild(item);
+    });
   };
-  $('#addRate', el).onclick = () => {
-    const k = ($('#rateCode', el).value || '').trim().toUpperCase();
-    const v = Number($('#rateVal', el).value || 0);
-    if (!k || !Number.isFinite(v) || v <= 0) return;
-    const next = { ...(S.settings.currencies.rates || {}) }; next[k] = v;
-    S.settings.currencies = { base: $('#baseCurrency', el).value || 'TWD', rates: next };
-    saveState(S); renderCurrency();
-  };
-  $$('button[data-k]', list).forEach(b => b.onclick = () => {
-    const next = { ...(S.settings.currencies.rates || {}) }; delete next[b.dataset.k];
-    S.settings.currencies = { base: $('#baseCurrency', el).value || 'TWD', rates: next };
-    saveState(S); renderCurrency();
+
+  await loadList();
+
+  // 切換分頁
+  $$('.tab-btn').forEach(btn => {
+    btn.onclick = () => {
+      $$('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentType = btn.dataset.type;
+      loadList();
+    };
   });
 
-  $('#saveLedgerCur', el).onclick = () => {
-    const code = ($('#ledgerCur', el).value || 'TWD').toUpperCase();
-    const idx = S.ledgers.findIndex(x => x.id === L);
-    if (idx >= 0) S.ledgers[idx].currency = code;
-    saveState(S); renderCurrency();
+  // 新增類型
+  $('#btnAddCategory').onclick = async () => {
+    const name = $('#categoryName').value.trim();
+    if (!name) return toast('請輸入類型名稱', 'warning');
+
+    await addDoc(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'categories'), {
+      name,
+      type: currentType,
+      order: Date.now(),
+      color: currentType === 'expense' ? '#ef4444' : '#10b981',
+      parentId: null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    $('#categoryName').value = '';
+    toast('類型已新增', 'success');
+    loadList();
+  };
+
+  window.deleteCategory = async (id) => {
+    if (!confirm('確定刪除此類型？')) return;
+    await deleteDoc(doc(db, 'users', UID, 'ledgers', currentLedgerId, 'categories', id));
+    toast('類型已刪除', 'success');
+    loadList();
   };
 }
 
-/* ============= Chat ============= */
-function renderChat() {
-  const el = $('#view-chat');
-  const chat = S.settings.chat || { persona: 'minimal_accountant', custom: '', commandsEnabled: true };
-  el.innerHTML = `
-    <div class="card">
-      <div class="card-header">專屬角色與指令</div>
-      <div class="card-body">
-        <div class="row" style="margin-bottom:8px">
-          <label class="small" style="width:100%">角色（Persona）</label>
-          <select id="persona" style="min-width:220px">
-            <option value="minimal_accountant">極簡會計師（精簡、重點）</option>
-            <option value="friendly_helper">溫暖助手（鼓勵、貼心）</option>
-            <option value="strict_coach">節制教練（嚴謹、控管）</option>
-          </select>
-        </div>
-        <div class="row" style="margin-bottom:8px; width:100%">
-          <label class="small" style="width:100%">自定義描述（可留白）</label>
-          <textarea id="personaCustom" rows="3" style="width:100%" placeholder="描述語氣、風格、輸出格式重點…"></textarea>
-        </div>
-        <div class="row" style="align-items:center;margin-bottom:8px">
-          <input id="cmdEnabled" type="checkbox" ${chat.commandsEnabled ? 'checked' : ''} />
-          <label for="cmdEnabled" style="user-select:none">啟用記帳快速指令（/add /sum /budget…）</label>
-        </div>
-        <button id="saveChat" class="btn">儲存聊天設定</button>
+// ========== 4. 管理貨幣 ==========
+async function renderCurrency() {
+  const container = $('#content');
+  container.innerHTML = `
+    <div class="settings-card">
+      <h3>💱 管理貨幣</h3>
+      <div class="add-form multi">
+        <input id="currencyCode" placeholder="幣別代碼 (USD)" class="form-input" maxlength="3">
+        <input id="currencyRate" type="number" step="0.0001" placeholder="對 TWD 匯率 (例: 0.033)" class="form-input">
+        <button id="btnAddRate" class="btn btn-primary">新增匯率</button>
       </div>
+      <div class="tip">💡 範例：USD 匯率 0.033 表示 1 TWD ≈ 0.033 USD</div>
+      <div id="rateList" class="item-list">載入中...</div>
     </div>
   `;
-  $('#persona', el).value = chat.persona || 'minimal_accountant';
-  $('#personaCustom', el).value = chat.custom || '';
 
-  $('#saveChat', el).onclick = () => {
-    S.settings.chat = {
-      persona: $('#persona', el).value,
-      custom: $('#personaCustom', el).value,
-      commandsEnabled: $('#cmdEnabled', el).checked
-    };
-    saveState(S);
-    alert('已儲存聊天設定（Demo）');
+  await loadRateList();
+
+  $('#btnAddRate').onclick = async () => {
+    const code = $('#currencyCode').value.trim().toUpperCase();
+    const rate = $('#currencyRate').value.trim();
+
+    if (!code || !rate) return toast('請填寫完整資訊', 'warning');
+    if (code.length !== 3) return toast('幣別代碼需為 3 個字元', 'warning');
+
+    const userRef = doc(db, 'users', UID);
+    const snap = await getDoc(userRef);
+    const settings = snap.data()?.settings || {};
+    const rates = settings.currencies?.rates || {};
+    rates[code] = Number(rate);
+
+    await updateDoc(userRef, {
+      'settings.currencies.base': 'TWD',
+      'settings.currencies.rates': rates,
+      updatedAt: serverTimestamp()
+    });
+
+    $('#currencyCode').value = '';
+    $('#currencyRate').value = '';
+    toast('匯率已新增', 'success');
+    loadRateList();
   };
 }
 
-/* ============= General ============= */
-function renderGeneral() {
-  const el = $('#view-general');
-  const g = S.settings.general || { reminderEnabled: true, reminderTime: '21:00' };
-  el.innerHTML = `
-    <div class="card">
-      <div class="card-header">每日提醒</div>
-      <div class="card-body">
-        <div class="row" style="align-items:center;margin-bottom:8px">
-          <input id="remindEnable" type="checkbox" ${g.reminderEnabled ? 'checked' : ''}/>
-          <label for="remindEnable" style="user-select:none">啟用每日提醒</label>
-        </div>
-        <div class="row">
-          <input id="remindTime" type="time" value="${g.reminderTime || '21:00'}" style="width:140px">
-          <button id="saveRemind" class="btn">儲存</button>
-        </div>
-        <div style="opacity:.8;margin-top:8px;font-size:12px">（Demo：設定儲存在瀏覽器，不會同步雲端）</div>
+async function loadRateList() {
+  const list = $('#rateList');
+  const userRef = doc(db, 'users', UID);
+  const snap = await getDoc(userRef);
+  const rates = snap.data()?.settings?.currencies?.rates || {};
+
+  if (Object.keys(rates).length === 0) {
+    list.innerHTML = '<div class="empty">尚無自訂匯率</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  Object.entries(rates).forEach(([code, rate]) => {
+    const item = document.createElement('div');
+    item.className = 'list-item';
+    item.innerHTML = `
+      <div class="item-info">
+        <div class="item-name">${code}</div>
+        <div class="item-meta">1 TWD = ${rate} ${code}</div>
       </div>
+      <button class="btn-sm btn-danger" onclick="window.deleteRate('${code}')">刪除</button>
+    `;
+    list.appendChild(item);
+  });
+
+  window.deleteRate = async (code) => {
+    if (!confirm(`確定刪除 ${code} 匯率？`)) return;
+    
+    const userRef = doc(db, 'users', UID);
+    const snap = await getDoc(userRef);
+    const rates = snap.data()?.settings?.currencies?.rates || {};
+    delete rates[code];
+
+    await updateDoc(userRef, {
+      'settings.currencies.rates': rates,
+      updatedAt: serverTimestamp()
+    });
+
+    toast('匯率已刪除', 'success');
+    loadRateList();
+  };
+}
+
+// ========== 5. 聊天設定 ==========
+async function renderChat() {
+  const container = $('#content');
+  container.innerHTML = `
+    <div class="settings-card">
+      <h3>💬 聊天設定</h3>
+      <div class="form-group">
+        <label>AI 角色</label>
+        <select id="persona" class="form-select">
+          <option value="minimal">極簡會計師</option>
+          <option value="friendly">溫暖助手</option>
+          <option value="strict">嚴格教練</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>自訂描述</label>
+        <textarea id="personaCustom" class="form-textarea" rows="3" placeholder="可選填，描述語氣、風格..."></textarea>
+      </div>
+      <div class="form-check">
+        <input type="checkbox" id="cmdEnabled">
+        <label for="cmdEnabled">啟用快速指令 (/add /sum /budget)</label>
+      </div>
+      <button id="btnSaveChat" class="btn btn-primary">儲存設定</button>
     </div>
   `;
-  $('#saveRemind', el).onclick = () => {
-    S.settings.general = {
-      reminderEnabled: $('#remindEnable', el).checked,
-      reminderTime: $('#remindTime', el).value || '21:00'
-    };
-    saveState(S);
-    alert('已儲存每日提醒設定（Demo）');
+
+  // 載入現有設定
+  const userRef = doc(db, 'users', UID);
+  const snap = await getDoc(userRef);
+  const chat = snap.data()?.settings?.chat || {};
+
+  $('#persona').value = chat.persona || 'minimal';
+  $('#personaCustom').value = chat.custom || '';
+  $('#cmdEnabled').checked = chat.commandsEnabled !== false;
+
+  $('#btnSaveChat').onclick = async () => {
+    await updateDoc(userRef, {
+      'settings.chat': {
+        persona: $('#persona').value,
+        custom: $('#personaCustom').value,
+        commandsEnabled: $('#cmdEnabled').checked
+      },
+      updatedAt: serverTimestamp()
+    });
+    toast('聊天設定已儲存', 'success');
   };
 }
 
-// 首次顯示（避免 hash 是其他頁時，先讓當頁渲染一次）
-showTab((location.hash || '#ledgers').slice(1));
-console.log('[acc-settings DEMO] ready');
+// ========== 6. 一般設定 ==========
+async function renderGeneral() {
+  const container = $('#content');
+  container.innerHTML = `
+    <div class="settings-card">
+      <h3>⚙️ 一般設定</h3>
+      <div class="form-group">
+        <label>每日提醒</label>
+        <div class="form-check">
+          <input type="checkbox" id="remindEnabled">
+          <label for="remindEnabled">啟用每日記帳提醒</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>提醒時間</label>
+        <input type="time" id="remindTime" class="form-input" value="21:00">
+      </div>
+      <button id="btnSaveGeneral" class="btn btn-primary">儲存設定</button>
+    </div>
+  `;
+
+  // 載入現有設定
+  const userRef = doc(db, 'users', UID);
+  const snap = await getDoc(userRef);
+  const general = snap.data()?.settings?.general || {};
+
+  $('#remindEnabled').checked = general.reminderEnabled || false;
+  $('#remindTime').value = general.reminderTime || '21:00';
+
+  $('#btnSaveGeneral').onclick = async () => {
+    await updateDoc(userRef, {
+      'settings.general': {
+        reminderEnabled: $('#remindEnabled').checked,
+        reminderTime: $('#remindTime').value
+      },
+      updatedAt: serverTimestamp()
+    });
+    toast('一般設定已儲存', 'success');
+  };
+}
+
+// ========== 路由系統 ==========
+const routes = {
+  ledgers: renderLedgers,
+  budget: renderBudgets,
+  categories: renderCategories,
+  currency: renderCurrency,
+  chat: renderChat,
+  general: renderGeneral
+};
+
+function route() {
+  const hash = location.hash.replace('#', '') || 'ledgers';
+  const handler = routes[hash] || renderLedgers;
+  
+  // 更新按鈕狀態
+  $$('[data-tab]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === hash);
+  });
+  
+  handler();
+}
+
+// ========== 初始化 ==========
+(async function init() {
+  console.log('⏳ 等待 Firebase Auth...');
+  
+  const user = await waitForAuth();
+  
+  if (!user) {
+    document.body.innerHTML = '<div style="text-align:center;padding:100px;color:#fff"><h2>請先登入</h2></div>';
+    return;
+  }
+
+  UID = user.uid;
+  console.log('✅ UID 已設定:', UID);
+
+  // 初始路由
+  route();
+  
+  // 監聽 hash 變化
+  window.addEventListener('hashchange', route);
+})();
