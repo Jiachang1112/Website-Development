@@ -555,19 +555,29 @@ function route() {
 
 // ========== 初始化 ==========
 (async function init() {
-  console.log('⏳ 等待 Firebase Auth...');
+  console.log('⏳ 開始初始化...');
   
-  const user = await waitForAuth();
-  
-  if (!user) {
-    document.body.innerHTML = '<div style="text-align:center;padding:100px;color:#fff"><h2>請先登入</h2></div>';
-    return;
+  // 先顯示介面
+  if (!location.hash) {
+    location.hash = '#ledgers';
   }
+  
+  // 背景等待登入
+  waitForAuth().then(user => {
+    if (user) {
+      UID = user.uid;
+      console.log('✅ 已登入，UID:', UID);
+      // 重新渲染當前頁面
+      route();
+    } else {
+      console.log('⚠️ 未登入，使用展示模式');
+      UID = 'demo-user';
+      // 顯示展示資料
+      route();
+    }
+  });
 
-  UID = user.uid;
-  console.log('✅ UID 已設定:', UID);
-
-  // 初始路由
+  // 立即顯示介面（先用空資料）
   route();
   
   // 監聽 hash 變化
