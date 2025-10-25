@@ -1,7 +1,6 @@
 // assets/js/pages/accounting-settings.js
 // 設定頁（帳本/預算/類型/貨幣、聊天設定、匯入/匯出、每日提醒）
 // ★ 支援「未登入時的展示模式(Demo)」：資料存在記憶體，操作會即時反映（重整後回到預設）
-console.log('[acc-settings] loaded @', new Date().toISOString());
 
 import { auth, db } from '../firebase.js';
 import {
