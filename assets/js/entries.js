@@ -13,16 +13,16 @@ function getSignedEmail() {
   } catch { return null; }
 }
 
-/* ========== Path helpers ========== */
+/* ========== Path helpers（你的真實結構：expenses/{email}/entries/{docId}） ========== */
 function colRefForEmail(email) {
-  // 資料路徑：expenses/{email}/entries/{docId}
   return collection(doc(db, 'expenses', email), 'entries');
 }
 function mapDoc(email, docSnap) {
   const data = docSnap.data();
   return {
-    id: docSnap.id,                            // Firestore docId
-    __path: `expenses/${email}/entries/${docSnap.id}`, // 完整路徑（刪除/編輯用）
+    id: docSnap.id,                                   // Firestore docId
+    __path: `expenses/${email}/entries/${docSnap.id}`,// 完整路徑（刪除/編輯用）
+    __email: email,                                   // 備援用
     ...data
   };
 }
@@ -34,11 +34,11 @@ export async function addEntryForEmail(payload) {
 
   const ref = colRefForEmail(email);
   const docRef = await addDoc(ref, {
-    type: payload.type || 'expense',              // 'expense' | 'income'
+    type: payload.type || 'expense',           // 'expense' | 'income'
     amount: Number(payload.amount),
     categoryId: payload.categoryId || '其他',
     note: payload.note || '',
-    date: payload.date,                           // YYYY-MM-DD
+    date: payload.date,                        // YYYY-MM-DD
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
@@ -67,6 +67,7 @@ export async function getRecentEntriesForEmail(email = getSignedEmail(), n = 10)
   return snap.docs.map(d => mapDoc(email, d));
 }
 
+/** 取得一段日期範圍（含頭含尾；依 date 升冪） */
 export async function getEntriesRangeForEmail(email = getSignedEmail(), from, to) {
   if (!email) return [];
   const ref = colRefForEmail(email);
