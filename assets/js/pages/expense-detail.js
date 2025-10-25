@@ -2,12 +2,10 @@
 import { fmt } from '../app.js';
 import { getEntriesRangeForEmail } from '../entries.js';
 import { currentUser } from '../app.js';
-
-// Firestore 刪除工具
 import { db } from '../firebase.js';
 import { doc, getDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-/* ========= 工具函式 ========= */
+/* ========= 工具 ========= */
 function pad2(n){ return String(n).padStart(2,'0'); }
 function daysInMonth(y, m){ return new Date(y, m, 0).getDate(); }
 function yyyyMmDd(y, m, d){ return `${y}-${pad2(m)}-${pad2(d)}`; }
@@ -25,7 +23,7 @@ function ts(v){
 }
 const TX_CACHE = new Map();
 
-/* ========= 刪除 Modal ========= */
+/* ========= 樣式 ========= */
 (function injectModalStyle(){
   const css = document.createElement('style');
   css.textContent = `
@@ -37,14 +35,21 @@ const TX_CACHE = new Map();
     display:flex;justify-content:space-between;align-items:center}
   .tx-modal main{padding:14px 16px;display:grid;gap:10px}
   .tx-modal footer{padding:14px 16px;border-top:1px solid #374151;
-    display:flex;justify-content:flex-end;gap:8px}
+    display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
   .tx-btn{border:none;border-radius:10px;padding:10px 14px;cursor:pointer}
   .tx-btn.ghost{background:#374151;color:#fff}
   .tx-btn.danger{background:#ef4444;color:#fff}
+  .tx-btn.light{background:#fff;color:#111}
+  .tx-confirm{display:none;align-items:center;justify-content:space-between;
+    gap:8px;background:#7f1d1d;color:#fff;border-radius:10px;padding:10px 12px;
+    margin-right:auto;width:100%}
+  .tx-confirm.show{display:flex}
+  @media (hover:none){ .tx-btn{min-height:44px;min-width:44px} }
   `;
   document.head.appendChild(css);
 })();
 
+/* ========= Modal ========= */
 function ensureTxModal(){
   let backdrop = document.querySelector('.tx-modal-backdrop');
   let modal = document.querySelector('.tx-modal');
@@ -69,49 +74,71 @@ function ensureTxModal(){
         <div><small>備註</small><div id="txd-note">—</div></div>
       </main>
       <footer>
-        <button class="tx-btn ghost" id="txd-cancel">返回</button>
-        <button class="tx-btn danger" id="txd-delete">刪除</button>
+        <div id="txd-confirm" class="tx-confirm" aria-live="polite">
+          <span>確定刪除此筆紀錄？</span>
+          <div style="display:flex;gap:6px">
+            <button class="tx-btn light"  id="txd-no">取消</button>
+            <button class="tx-btn danger" id="txd-yes">確定刪除</button>
+          </div>
+        </div>
+        <div id="txd-actions" style="display:flex;gap:8px;margin-left:auto">
+          <button class="tx-btn ghost"  id="txd-cancel">返回</button>
+          <button class="tx-btn danger" id="txd-delete">刪除</button>
+        </div>
       </footer>
     `;
     document.body.appendChild(modal);
 
+    const $ = sel => modal.querySelector(sel);
     const close = ()=>{ modal.style.display='none'; backdrop.style.display='none'; };
+
     backdrop.addEventListener('click', close);
-    modal.querySelector('#txd-close').addEventListener('click', close);
-    modal.querySelector('#txd-cancel').addEventListener('click', close);
+    $('#txd-close').addEventListener('click', close);
+    $('#txd-cancel').addEventListener('click', close);
 
-    // 刪除按鈕事件
-    modal.querySelector('#txd-delete').addEventListener('click', async ()=>{
-      const id = modal.dataset.id || '';
-      const uid = modal.dataset.uid || '';
+    // 點「刪除」→ 顯示紅色確認條
+    $('#txd-delete').addEventListener('click', ()=>{
+      $('#txd-confirm').classList.add('show');
+      $('#txd-actions').style.display = 'none';
+    });
+
+    // 取消刪除
+    $('#txd-no').addEventListener('click', ()=>{
+      $('#txd-confirm').classList.remove('show');
+      $('#txd-actions').style.display = 'flex';
+    });
+
+    // 確定刪除
+    $('#txd-yes').addEventListener('click', async ()=>{
+      const id     = modal.dataset.id || '';
+      const uid    = modal.dataset.uid || '';
       const bookId = modal.dataset.bookId || '';
-      const path = modal.dataset.path || '';
-      const email = modal.dataset.email || '';
+      const path   = modal.dataset.path || '';
+      const email  = modal.dataset.email || '';
+      const btnYes = $('#txd-yes');
+      btnYes.disabled = true;
 
-      if (!confirm('確定要刪除此筆紀錄嗎？')) return;
-
-      const btn = modal.querySelector('#txd-delete');
-      btn.disabled = true;
       try {
         await smartDelete({ id, uid, bookId, path, email });
         close();
-        // 直接從列表移除
         document.querySelector(`[data-path="${path}"]`)?.remove();
         if (typeof window.__expense_detail_scheduleRender === 'function')
           window.__expense_detail_scheduleRender(0);
       } catch (err) {
-        alert('刪除失敗：' + (err.message || err));
-        btn.disabled = false;
+        alert('刪除失敗：' + (err?.message || err));
+        btnYes.disabled = false;
+        $('#txd-confirm').classList.remove('show');
+        $('#txd-actions').style.display = 'flex';
       }
     });
   }
   return { backdrop, modal };
 }
 
+/* ========= 打開彈窗 ========= */
 function openTxModal(row, uid){
   const { backdrop, modal } = ensureTxModal();
   const isIncome = String(row.type||'').toLowerCase()==='income';
-
   modal.dataset.id     = row.id || '';
   modal.dataset.uid    = uid || '';
   modal.dataset.bookId = row.bookId || '';
@@ -129,7 +156,7 @@ function openTxModal(row, uid){
   modal.style.display='block';
 }
 
-/* ========= 智慧刪除 ========= */
+/* ========= 聰明刪除 Firestore ========= */
 async function smartDelete({ id, uid='', bookId='', path='', email='' }) {
   if (path) {
     await deleteDoc(doc(db, path));
@@ -143,7 +170,7 @@ async function smartDelete({ id, uid='', bookId='', path='', email='' }) {
   const candidates = [
     id ? `entries/${id}` : null,
     id ? `expenses/${id}` : null,
-    id ? `incomes/${id}` : null,
+    id ? `incomes/${id}` : null
   ].filter(Boolean);
   for (const p of candidates) {
     const ref = doc(db, p);
@@ -156,15 +183,12 @@ async function smartDelete({ id, uid='', bookId='', path='', email='' }) {
   throw new Error('找不到可刪除的雲端文件（缺少 path 或 email+id）');
 }
 
-/* ========= 主頁面 ========= */
+/* ========= 主畫面 ========= */
 export function ExpenseDetailPage(){
   const el=document.createElement('div');
   el.className='container';
-
-  const now = new Date();
-  const y0 = now.getFullYear();
-  const m0 = now.getMonth()+1;
-  const d0 = now.getDate();
+  const now=new Date();
+  const y0=now.getFullYear(), m0=now.getMonth()+1, d0=now.getDate();
 
   el.innerHTML=`<section class="card"><h3>記帳｜明細</h3>
   <div class="row" style="gap:6px;align-items:center;flex-wrap:wrap">
@@ -195,7 +219,7 @@ export function ExpenseDetailPage(){
       requestAnimationFrame(()=>requestAnimationFrame(run));
     },wait);
   }
-  window.__expense_detail_scheduleRender = scheduleRender;
+  window.__expense_detail_scheduleRender=scheduleRender;
 
   function addNotSpecifiedOption(sel,txt='不指定'){
     const o=document.createElement('option');o.value='';o.textContent=txt;sel.appendChild(o);
@@ -203,22 +227,32 @@ export function ExpenseDetailPage(){
 
   (function fillYears(){
     const frag=document.createDocumentFragment();
-    for(let y=2020;y<=3000;y++){const o=document.createElement('option');o.value=String(y);o.textContent=String(y);frag.appendChild(o);}
+    for(let y=2020;y<=3000;y++){
+      const o=document.createElement('option');
+      o.value=String(y);o.textContent=String(y);frag.appendChild(o);
+    }
     ySel.appendChild(frag);
   })();
 
   (function fillMonths(){
     addNotSpecifiedOption(mSel,'不指定月份');
     const frag=document.createDocumentFragment();
-    for(let m=1;m<=12;m++){const o=document.createElement('option');o.value=pad2(m);o.textContent=pad2(m);frag.appendChild(o);}
+    for(let m=1;m<=12;m++){
+      const o=document.createElement('option');
+      o.value=pad2(m);o.textContent=pad2(m);frag.appendChild(o);
+    }
     mSel.appendChild(frag);
   })();
 
   function fillDays(y,m){
     dSel.innerHTML='';addNotSpecifiedOption(dSel,'不指定日期');
     if(!m)return;
-    const max=daysInMonth(Number(y),Number(m)),frag=document.createDocumentFragment();
-    for(let d=1;d<=max;d++){const o=document.createElement('option');o.value=pad2(d);o.textContent=pad2(d);frag.appendChild(o);}
+    const max=daysInMonth(Number(y),Number(m));
+    const frag=document.createDocumentFragment();
+    for(let d=1;d<=max;d++){
+      const o=document.createElement('option');
+      o.value=pad2(d);o.textContent=pad2(d);frag.appendChild(o);
+    }
     dSel.appendChild(frag);
   }
 
@@ -226,20 +260,26 @@ export function ExpenseDetailPage(){
 
   function updateCaption(){
     const isDay=!!(ySel.value&&mSel.value&&dSel.value);
-    const t=isDay?'當日':'期間';cap.textContent=t;cap2.textContent=t;cap3.textContent=t;
+    const t=isDay?'當日':'期間';
+    cap.textContent=t;cap2.textContent=t;cap3.textContent=t;
   }
+
   function syncAndRender(){
     fillDays(ySel.value,mSel.value);
     updateCaption();
     list.innerHTML=`<div class="small">載入中…</div>`;
     scheduleRender(120);
   }
-  ySel.onchange=syncAndRender;mSel.onchange=syncAndRender;
+  ySel.onchange=syncAndRender;
+  mSel.onchange=syncAndRender;
   dSel.onchange=()=>{updateCaption();scheduleRender(60);};
 
   async function render(jobId){
     const u=currentUser();
-    if(!u?.email){list.innerHTML=`<p class="small">請先登入帳號</p>`;return;}
+    if(!u?.email){
+      list.innerHTML=`<p class="small">請先登入帳號</p>`;
+      return;
+    }
 
     const y=ySel.value,m=mSel.value,d=dSel.value;
     let from,to;
@@ -254,7 +294,6 @@ export function ExpenseDetailPage(){
     const ins=rows.filter(r=>r.type==='income');
     const totalOut=outs.reduce((s,a)=>s+(+a.amount||0),0);
     const totalIn=ins.reduce((s,a)=>s+(+a.amount||0),0);
-
     outEl.textContent=fmt.money(totalOut);
     incEl.textContent=fmt.money(totalIn);
     balEl.textContent=fmt.money(totalIn-totalOut);
@@ -283,7 +322,8 @@ export function ExpenseDetailPage(){
     });
   }
 
-  updateCaption();scheduleRender(120);
+  updateCaption();
+  scheduleRender(120);
   return el;
 }
 
