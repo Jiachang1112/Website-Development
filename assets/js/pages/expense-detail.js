@@ -23,7 +23,7 @@ function ts(v){
 }
 const TX_CACHE = new Map();
 
-/* ========= 樣式（強化日曆按鈕 + 手機欄位高度一致） ========= */
+/* ========= 樣式 ========= */
 (function injectModalStyle(){
   const css = document.createElement('style');
   css.textContent = `
@@ -34,65 +34,15 @@ const TX_CACHE = new Map();
   .tx-modal header{padding:14px 16px;border-bottom:1px solid #374151;
     display:flex;justify-content:space-between;align-items:center;gap:8px}
   .tx-modal main{padding:14px 16px;display:grid;gap:12px}
-
   .tx-field{display:grid;gap:6px}
   .tx-field small{opacity:.8}
-
-  /* ✨ 統一欄位高度：日期 / 類型 / 金額 / 備註 */
-  .tx-field input,
-  .tx-field select,
-  .tx-field textarea{
-    width:100%;
-    background:#111827;
-    color:#fff;
-    border:1px solid #374151;
-    border-radius:10px;
-    padding:12px 14px;
-    min-height:48px;              /* 手機友善高度 */
-    font-size:16px;               /* 避免 iOS 自動放大 */
-    line-height:1.2;
-    outline:none;
+  .tx-field input, .tx-field select, .tx-field textarea{
+    width:100%; background:#111827; color:#fff; border:1px solid #374151;
+    border-radius:10px; padding:10px 12px; outline:none;
   }
-
   .tx-field[aria-readonly="true"] input,
   .tx-field[aria-readonly="true"] select,
-  .tx-field[aria-readonly="true"] textarea{
-    pointer-events:none; opacity:.85;
-  }
-
-  /* ✨ 聚焦更清楚 */
-  .tx-field input:focus,
-  .tx-field select:focus,
-  .tx-field textarea:focus{
-    border-color:#60a5fa;
-    box-shadow:0 0 0 3px rgba(59,130,246,.35);
-  }
-
-  /* ✨ 日曆按鈕（WebKit）更亮更好點 */
-  input[type="date"]::-webkit-calendar-picker-indicator{
-    opacity:1;
-    filter: invert(1) contrast(1.2);
-    background-color: rgba(255,255,255,.12);
-    border-radius:8px;
-    padding:8px;                 /* 放大熱區 */
-    margin-right:2px;
-    cursor:pointer;
-  }
-  input[type="date"]::-webkit-clear-button,
-  input[type="date"]::-webkit-inner-spin-button{ display:none; }
-
-  /* Firefox 後援：預留右側空間 */
-  @-moz-document url-prefix(){
-    input[type="date"]{ padding-right:44px; }
-  }
-
-  /* 若啟用「點整塊日期開日曆」則給手勢與 hover 提示 */
-  .tx-field.clickable{ cursor:pointer; }
-  .tx-field.clickable:hover{
-    outline:2px solid rgba(59,130,246,.6);
-    background:rgba(59,130,246,.08);
-  }
-
+  .tx-field[aria-readonly="true"] textarea{ pointer-events:none; opacity:.85 }
   .tx-modal footer{padding:14px 16px;border-top:1px solid #374151;
     display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
   .tx-btn{border:none;border-radius:10px;padding:10px 14px;cursor:pointer}
@@ -100,13 +50,13 @@ const TX_CACHE = new Map();
   .tx-btn.primary{background:#2563eb;color:#fff}
   .tx-btn.danger{background:#ef4444;color:#fff}
   .tx-btn.light{background:#fff;color:#111}
-
   .tx-confirm{display:none;align-items:center;justify-content:space-between;
     gap:8px;background:#7f1d1d;color:#fff;border-radius:10px;padding:10px 12px;
     margin-right:auto;width:100%}
   .tx-confirm.show{display:flex}
-
   .spacer{flex:1}
+  /* 整塊日期欄可點 */
+  .tx-field.clickable{ cursor:pointer; }
   @media (hover:none){ .tx-btn{min-height:44px;min-width:44px} }
   `;
   document.head.appendChild(css);
@@ -180,7 +130,7 @@ function ensureTxModal(){
         const node = $('#'+id);
         if (node) node.setAttribute('aria-readonly', String(ro));
       });
-      // 日期區塊整塊可點（僅編輯模式）
+      // 日期區塊的可點手勢只在編輯模式開啟
       const dateField = $('#f-date');
       if (dateField) dateField.classList.toggle('clickable', !!on);
 
@@ -201,7 +151,7 @@ function ensureTxModal(){
       setEdit(modal.dataset.edit !== '1');
     });
 
-    // ===== 整塊日期可點：開啟原生日曆（在編輯模式） =====
+    // ===== 整塊日期可點：開啟原生日曆 =====
     (function setupDateFieldClick(){
       const field = $('#f-date');
       const input = $('#inp-date');
@@ -210,7 +160,7 @@ function ensureTxModal(){
       field.setAttribute('tabindex', '0');
 
       const openPicker = () => {
-        if (modal.dataset.edit !== '1') return;
+        if (modal.dataset.edit !== '1') return; // 只在編輯模式
         if (typeof input.showPicker === 'function') {
           try { input.showPicker(); return; } catch {}
         }
@@ -218,7 +168,7 @@ function ensureTxModal(){
       };
 
       field.addEventListener('click', (e) => {
-        if (e.target === input) return;
+        if (e.target === input) return; // 避免重複
         openPicker();
       });
       field.addEventListener('keydown', (e) => {
