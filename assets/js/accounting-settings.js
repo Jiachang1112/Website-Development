@@ -15,69 +15,20 @@ const toast = (m)=>alert(m);
 // 根元素（請在 admin/設定 頁，放一個<div id="app">）
 const mount = $('#app') || document.body;
 
-/* ========== 本頁專用：頂部膠囊按鈕樣式（與主頁一致風格） ========== */
-(function injectTopbarButtons(){
-  const css = document.createElement('style');
-  css.textContent = `
-  /* 容器作用域，避免影響其它頁 */
-  #accset .topbar-btn{
-    -webkit-appearance: none; appearance: none;
-    display:inline-flex; align-items:center; justify-content:center;
-    gap:8px;
-    padding:10px 14px; border-radius:999px;
-    background:transparent;
-    border:1px solid rgba(255,255,255,.22);
-    color:#fff; font-weight:600; line-height:1; cursor:pointer;
-    transition:background .15s ease, border-color .15s ease, transform .02s ease;
-    user-select:none; text-decoration:none;
-  }
-  #accset .topbar-btn:hover{ background:rgba(255,255,255,.08); }
-  #accset .topbar-btn:active{ transform:translateY(1px); }
-  #accset .topbar-btn.-primary{
-    background:linear-gradient(180deg,#ff7ab6,#ff4d6d);
-    border-color:transparent; color:#fff;
-  }
-  #accset .topbar-btn.-primary:hover{
-    filter:saturate(1.05) brightness(1.05);
-  }
-  #accset .topbar-btn.-danger{
-    background:#ef4444; border-color:transparent; color:#fff;
-  }
-  #accset .topbar-btn.-danger:hover{ filter:brightness(1.05); }
-  #accset .topbar-btn.-secondary{
-    background:rgba(255,255,255,.10); border-color:rgba(255,255,255,.10);
-  }
-  #accset .topbar-btn.-ghost{
-    background:transparent; border-color:rgba(255,255,255,.22);
-  }
-  /* 小尺寸（列表右側的操作鍵） */
-  #accset .topbar-btn.-sm{ padding:6px 10px; font-size:.92rem; }
-  `;
-  document.head.appendChild(css);
-})();
-
 // ========== 畫面骨架 ==========
 function renderShell(){
   const el = document.createElement('div');
-  el.id = 'accset';
   el.className = 'container py-4';
   el.innerHTML = `
   <h3 class="mb-3">記帳設定</h3>
 
-  <!-- 頁籤仍用 Bootstrap 行為，但按鈕換成 topbar 風格 -->
-  <ul class="nav nav-tabs" id="setTabs" role="tablist" style="border-color:rgba(255,255,255,.12)">
-    <li class="nav-item">
-      <button class="topbar-btn -secondary" data-bs-toggle="tab" data-bs-target="#tab-ledger" type="button">記帳設定</button>
-    </li>
-    <li class="nav-item">
-      <button class="topbar-btn -ghost" data-bs-toggle="tab" data-bs-target="#tab-chat" type="button">聊天設定</button>
-    </li>
-    <li class="nav-item">
-      <button class="topbar-btn -ghost" data-bs-toggle="tab" data-bs-target="#tab-general" type="button">一般設定</button>
-    </li>
+  <ul class="nav nav-tabs" id="setTabs" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-ledger" type="button">記帳設定</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-chat" type="button">聊天設定</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-general" type="button">一般設定</button></li>
   </ul>
 
-  <div class="tab-content border border-top-0 rounded-bottom p-3" style="border-color:rgba(255,255,255,.12)">
+  <div class="tab-content border border-top-0 rounded-bottom p-3">
     <!-- 記帳設定 -->
     <div class="tab-pane fade show active" id="tab-ledger">
       <div class="row g-3">
@@ -87,7 +38,7 @@ function renderShell(){
             <div class="card-body">
               <div class="mb-2 d-flex gap-2">
                 <input id="newLedgerName" class="form-control" placeholder="帳本名稱（例如：個人）">
-                <button id="addLedger" class="topbar-btn -primary">新增</button>
+                <button id="addLedger" class="btn btn-primary">新增</button>
               </div>
               <div id="ledgerList" class="list-group small"></div>
             </div>
@@ -104,7 +55,7 @@ function renderShell(){
                   <option value="income">收入</option>
                 </select>
                 <input id="newCatName" class="form-control" placeholder="新增類型名稱…">
-                <button id="addCat" class="topbar-btn -primary">新增</button>
+                <button id="addCat" class="btn btn-outline-primary">新增</button>
               </div>
               <div id="catList" class="list-group small"></div>
             </div>
@@ -119,7 +70,7 @@ function renderShell(){
                 <div class="col-md-5 d-flex gap-2">
                   <input id="budgetStart" type="date" class="form-control">
                   <input id="budgetEnd" type="date" class="form-control">
-                  <button id="addBudget" class="topbar-btn -primary">新增</button>
+                  <button id="addBudget" class="btn btn-outline-primary">新增</button>
                 </div>
               </div>
               <div id="budgetList" class="list-group small"></div>
@@ -134,12 +85,12 @@ function renderShell(){
               <div class="row g-2 align-items-center mb-2">
                 <div class="col-auto">主貨幣：</div>
                 <div class="col-auto"><input id="baseCurrency" class="form-control" style="width:120px" placeholder="TWD"></div>
-                <div class="col-auto"><button id="saveBaseCurrency" class="topbar-btn -ghost">儲存</button></div>
+                <div class="col-auto"><button id="saveBaseCurrency" class="btn btn-outline-secondary">儲存</button></div>
               </div>
               <div class="row g-2 mb-2">
                 <div class="col-md-3"><input id="rateCode" class="form-control" placeholder="幣別（USD）"></div>
                 <div class="col-md-3"><input id="rateValue" class="form-control" placeholder="對主幣匯率（如 32.1）"></div>
-                <div class="col-md-2"><button id="addRate" class="topbar-btn -primary">新增匯率</button></div>
+                <div class="col-md-2"><button id="addRate" class="btn btn-outline-primary">新增匯率</button></div>
               </div>
               <div id="rateList" class="list-group small"></div>
             </div>
@@ -171,7 +122,7 @@ function renderShell(){
             <input id="cmdEnabled" class="form-check-input" type="checkbox">
             <label class="form-check-label" for="cmdEnabled">啟用記帳快速指令（/add /sum /budget…）</label>
           </div>
-          <button id="saveChat" class="topbar-btn -primary">儲存聊天設定</button>
+          <button id="saveChat" class="btn btn-primary">儲存聊天設定</button>
         </div>
       </div>
     </div>
@@ -189,7 +140,7 @@ function renderShell(){
               </div>
               <div class="d-flex gap-2">
                 <input id="remindTime" type="time" class="form-control" style="max-width:160px" value="21:00">
-                <button id="saveRemind" class="topbar-btn -primary">儲存</button>
+                <button id="saveRemind" class="btn btn-outline-primary">儲存</button>
               </div>
               <div class="text-muted small mt-2">（前端提醒版：使用者回到網頁會提示；之後可升級成 Cloud Functions/FCM 推播）</div>
             </div>
@@ -201,9 +152,9 @@ function renderShell(){
             <div class="card-header">匯入 / 匯出</div>
             <div class="card-body">
               <div class="mb-2">
-                <button id="exportJson" class="topbar-btn -ghost" style="margin-right:.5rem">匯出 JSON（目前帳本）</button>
+                <button id="exportJson" class="btn btn-outline-secondary me-2">匯出 JSON（目前帳本）</button>
                 <input id="importFile" type="file" accept=".json,.csv" class="form-control" style="max-width:320px;display:inline-block">
-                <button id="importBtn" class="topbar-btn -primary" style="margin-left:.5rem">匯入</button>
+                <button id="importBtn" class="btn btn-outline-primary ms-2">匯入</button>
               </div>
               <div class="text-muted small">建議先匯出一次查看格式；匯入支援 JSON（完整資料）與簡易 CSV。</div>
             </div>
@@ -244,16 +195,16 @@ async function listLedgers(){
   listEl.innerHTML = '';
   snap.forEach(d=>{
     const v = d.data();
-    const row = document.createElement('div');
-    row.className = 'list-group-item d-flex justify-content-between align-items-center';
+    const row = document.createElement('button');
+    row.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
     row.innerHTML = `
       <div>
         <div class="fw-bold">${v.name || '(未命名)'}</div>
         <div class="text-muted small">主貨幣：${v.currency || 'TWD'}　ID：${d.id}</div>
       </div>
-      <div class="d-flex gap-2">
-        <button data-id="${d.id}" class="topbar-btn -sm -secondary pick-ledger">使用</button>
-        <button data-id="${d.id}" class="topbar-btn -sm -danger del-ledger">刪除</button>
+      <div>
+        <button data-id="${d.id}" class="btn btn-sm btn-outline-secondary me-2 pick-ledger">使用</button>
+        <button data-id="${d.id}" class="btn btn-sm btn-outline-danger del-ledger">刪除</button>
       </div>`;
     listEl.appendChild(row);
   });
@@ -293,7 +244,7 @@ async function listCategories(){
     const v = d.data(); if (v.type !== type) return;
     rows.push(`<div class="list-group-item d-flex justify-content-between align-items-center">
       <div><span class="badge me-2" style="background:${v.color||'#ccc'}">&nbsp;</span>${v.name}</div>
-      <button class="topbar-btn -sm -danger" data-id="${d.id}">刪除</button>
+      <button class="btn btn-sm btn-outline-danger" data-id="${d.id}">刪除</button>
     </div>`);
   });
   el.innerHTML = rows.join('') || '<div class="list-group-item text-muted">尚無類型</div>';
@@ -326,7 +277,7 @@ async function listBudgets(){
     const e = (v.endAt?.toDate?.() || new Date(v.endAt)).toISOString().slice(0,10);
     rows.push(`<div class="list-group-item d-flex justify-content-between align-items-center">
       <div><b>${v.name}</b>｜金額 ${v.amount}｜${s} ~ ${e}</div>
-      <button class="topbar-btn -sm -danger" data-id="${d.id}">刪除</button>
+      <button class="btn btn-sm btn-outline-danger" data-id="${d.id}">刪除</button>
     </div>`);
   });
   el.innerHTML = rows.join('') || '<div class="list-group-item text-muted">尚無預算</div>';
@@ -364,7 +315,7 @@ async function listRates(){
   const rows = Object.keys(rates).map(k=>`
     <div class="list-group-item d-flex justify-content-between align-items-center">
       <div>${k} → ${rates[k]}</div>
-      <button class="topbar-btn -sm -danger" data-k="${k}">刪除</button>
+      <button class="btn btn-sm btn-outline-danger" data-k="${k}">刪除</button>
     </div>
   `);
   list.innerHTML = rows.join('') || '<div class="list-group-item text-muted">尚無匯率</div>';
@@ -432,7 +383,7 @@ async function exportJson(){
     return snap.docs.map(d=>({ id:d.id, ...d.data() }));
   };
 
-  pack.ledger    = (await getDoc(doc(db,'users',UID,'ledgers',currentLedgerId))).data();
+  pack.ledger   = (await getDoc(doc(db,'users',UID,'ledgers',currentLedgerId))).data();
   pack.categories = await getAll('categories');
   pack.budgets    = await getAll('budgets');
   pack.entries    = await getAll('entries');
