@@ -28,24 +28,27 @@ let currentLedgerId = null;
 // ========== 等待 Firebase Auth 初始化 ==========
 async function waitForAuth() {
   return new Promise((resolve) => {
+    // 立即檢查當前狀態
     if (auth.currentUser) {
       console.log('✅ 已登入:', auth.currentUser.uid);
       resolve(auth.currentUser);
       return;
     }
     
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      unsubscribe();
+    // 設定 1 秒超時，強制繼續
+    const timeout = setTimeout(() => {
+      console.log('⚠️ Auth 超時，強制使用當前狀態');
+      if (unsub) unsub();
+      resolve(auth.currentUser);
+    }, 1000);
+    
+    // 監聽狀態變化
+    const unsub = auth.onAuthStateChanged((user) => {
+      clearTimeout(timeout);
+      if (unsub) unsub();
       console.log(user ? '✅ 登入成功' : '❌ 未登入');
       resolve(user);
     });
-    
-    // 5 秒超時保護
-    setTimeout(() => {
-      unsubscribe();
-      console.log('⚠️ Auth 超時，使用當前狀態');
-      resolve(auth.currentUser);
-    }, 5000);
   });
 }
 
