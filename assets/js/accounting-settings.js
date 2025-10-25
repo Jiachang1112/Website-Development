@@ -1,599 +1,407 @@
-// assets/js/accounting-settings.js
-// SuperTool | 記帳設定頁
-// - 內建「未登入自動 Demo」：在記憶體運作，重整回種子資料
-// - 登入後自動切回 Firestore 真資料
-// - 功能：管理帳本、預算、類型、貨幣、聊天設定、一般設定
+/**
+ * SuperTool 記帳設定（純前端 Demo 版）
+ * 完全不需 Firebase：所有資料存 localStorage（key: st_acc_settings_v1）
+ * 分頁：管理帳本 / 管理預算 / 管理類型 / 管理貨幣 / 聊天設定 / 一般設定
+ */
 
-/* =========================
- * Imports（僅在 Firestore 模式會用到）
- * ========================= */
-import { auth, db } from '../firebase.js';
-import {
-  doc, getDoc, setDoc, updateDoc, serverTimestamp,
-  collection, addDoc, deleteDoc, query, orderBy, getDocs
-} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+console.log('[acc-settings DEMO] start', new Date().toISOString());
 
-/* =========================
- * 小工具 & 風格
- * ========================= */
-const $  = (s, r=document)=>r.querySelector(s);
-const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
-const toast = (m)=>alert(m);
+/* ============= 持久層（localStorage） ============= */
+const STORE_KEY = 'st_acc_settings_v1';
 
-(function injectStyle(){
+const seed = () => ({
+  ledgers: [
+    { id: 'L1', name: '個人', currency: 'TWD', createdAt: Date.now() },
+    { id: 'L2', name: '家庭', currency: 'TWD', createdAt: Date.now() - 1000 }
+  ],
+  currentLedgerId: 'L1',
+  categories: {
+    L1: [
+      { id: 'c1', name: '餐飲', type: 'expense', order: 1 },
+      { id: 'c2', name: '交通', type: 'expense', order: 2 },
+      { id: 'c3', name: '薪資', type: 'income', order: 3 }
+    ],
+    L2: []
+  },
+  budgets: {
+    L1: [
+      { id: 'b1', name: '10月餐飲', amount: 5000, startAt: '2025-10-01', endAt: '2025-10-31' }
+    ],
+    L2: []
+  },
+  settings: {
+    currencies: { base: 'TWD', rates: { USD: 32.1, JPY: 0.22 } },
+    chat: { persona: 'minimal_accountant', custom: '', commandsEnabled: true },
+    general: { reminderEnabled: true, reminderTime: '21:00' }
+  }
+});
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return seed();
+    const obj = JSON.parse(raw);
+    return obj && typeof obj === 'object' ? obj : seed();
+  } catch {
+    return seed();
+  }
+}
+function saveState(s) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(s));
+}
+let S = loadState();
+const gid = () => '_' + Math.random().toString(36).slice(2, 9);
+
+/* ============= DOM helpers ============= */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const money = n => (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 0 });
+
+/* ============= 外觀樣式 ============= */
+(function injectStyle() {
   const css = document.createElement('style');
   css.textContent = `
-  .topbar { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 16px; }
-  .pill {
-    -webkit-appearance:none; appearance:none; border-radius:999px;
-    padding:10px 14px; font-weight:700; cursor:pointer; line-height:1;
-    border:1px solid rgba(255,255,255,.22); color:#fff; background:rgba(255,255,255,.10);
-    transition:.15s ease;
-  }
-  .pill:hover { background:rgba(255,255,255,.18); }
-  .pill.active { background:linear-gradient(90deg,#ff7ab6,#ff4d6d); border-color:transparent; }
-  .card { background:rgba(0,0,0,.35); color:#fff; border:1px solid rgba(255,255,255,.12); }
-  .card-header { border-bottom:1px solid rgba(255,255,255,.12); font-weight:700; }
-  .list-group-item { background:rgba(255,255,255,.05); color:#fff; border:1px solid rgba(255,255,255,.1); }
-  .btn-grad { background:linear-gradient(90deg,#ff7ab6,#ff4d6d); border:none; color:#fff; font-weight:700; }
-  .btn-ghost { background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.2); color:#fff; }
-  .btn-danger { background:#ef4444; border:none; color:#fff; font-weight:700; }
-  .banner { background:rgba(255,255,255,.10); border:1px dashed rgba(255,255,255,.25);
-            border-radius:12px; padding:10px 12px; margin:10px 0 16px; }
+  .card{background:rgba(15,23,42,.9);border:1px solid rgba(255,255,255,.1);border-radius:16px;color:#fff;margin-bottom:16px}
+  .card-header{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.12);font-weight:700}
+  .card-body{padding:16px}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .list{display:grid;gap:8px}
+  .item{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px}
+  .btn{border:none;border-radius:10px;padding:10px 14px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
+  .btn.ghost{background:rgba(255,255,255,.1)}
+  .btn.danger{background:#ef4444}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  input,select,textarea{background:rgba(30,41,59,.6);border:1px solid rgba(148,163,184,.3);border-radius:10px;color:#fff;padding:10px 12px}
+  label.small{opacity:.8;font-size:12px}
   `;
   document.head.appendChild(css);
 })();
 
-/* =========================
- * Demo 種子資料（未登入使用）
- * ========================= */
-const DEMO = {
-  user: {
-    settings: {
-      currencies: { base:'TWD', rates:{ USD:32.1, JPY:0.22 } },
-      chat:      { persona:'minimal_accountant', custom:'', commandsEnabled:true },
-      general:   { reminderEnabled:true, reminderTime:'21:00' }
-    }
-  },
-  ledgers: [
-    { id:'demo-L1', name:'個人',  currency:'TWD', createdAt:Date.now() },
-    { id:'demo-L2', name:'家庭',  currency:'TWD', createdAt:Date.now()-1000 }
-  ],
-  categories: {
-    'demo-L1': [
-      { id:'c1', name:'餐飲', type:'expense', color:'#60a5fa', order:1 },
-      { id:'c2', name:'交通', type:'expense', color:'#34d399', order:2 },
-      { id:'c3', name:'薪資', type:'income',  color:'#fbbf24', order:3 },
-    ],
-    'demo-L2': []
-  },
-  budgets: {
-    'demo-L1': [
-      { id:'b1', name:'10月餐飲', amount:5000, startAt:'2025-10-01', endAt:'2025-10-31' }
-    ],
-    'demo-L2': []
-  },
-  currentLedgerId: 'demo-L1'
-};
-const gid = ()=>'_'+Math.random().toString(36).slice(2,9);
+/* ============= 殼 ============= */
+const mount = document.getElementById('app') || document.body;
+mount.innerHTML = `
+  <div id="banner" class="card" style="border-style:dashed">
+    <div class="card-body">🟡 <b>展示模式</b>：此頁為<strong>純前端</strong>版本，資料儲存在瀏覽器 <code>localStorage</code>。</div>
+  </div>
 
-/* =========================
- * Model 狀態（兩模式共用）
- * ========================= */
-let MODE = 'demo';          // 'demo' | 'firestore'
-let UID  = 'demo';
-let currentLedgerId = null; // 目前選取帳本 id（兩模式共用引用）
+  <section id="view-ledgers"></section>
+  <section id="view-budgets" style="display:none"></section>
+  <section id="view-categories" style="display:none"></section>
+  <section id="view-currency" style="display:none"></section>
+  <section id="view-chat" style="display:none"></section>
+  <section id="view-general" style="display:none"></section>
+`;
 
-/* =========================
- * View：骨架
- * ========================= */
-function renderShell(){
-  const root = $('#app') || document.body;
-  const el = document.createElement('div');
-  el.className = 'container py-4';
-  el.innerHTML = `
-    <h3 class="mb-2">記帳設定</h3>
-    <div id="modeBanner" class="banner" style="display:none"></div>
-
-    <div class="topbar" id="tabs">
-      <button class="pill active" data-tab="ledgers">管理帳本</button>
-      <button class="pill" data-tab="budgets">管理預算</button>
-      <button class="pill" data-tab="categories">管理類型</button>
-      <button class="pill" data-tab="currency">管理貨幣</button>
-      <button class="pill" data-tab="chat">聊天設定</button>
-      <button class="pill" data-tab="general">一般設定</button>
-    </div>
-
-    <section id="view-ledgers"></section>
-    <section id="view-budgets" style="display:none"></section>
-    <section id="view-categories" style="display:none"></section>
-    <section id="view-currency" style="display:none"></section>
-    <section id="view-chat" style="display:none"></section>
-    <section id="view-general" style="display:none"></section>
-  `;
-  root.replaceChildren(el);
-
-  // Tabs
-  $('#tabs').addEventListener('click', (e)=>{
-    const b = e.target.closest('[data-tab]'); if(!b) return;
-    $$('#tabs .pill').forEach(p=>p.classList.toggle('active', p===b));
-    ['ledgers','budgets','categories','currency','chat','general'].forEach(id=>{
-      $('#view-'+id).style.display = (b.dataset.tab===id)?'block':'none';
-    });
-    // 依 tab 重畫
-    if (b.dataset.tab==='ledgers')    renderLedgers();
-    if (b.dataset.tab==='budgets')    renderBudgets();
-    if (b.dataset.tab==='categories') renderCategories();
-    if (b.dataset.tab==='currency')   renderCurrency();
-    if (b.dataset.tab==='chat')       renderChat();
-    if (b.dataset.tab==='general')    renderGeneral();
+/* ============= Tabs：用 URL hash 控制顯示 ============= */
+const tabs = ['ledgers', 'budgets', 'categories', 'currency', 'chat', 'general'];
+function showTab(name) {
+  tabs.forEach(t => {
+    const on = t === name;
+    const el = document.getElementById('view-' + t);
+    if (el) el.style.display = on ? 'block' : 'none';
   });
-}
-
-/* =========================
- * 讀寫層：Demo 與 Firestore 的抽象
- * ========================= */
-
-// ---- user doc 相關 ----
-async function getUserDoc(){
-  if (MODE==='demo') return structuredClone(DEMO.user);
-  const ref = doc(db, 'users', UID);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) await setDoc(ref, { createdAt: serverTimestamp() }, { merge: true });
-  return (await getDoc(ref)).data() || {};
-}
-async function setUserSettings(path, value){
-  if (MODE==='demo'){
-    // path like 'settings.chat' or 'settings.currencies'
-    const keys = path.split('.');
-    let cur = DEMO.user;
-    while (keys.length > 1) { const k = keys.shift(); cur = (cur[k] ||= {}); }
-    cur[keys[0]] = value;
-    return;
-  }
-  await updateDoc(doc(db,'users',UID), { [path]: value, updatedAt: serverTimestamp() });
-}
-
-// ---- ledgers ----
-async function listLedgers(){
-  if (MODE==='demo'){
-    return [...DEMO.ledgers].sort((a,b)=>b.createdAt-a.createdAt);
-  }
-  const qy = query(collection(db,'users',UID,'ledgers'), orderBy('createdAt','desc'));
-  const snap = await getDocs(qy);
-  return snap.docs.map(d=>({ id:d.id, ...d.data() }));
-}
-async function addLedger(name){
-  if (MODE==='demo'){
-    DEMO.ledgers.unshift({ id:gid(), name, currency:'TWD', createdAt:Date.now() });
-    return;
-  }
-  await addDoc(collection(db,'users',UID,'ledgers'), {
-    name, currency:'TWD', members:{ [UID]:'owner' },
-    createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+  // 按鈕 active（使用你 HTML 上方那排）
+  document.querySelectorAll('.tabs button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === name);
   });
+  // 渲染當前頁
+  if (name === 'ledgers') renderLedgers();
+  if (name === 'budgets') renderBudgets();
+  if (name === 'categories') renderCategories();
+  if (name === 'currency') renderCurrency();
+  if (name === 'chat') renderChat();
+  if (name === 'general') renderGeneral();
 }
-async function deleteLedger(id){
-  if (MODE==='demo'){
-    DEMO.ledgers = DEMO.ledgers.filter(x=>x.id!==id);
-    delete DEMO.categories[id]; delete DEMO.budgets[id];
-    return;
-  }
-  await deleteDoc(doc(db,'users',UID,'ledgers', id));
-}
+window.addEventListener('hashchange', () => showTab((location.hash || '#ledgers').slice(1)));
+showTab((location.hash || '#ledgers').slice(1));
 
-// ---- categories ----
-async function listCategories(ledgerId){
-  if (MODE==='demo') return [...(DEMO.categories[ledgerId]||[])];
-  const qy = query(collection(db,'users',UID,'ledgers',ledgerId,'categories'), orderBy('order','asc'));
-  const snap = await getDocs(qy);
-  return snap.docs.map(d=>({ id:d.id, ...d.data() }));
-}
-async function addCategory(ledgerId, { type, name }){
-  if (MODE==='demo'){
-    (DEMO.categories[ledgerId] ||= []).push({ id:gid(), name, type, color:'#60a5fa', order:Date.now() });
-    return;
-  }
-  await addDoc(collection(db,'users',UID,'ledgers',ledgerId,'categories'), {
-    name, type, color:'#60a5fa', order: Date.now(), parentId:null,
-    createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-  });
-}
-async function deleteCategory(ledgerId, catId){
-  if (MODE==='demo'){
-    DEMO.categories[ledgerId] = (DEMO.categories[ledgerId]||[]).filter(x=>x.id!==catId);
-    return;
-  }
-  await deleteDoc(doc(db,'users',UID,'ledgers',ledgerId,'categories', catId));
-}
-
-// ---- budgets ----
-async function listBudgets(ledgerId){
-  if (MODE==='demo') return [...(DEMO.budgets[ledgerId]||[])];
-  const qy = query(collection(db,'users',UID,'ledgers',ledgerId,'budgets'), orderBy('createdAt','desc'));
-  const snap = await getDocs(qy);
-  return snap.docs.map(d=>{
-    const v=d.data();
-    const s=(v.startAt?.toDate?.()||new Date(v.startAt)).toISOString().slice(0,10);
-    const e=(v.endAt?.toDate?.()||new Date(v.endAt)).toISOString().slice(0,10);
-    return { id:d.id, name:v.name, amount:v.amount, startAt:s, endAt:e };
-  });
-}
-async function addBudget(ledgerId, { name, amount, startAt, endAt }){
-  if (MODE==='demo'){
-    (DEMO.budgets[ledgerId] ||= []).unshift({ id:gid(), name, amount:Number(amount)||0, startAt, endAt });
-    return;
-  }
-  await addDoc(collection(db,'users',UID,'ledgers',ledgerId,'budgets'), {
-    name, amount:Number(amount)||0, period:'custom',
-    startAt:new Date(startAt+'T00:00:00'), endAt:new Date(endAt+'T23:59:59'),
-    currency:'TWD', rollover:false, createdAt:serverTimestamp(), updatedAt:serverTimestamp()
-  });
-}
-async function deleteBudget(ledgerId, id){
-  if (MODE==='demo'){
-    DEMO.budgets[ledgerId] = (DEMO.budgets[ledgerId]||[]).filter(x=>x.id!==id);
-    return;
-  }
-  await deleteDoc(doc(db,'users',UID,'ledgers',ledgerId,'budgets', id));
-}
-
-// ---- currencies (user.settings.currencies, ledger.currency) ----
-async function setLedgerCurrency(ledgerId, code){
-  if (MODE==='demo'){
-    const row = DEMO.ledgers.find(x=>x.id===ledgerId); if (row) row.currency = code;
-    return;
-  }
-  await updateDoc(doc(db,'users',UID,'ledgers',ledgerId), { currency:code, updatedAt:serverTimestamp() });
-}
-
-/* =========================
- * Views：各分頁
- * ========================= */
-
-// ---- Ledgers ----
-async function renderLedgers(){
+/* ============= Ledgers ============= */
+function renderLedgers() {
   const el = $('#view-ledgers');
-  const rows = await listLedgers();
-  if (!currentLedgerId) currentLedgerId = (MODE==='demo'?DEMO.currentLedgerId:rows[0]?.id)||null;
-
+  const rows = [...S.ledgers].sort((a, b) => b.createdAt - a.createdAt);
   el.innerHTML = `
     <div class="card">
       <div class="card-header">管理帳本</div>
       <div class="card-body">
-        <div class="mb-2 d-flex gap-2">
-          <input id="newLedgerName" class="form-control" placeholder="帳本名稱（例如：個人）">
-          <button id="addLedger" class="btn-grad btn">新增</button>
+        <div class="row" style="margin-bottom:8px">
+          <input id="newLedgerName" placeholder="帳本名稱（例如：個人）" style="min-width:260px">
+          <button id="addLedger" class="btn">新增</button>
+          <button id="resetDemo" class="btn ghost">重置為預設資料</button>
         </div>
-        <div id="ledgerList" class="list-group small"></div>
+        <div class="list" id="ledgerList"></div>
       </div>
     </div>
   `;
-  const list = $('#ledgerList');
-  list.innerHTML = rows.map(v=>`
-    <div class="list-group-item d-flex justify-content-between align-items-center">
+  const list = $('#ledgerList', el);
+  list.innerHTML = rows.map(v => `
+    <div class="item">
       <div>
-        <div class="fw-bold">${v.name || '(未命名)'}</div>
-        <div class="text-muted">主貨幣：${v.currency || 'TWD'}　ID：${v.id}${currentLedgerId===v.id?'（目前）':''}</div>
+        <div style="font-weight:700">${v.name || '(未命名)'}</div>
+        <div style="opacity:.8;font-size:12px">主貨幣：${v.currency || 'TWD'}　ID：${v.id}${S.currentLedgerId===v.id?'（目前）':''}</div>
       </div>
-      <div class="d-flex gap-2">
-        <button class="btn btn-ghost btn-sm" data-use="${v.id}">使用</button>
-        <button class="btn btn-danger btn-sm" data-del="${v.id}">刪除</button>
+      <div class="row">
+        <button class="btn ghost" data-use="${v.id}">使用</button>
+        <button class="btn danger" data-del="${v.id}">刪除</button>
       </div>
     </div>
-  `).join('') || '<div class="list-group-item text-muted">尚無帳本</div>';
+  `).join('') || '<div class="item">尚無帳本</div>';
 
-  $('#addLedger').onclick = async ()=>{
-    const name = $('#newLedgerName').value.trim(); if (!name) return;
-    await addLedger(name); $('#newLedgerName').value='';
-    renderLedgers(); // refresh
+  $('#addLedger', el).onclick = () => {
+    const name = $('#newLedgerName', el).value.trim();
+    if (!name) return;
+    S.ledgers.unshift({ id: gid(), name, currency: 'TWD', createdAt: Date.now() });
+    saveState(S); renderLedgers();
   };
-  $$('button[data-use]', list).forEach(b=> b.onclick=()=>{
-    currentLedgerId = b.dataset.use;
-    if (MODE==='demo') DEMO.currentLedgerId = currentLedgerId;
-    renderLedgers(); renderCategories(); renderBudgets(); renderCurrency();
+  $('#resetDemo', el).onclick = () => {
+    S = seed(); saveState(S); showTab('ledgers');
+  };
+  $$('button[data-use]', el).forEach(b => b.onclick = () => {
+    S.currentLedgerId = b.dataset.use; saveState(S);
+    renderLedgers(); // refresh
   });
-  $$('button[data-del]', list).forEach(b=> b.onclick=async ()=>{
-    if (!confirm('確定要刪除此帳本與其資料？')) return;
-    await deleteLedger(b.dataset.del);
-    if (currentLedgerId === b.dataset.del) currentLedgerId = null;
-    renderLedgers(); renderCategories(); renderBudgets(); renderCurrency();
+  $$('button[data-del]', el).forEach(b => b.onclick = () => {
+    if (!confirm('確定刪除此帳本與其資料？')) return;
+    const id = b.dataset.del;
+    S.ledgers = S.ledgers.filter(x => x.id !== id);
+    delete S.categories[id]; delete S.budgets[id];
+    if (S.currentLedgerId === id) S.currentLedgerId = S.ledgers[0]?.id || null;
+    saveState(S); renderLedgers();
   });
 }
 
-// ---- Categories ----
-async function renderCategories(){
+/* ============= Categories ============= */
+function renderCategories() {
   const el = $('#view-categories');
-  if (!currentLedgerId){ el.innerHTML = '<div class="card"><div class="card-body">請先建立或選擇帳本</div></div>'; return; }
-
-  const rows = await listCategories(currentLedgerId);
+  const L = S.currentLedgerId;
+  if (!L) { el.innerHTML = '<div class="card"><div class="card-body">請先建立或選擇帳本</div></div>'; return; }
+  const cats = S.categories[L] || [];
   el.innerHTML = `
     <div class="card">
-      <div class="card-header">管理類型（目前帳本：${(MODE==='demo'?DEMO.ledgers:await listLedgers()).find(x=>x.id===currentLedgerId)?.name || '-' }）</div>
+      <div class="card-header">管理類型（目前帳本：${S.ledgers.find(x=>x.id===L)?.name||'-'}）</div>
       <div class="card-body">
-        <div class="mb-2 d-flex gap-2">
-          <select id="catType" class="form-select" style="max-width:140px">
+        <div class="row" style="margin-bottom:8px">
+          <select id="catType" style="min-width:120px">
             <option value="expense">支出</option><option value="income">收入</option>
           </select>
-          <input id="newCatName" class="form-control" placeholder="新增類型名稱…">
-          <button id="addCat" class="btn btn-grad">新增</button>
+          <input id="newCatName" placeholder="新增類型名稱…" style="min-width:240px">
+          <button id="addCat" class="btn">新增</button>
         </div>
-        <div id="catList" class="list-group small"></div>
+        <div class="list" id="catList"></div>
       </div>
     </div>
   `;
-  const type = $('#catType').value || 'expense';
-  const list = $('#catList');
-  const filtered = rows.filter(v=>v.type===type).sort((a,b)=>a.order-b.order);
-  list.innerHTML = filtered.map(v=>`
-    <div class="list-group-item d-flex justify-content-between align-items-center">
-      <div>${v.name}</div>
-      <button class="btn btn-danger btn-sm" data-id="${v.id}">刪除</button>
-    </div>
-  `).join('') || '<div class="list-group-item text-muted">尚無類型</div>';
+  const type = $('#catType', el).value = 'expense';
+  drawList(type);
 
-  $('#catType').onchange = renderCategories;
-  $('#addCat').onclick = async ()=>{
-    const name = $('#newCatName').value.trim(); if (!name) return;
-    await addCategory(currentLedgerId, { type: $('#catType').value, name });
-    $('#newCatName').value = '';
-    renderCategories();
+  $('#catType', el).onchange = () => drawList($('#catType', el).value);
+  $('#addCat', el).onclick = () => {
+    const name = $('#newCatName', el).value.trim(); if (!name) return;
+    const t = $('#catType', el).value;
+    (S.categories[L] ||= []).push({ id: gid(), name, type: t, order: Date.now() });
+    saveState(S); $('#newCatName', el).value = ''; drawList(t);
   };
-  $$('button[data-id]', list).forEach(b=> b.onclick=async ()=>{
-    await deleteCategory(currentLedgerId, b.dataset.id);
-    renderCategories();
-  });
+
+  function drawList(t) {
+    const list = $('#catList', el);
+    const rows = (S.categories[L] || []).filter(x => x.type === t).sort((a,b)=>a.order-b.order);
+    list.innerHTML = rows.map(v => `
+      <div class="item">
+        <div>${v.name}</div>
+        <button class="btn danger" data-id="${v.id}">刪除</button>
+      </div>
+    `).join('') || '<div class="item">尚無類型</div>';
+    $$('button[data-id]', list).forEach(b => b.onclick = () => {
+      S.categories[L] = (S.categories[L]||[]).filter(x => x.id !== b.dataset.id);
+      saveState(S); drawList(t);
+    });
+  }
 }
 
-// ---- Budgets ----
-async function renderBudgets(){
+/* ============= Budgets ============= */
+function renderBudgets() {
   const el = $('#view-budgets');
-  if (!currentLedgerId){ el.innerHTML = '<div class="card"><div class="card-body">請先建立或選擇帳本</div></div>'; return; }
-
-  const rows = await listBudgets(currentLedgerId);
+  const L = S.currentLedgerId;
+  if (!L) { el.innerHTML = '<div class="card"><div class="card-body">請先建立或選擇帳本</div></div>'; return; }
+  const rows = S.budgets[L] || [];
   el.innerHTML = `
     <div class="card">
       <div class="card-header">管理預算（目前帳本）</div>
       <div class="card-body">
-        <div class="row g-2 mb-2">
-          <div class="col-md-4"><input id="bName" class="form-control" placeholder="名稱（如10月餐飲）"></div>
-          <div class="col-md-3"><input id="bAmt" type="number" class="form-control" placeholder="金額"></div>
-          <div class="col-md-5 d-flex gap-2">
-            <input id="bStart" type="date" class="form-control">
-            <input id="bEnd" type="date" class="form-control">
-            <button id="bAdd" class="btn btn-grad">新增</button>
-          </div>
+        <div class="row" style="margin-bottom:8px">
+          <input id="bName" placeholder="名稱（如10月餐飲）" style="min-width:220px">
+          <input id="bAmt" type="number" placeholder="金額" style="width:140px">
+          <input id="bStart" type="date">
+          <input id="bEnd" type="date">
+          <button id="bAdd" class="btn">新增</button>
         </div>
-        <div id="bList" class="list-group small"></div>
+        <div class="list" id="bList"></div>
       </div>
     </div>
   `;
-  const list = $('#bList');
-  list.innerHTML = rows.map(v=>`
-    <div class="list-group-item d-flex justify-content-between align-items-center">
-      <div><b>${v.name}</b>｜金額 ${v.amount}｜${v.startAt} ~ ${v.endAt}</div>
-      <button class="btn btn-danger btn-sm" data-id="${v.id}">刪除</button>
+  const list = $('#bList', el);
+  list.innerHTML = rows.map(v => `
+    <div class="item">
+      <div><b>${v.name}</b>｜金額 ${money(v.amount)}｜${v.startAt} ~ ${v.endAt}</div>
+      <button class="btn danger" data-id="${v.id}">刪除</button>
     </div>
-  `).join('') || '<div class="list-group-item text-muted">尚無預算</div>';
-
-  $('#bAdd').onclick = async ()=>{
-    const name=$('#bName').value.trim(), amt=$('#bAmt').value;
-    const s=$('#bStart').value, e=$('#bEnd').value;
-    if (!name || !amt || !s || !e) return toast('請完整填寫');
-    await addBudget(currentLedgerId, { name, amount:amt, startAt:s, endAt:e });
-    $('#bName').value=''; $('#bAmt').value=''; $('#bStart').value=''; $('#bEnd').value='';
-    renderBudgets();
+  `).join('') || '<div class="item">尚無預算</div>';
+  $('#bAdd', el).onclick = () => {
+    const name = $('#bName', el).value.trim();
+    const amount = Number($('#bAmt', el).value || 0);
+    const s = $('#bStart', el).value, e = $('#bEnd', el).value;
+    if (!name || !amount || !s || !e) return alert('請完整填寫');
+    (S.budgets[L] ||= []).unshift({ id: gid(), name, amount, startAt: s, endAt: e });
+    saveState(S); renderBudgets();
   };
-  $$('button[data-id]', list).forEach(b=> b.onclick=async ()=>{
-    await deleteBudget(currentLedgerId, b.dataset.id);
-    renderBudgets();
+  $$('button[data-id]', list).forEach(b => b.onclick = () => {
+    S.budgets[L] = (S.budgets[L]||[]).filter(x => x.id !== b.dataset.id);
+    saveState(S); renderBudgets();
   });
 }
 
-// ---- Currency ----
-async function renderCurrency(){
+/* ============= Currency（使用者設定 + 帳本主幣） ============= */
+function renderCurrency() {
   const el = $('#view-currency');
-  if (!currentLedgerId){ el.innerHTML = '<div class="card"><div class="card-body">請先建立或選擇帳本</div></div>'; return; }
-
-  const u = await getUserDoc();
-  const cur = u.settings?.currencies || { base:'TWD', rates:{} };
-  const ledgers = (MODE==='demo'?DEMO.ledgers:await listLedgers());
-  const nowLedger = ledgers.find(l=>l.id===currentLedgerId);
+  const L = S.currentLedgerId;
+  if (!L) { el.innerHTML = '<div class="card"><div class="card-body">請先建立或選擇帳本</div></div>'; return; }
+  const ledger = S.ledgers.find(x => x.id === L);
+  const cur = S.settings.currencies || { base: 'TWD', rates: {} };
 
   el.innerHTML = `
     <div class="card">
-      <div class="card-header">管理貨幣（目前帳本：${nowLedger?.name || '-'}）</div>
+      <div class="card-header">管理貨幣（目前帳本：${ledger?.name || '-' }）</div>
       <div class="card-body">
-        <div class="row g-2 align-items-center mb-2">
-          <div class="col-auto">主貨幣：</div>
-          <div class="col-auto">
-            <input id="baseCurrency" class="form-control" style="width:120px" value="${cur.base || 'TWD'}">
-          </div>
-          <div class="col-auto"><button id="saveBase" class="btn btn-ghost">儲存</button></div>
+        <div class="row" style="margin-bottom:10px">
+          <label class="small">主貨幣</label>
+          <input id="baseCurrency" value="${cur.base || 'TWD'}" style="width:120px">
+          <button id="saveBase" class="btn ghost">儲存</button>
         </div>
 
-        <div class="row g-2 mb-2">
-          <div class="col-md-3"><input id="rateCode" class="form-control" placeholder="幣別（USD）"></div>
-          <div class="col-md-3"><input id="rateVal"  class="form-control" placeholder="對主幣匯率（如 32.1）"></div>
-          <div class="col-md-2"><button id="addRate" class="btn btn-grad">新增匯率</button></div>
+        <div class="row" style="margin-bottom:8px">
+          <input id="rateCode" placeholder="幣別（USD）" style="width:140px">
+          <input id="rateVal"  placeholder="對主幣匯率（如 32.1）" style="width:180px">
+          <button id="addRate" class="btn">新增匯率</button>
         </div>
+        <div class="list" id="rateList"></div>
 
-        <div id="rateList" class="list-group small mb-3"></div>
-
-        <div class="row g-2 align-items-center">
-          <div class="col-auto">帳本主貨幣：</div>
-          <div class="col-auto"><input id="ledgerCur" class="form-control" style="width:120px" value="${nowLedger?.currency || 'TWD'}"></div>
-          <div class="col-auto"><button id="saveLedgerCur" class="btn btn-ghost">儲存帳本</button></div>
+        <hr style="border-color:rgba(255,255,255,.12);margin:16px 0">
+        <div class="row">
+          <label class="small">帳本主貨幣</label>
+          <input id="ledgerCur" value="${ledger?.currency || 'TWD'}" style="width:120px">
+          <button id="saveLedgerCur" class="btn ghost">儲存帳本</button>
         </div>
       </div>
     </div>
   `;
 
-  const rateList = $('#rateList');
-  const rates = Object.entries(cur.rates||{}).map(([k,v])=>({k,v}));
-  rateList.innerHTML = rates.map(r=>`
-    <div class="list-group-item d-flex justify-content-between align-items-center">
-      <div>${r.k} → ${r.v}</div>
-      <button class="btn btn-danger btn-sm" data-k="${r.k}">刪除</button>
+  const list = $('#rateList', el);
+  const rates = Object.entries(cur.rates || {});
+  list.innerHTML = rates.map(([k, v]) => `
+    <div class="item">
+      <div>${k} → ${v}</div>
+      <button class="btn danger" data-k="${k}">刪除</button>
     </div>
-  `).join('') || '<div class="list-group-item text-muted">尚無匯率</div>';
+  `).join('') || '<div class="item">尚無匯率</div>';
 
-  // events
-  $('#saveBase').onclick = async ()=>{
-    const base = ($('#baseCurrency').value || 'TWD').toUpperCase();
-    await setUserSettings('settings.currencies', { base, rates: cur.rates||{} });
-    toast(MODE==='demo'?'（Demo）主貨幣已更新':'主貨幣已更新');
-    renderCurrency();
+  $('#saveBase', el).onclick = () => {
+    const base = ($('#baseCurrency', el).value || 'TWD').toUpperCase();
+    S.settings.currencies = { base, rates: cur.rates || {} };
+    saveState(S); renderCurrency();
   };
-  $('#addRate').onclick = async ()=>{
-    const k = ($('#rateCode').value||'').trim().toUpperCase();
-    const v = Number($('#rateVal').value||0);
-    if (!k || !Number.isFinite(v) || v<=0) return;
-    const next = { base: $('#baseCurrency').value || 'TWD', rates: { ...(cur.rates||{}), [k]: v } };
-    await setUserSettings('settings.currencies', next);
-    renderCurrency();
+  $('#addRate', el).onclick = () => {
+    const k = ($('#rateCode', el).value || '').trim().toUpperCase();
+    const v = Number($('#rateVal', el).value || 0);
+    if (!k || !Number.isFinite(v) || v <= 0) return;
+    const next = { ...(S.settings.currencies.rates || {}) }; next[k] = v;
+    S.settings.currencies = { base: $('#baseCurrency', el).value || 'TWD', rates: next };
+    saveState(S); renderCurrency();
   };
-  $$('button[data-k]', rateList).forEach(b=> b.onclick = async ()=>{
-    const k = b.dataset.k;
-    const nextRates = { ...(cur.rates||{}) }; delete nextRates[k];
-    await setUserSettings('settings.currencies', { base: cur.base||'TWD', rates: nextRates });
-    renderCurrency();
+  $$('button[data-k]', list).forEach(b => b.onclick = () => {
+    const next = { ...(S.settings.currencies.rates || {}) }; delete next[b.dataset.k];
+    S.settings.currencies = { base: $('#baseCurrency', el).value || 'TWD', rates: next };
+    saveState(S); renderCurrency();
   });
 
-  $('#saveLedgerCur').onclick = async ()=>{
-    const code = ($('#ledgerCur').value||'TWD').toUpperCase();
-    await setLedgerCurrency(currentLedgerId, code);
-    toast(MODE==='demo'?'（Demo）帳本主貨幣已更新':'帳本主貨幣已更新');
-    renderCurrency();
+  $('#saveLedgerCur', el).onclick = () => {
+    const code = ($('#ledgerCur', el).value || 'TWD').toUpperCase();
+    const idx = S.ledgers.findIndex(x => x.id === L);
+    if (idx >= 0) S.ledgers[idx].currency = code;
+    saveState(S); renderCurrency();
   };
 }
 
-// ---- Chat ----
-async function renderChat(){
+/* ============= Chat ============= */
+function renderChat() {
   const el = $('#view-chat');
-  const u = await getUserDoc();
-  const chat = u.settings?.chat || { persona:'minimal_accountant', custom:'', commandsEnabled:true };
-
+  const chat = S.settings.chat || { persona: 'minimal_accountant', custom: '', commandsEnabled: true };
   el.innerHTML = `
     <div class="card">
       <div class="card-header">專屬角色與指令</div>
       <div class="card-body">
-        <div class="row g-2 mb-3">
-          <div class="col-md-4">
-            <label class="form-label">角色（Persona）</label>
-            <select id="persona" class="form-select">
-              <option value="minimal_accountant">極簡會計師（精簡、重點）</option>
-              <option value="friendly_helper">溫暖助手（鼓勵、貼心）</option>
-              <option value="strict_coach">節制教練（嚴謹、控管）</option>
-            </select>
-          </div>
-          <div class="col-md-8">
-            <label class="form-label">自定義描述（可留白）</label>
-            <textarea id="personaCustom" class="form-control" rows="3" placeholder="描述語氣、風格、輸出格式重點…"></textarea>
-          </div>
+        <div class="row" style="margin-bottom:8px">
+          <label class="small" style="width:100%">角色（Persona）</label>
+          <select id="persona" style="min-width:220px">
+            <option value="minimal_accountant">極簡會計師（精簡、重點）</option>
+            <option value="friendly_helper">溫暖助手（鼓勵、貼心）</option>
+            <option value="strict_coach">節制教練（嚴謹、控管）</option>
+          </select>
         </div>
-        <div class="form-check form-switch mb-3">
-          <input id="cmdEnabled" class="form-check-input" type="checkbox">
-          <label class="form-check-label" for="cmdEnabled">啟用記帳快速指令（/add /sum /budget…）</label>
+        <div class="row" style="margin-bottom:8px; width:100%">
+          <label class="small" style="width:100%">自定義描述（可留白）</label>
+          <textarea id="personaCustom" rows="3" style="width:100%" placeholder="描述語氣、風格、輸出格式重點…"></textarea>
         </div>
-        <button id="saveChat" class="btn btn-grad">儲存聊天設定</button>
+        <div class="row" style="align-items:center;margin-bottom:8px">
+          <input id="cmdEnabled" type="checkbox" ${chat.commandsEnabled ? 'checked' : ''} />
+          <label for="cmdEnabled" style="user-select:none">啟用記帳快速指令（/add /sum /budget…）</label>
+        </div>
+        <button id="saveChat" class="btn">儲存聊天設定</button>
       </div>
     </div>
   `;
-  $('#persona').value = chat.persona || 'minimal_accountant';
-  $('#personaCustom').value = chat.custom || '';
-  $('#cmdEnabled').checked = !!chat.commandsEnabled;
+  $('#persona', el).value = chat.persona || 'minimal_accountant';
+  $('#personaCustom', el).value = chat.custom || '';
 
-  $('#saveChat').onclick = async ()=>{
-    const next = {
-      persona: $('#persona').value,
-      custom: $('#personaCustom').value,
-      commandsEnabled: $('#cmdEnabled').checked
+  $('#saveChat', el).onclick = () => {
+    S.settings.chat = {
+      persona: $('#persona', el).value,
+      custom: $('#personaCustom', el).value,
+      commandsEnabled: $('#cmdEnabled', el).checked
     };
-    await setUserSettings('settings.chat', next);
-    toast(MODE==='demo'?'（Demo）已儲存聊天設定':'已儲存聊天設定');
+    saveState(S);
+    alert('已儲存聊天設定（Demo）');
   };
 }
 
-// ---- General ----
-async function renderGeneral(){
+/* ============= General ============= */
+function renderGeneral() {
   const el = $('#view-general');
-  const u = await getUserDoc();
-  const g = u.settings?.general || { reminderEnabled:true, reminderTime:'21:00' };
-
+  const g = S.settings.general || { reminderEnabled: true, reminderTime: '21:00' };
   el.innerHTML = `
     <div class="card">
       <div class="card-header">每日提醒</div>
       <div class="card-body">
-        <div class="form-check form-switch mb-2">
-          <input id="remindEnable" class="form-check-input" type="checkbox">
-          <label class="form-check-label" for="remindEnable">啟用每日提醒</label>
+        <div class="row" style="align-items:center;margin-bottom:8px">
+          <input id="remindEnable" type="checkbox" ${g.reminderEnabled ? 'checked' : ''}/>
+          <label for="remindEnable" style="user-select:none">啟用每日提醒</label>
         </div>
-        <div class="d-flex gap-2">
-          <input id="remindTime" type="time" class="form-control" style="max-width:160px">
-          <button id="saveRemind" class="btn btn-grad">儲存</button>
+        <div class="row">
+          <input id="remindTime" type="time" value="${g.reminderTime || '21:00'}" style="width:140px">
+          <button id="saveRemind" class="btn">儲存</button>
         </div>
-        <div class="text-muted small mt-2">${MODE==='demo'?'（Demo：設定只在此頁有效）':'（登入模式：將儲存至雲端）'}</div>
+        <div style="opacity:.8;margin-top:8px;font-size:12px">（Demo：設定儲存在瀏覽器，不會同步雲端）</div>
       </div>
     </div>
   `;
-  $('#remindEnable').checked = !!g.reminderEnabled;
-  $('#remindTime').value   = g.reminderTime || '21:00';
-
-  $('#saveRemind').onclick = async ()=>{
-    const next = { reminderEnabled: $('#remindEnable').checked, reminderTime: $('#remindTime').value || '21:00' };
-    await setUserSettings('settings.general', next);
-    toast(MODE==='demo'?'（Demo）已儲存每日提醒設定':'已儲存每日提醒設定');
+  $('#saveRemind', el).onclick = () => {
+    S.settings.general = {
+      reminderEnabled: $('#remindEnable', el).checked,
+      reminderTime: $('#remindTime', el).value || '21:00'
+    };
+    saveState(S);
+    alert('已儲存每日提醒設定（Demo）');
   };
 }
 
-/* =========================
- * Init：自動判定模式（可強制 Demo）
- * ========================= */
-function qsHasDemo(){ return /(^|[?#&])demo(=1|$)/i.test(location.search+location.hash); }
-
-async function waitForAuth(timeoutMs=4000){
-  // 若外部強制 Demo（window.__FORCE_DEMO 或 ?demo=1），直接回 null
-  if (window.__FORCE_DEMO || qsHasDemo()) return null;
-
-  try { if (typeof auth?.authStateReady==='function') { await auth.authStateReady(); return auth.currentUser; } } catch {}
-  return await new Promise((resolve)=>{
-    let done=false;
-    const t=setTimeout(()=>{ if(done) return; done=true; resolve(auth?.currentUser||null); }, timeoutMs);
-    try{
-      const unsub = auth.onAuthStateChanged((u)=>{ if(done) return; done=true; clearTimeout(t); unsub&&unsub(); resolve(u||null); });
-    }catch{ clearTimeout(t); resolve(null); }
-  });
-}
-
-(async function start(){
-  // 畫外殼
-  renderShell();
-
-  // 判定模式
-  const user = await waitForAuth();
-  if (user){
-    MODE='firestore'; UID=user.uid;
-    $('#modeBanner').style.display='none';
-  }else{
-    MODE='demo'; UID='demo';
-    $('#modeBanner').style.display='block';
-    $('#modeBanner').innerHTML = '🟡 目前為 <b>展示模式（未登入）</b>：可新增/刪除/切換，資料只存在此頁。';
-  }
-
-  // 初始 currentLedgerId
-  if (MODE==='demo'){
-    currentLedgerId = DEMO.currentLedgerId;
-  }else{
-    const rows = await listLedgers();
-    currentLedgerId = rows[0]?.id || null;
-  }
-
-  // 首次渲染
-  await renderLedgers();
-  await renderBudgets();
-  await renderCategories();
-  await renderCurrency();
-  await renderChat();
-  await renderGeneral();
-})();
+// 首次顯示（避免 hash 是其他頁時，先讓當頁渲染一次）
+showTab((location.hash || '#ledgers').slice(1));
+console.log('[acc-settings DEMO] ready');
