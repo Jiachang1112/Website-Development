@@ -22,49 +22,25 @@ const toast = (msg, type='info') => {
 console.log('🚀 記帳設定系統啟動');
 
 // ========== 狀態管理 ==========
-let UID = null;
+let UID = 'demo-user-12345'; // 固定假 UID，先顯示介面
 let currentLedgerId = null;
-
-// ========== 等待 Firebase Auth 初始化 ==========
-async function waitForAuth() {
-  return new Promise((resolve) => {
-    // 立即檢查當前狀態
-    if (auth.currentUser) {
-      console.log('✅ 已登入:', auth.currentUser.uid);
-      resolve(auth.currentUser);
-      return;
-    }
-    
-    // 設定 1 秒超時，強制繼續
-    const timeout = setTimeout(() => {
-      console.log('⚠️ Auth 超時，強制使用當前狀態');
-      if (unsub) unsub();
-      resolve(auth.currentUser);
-    }, 1000);
-    
-    // 監聽狀態變化
-    const unsub = auth.onAuthStateChanged((user) => {
-      clearTimeout(timeout);
-      if (unsub) unsub();
-      console.log(user ? '✅ 登入成功' : '❌ 未登入');
-      resolve(user);
-    });
-  });
-}
 
 // ========== 取得預設帳本 ==========
 async function getDefaultLedger() {
-  if (!UID) return null;
-  
-  // 先找 isDefault = true
-  const q1 = query(collection(db, 'users', UID, 'ledgers'), where('isDefault', '==', true));
-  const snap1 = await getDocs(q1);
-  if (!snap1.empty) return snap1.docs[0].id;
-  
-  // 沒有就取第一本
-  const q2 = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt', 'asc'));
-  const snap2 = await getDocs(q2);
-  return snap2.empty ? null : snap2.docs[0].id;
+  try {
+    // 先找 isDefault = true
+    const q1 = query(collection(db, 'users', UID, 'ledgers'), where('isDefault', '==', true));
+    const snap1 = await getDocs(q1);
+    if (!snap1.empty) return snap1.docs[0].id;
+    
+    // 沒有就取第一本
+    const q2 = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt', 'asc'));
+    const snap2 = await getDocs(q2);
+    return snap2.empty ? null : snap2.docs[0].id;
+  } catch (error) {
+    console.error('取得預設帳本失敗:', error);
+    return null;
+  }
 }
 
 // ========== 1. 管理帳本 ==========
@@ -111,35 +87,43 @@ async function renderLedgers() {
 
 async function loadLedgerList() {
   const list = $('#ledgerList');
-  const q = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt', 'asc'));
-  const snap = await getDocs(q);
+  list.innerHTML = '<div class="loading">正在載入帳本...</div>';
+  
+  try {
+    const q = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt', 'asc'));
+    const snap = await getDocs(q);
 
-  if (snap.empty) {
-    list.innerHTML = '<div class="empty">尚無帳本</div>';
-    return;
-  }
+    if (snap.empty) {
+      list.innerHTML = '<div class="empty">尚無帳本，請新增第一本帳本</div>';
+      return;
+    }
 
-  list.innerHTML = '';
-  snap.forEach(doc => {
-    const data = doc.data();
-    const item = document.createElement('div');
-    item.className = 'list-item';
-    item.innerHTML = `
-      <div class="item-info">
-        <div class="item-name">${data.name}</div>
-        <div class="item-meta">貨幣: ${data.currency || 'TWD'} ${data.isDefault ? '<span class="badge-default">預設</span>' : ''}</div>
-      </div>
-      <div class="item-actions">
-        <button class="btn-sm btn-secondary" onclick="window.selectLedger('${doc.id}')">選擇</button>
-        <button class="btn-sm btn-danger" onclick="window.deleteLedger('${doc.id}', ${data.isDefault})">刪除</button>
-      </div>
-    `;
-    list.appendChild(item);
-  });
+    list.innerHTML = '';
+    snap.forEach(doc => {
+      const data = doc.data();
+      const item = document.createElement('div');
+      item.className = 'list-item';
+      item.innerHTML = `
+        <div class="item-info">
+          <div class="item-name">${data.name}</div>
+          <div class="item-meta">貨幣: ${data.currency || 'TWD'} ${data.isDefault ? '<span class="badge-default">預設</span>' : ''}</div>
+        </div>
+        <div class="item-actions">
+          <button class="btn-sm btn-secondary" onclick="window.selectLedger('${doc.id}')">選擇</button>
+          <button class="btn-sm btn-danger" onclick="window.deleteLedger('${doc.id}', ${data.isDefault})">刪除</button>
+        </div>
+      `;
+      list.appendChild(item);
+    });
 
-  // 設定當前帳本
-  if (!currentLedgerId && !snap.empty) {
-    currentLedgerId = snap.docs[0].id;
+    // 設定當前帳本
+    if (!currentLedgerId && !snap.empty) {
+      currentLedgerId = snap.docs[0].id;
+      console.log('✅ 預設帳本:', currentLedgerId);
+    }
+  } catch (error) {
+    console.error('❌ 載入帳本失敗:', error);
+    list.innerHTML = `<div class="empty" style="color:#ef4444">載入失敗: ${error.message}</div>`;
   }
 }
 
@@ -555,31 +539,17 @@ function route() {
 
 // ========== 初始化 ==========
 (async function init() {
-  console.log('⏳ 開始初始化...');
+  console.log('🚀 記帳設定系統啟動');
+  console.log('📦 使用固定 UID:', UID);
   
-  // 先顯示介面
+  // 初始路由
   if (!location.hash) {
     location.hash = '#ledgers';
   }
-  
-  // 背景等待登入
-  waitForAuth().then(user => {
-    if (user) {
-      UID = user.uid;
-      console.log('✅ 已登入，UID:', UID);
-      // 重新渲染當前頁面
-      route();
-    } else {
-      console.log('⚠️ 未登入，使用展示模式');
-      UID = 'demo-user';
-      // 顯示展示資料
-      route();
-    }
-  });
-
-  // 立即顯示介面（先用空資料）
   route();
   
   // 監聽 hash 變化
   window.addEventListener('hashchange', route);
+  
+  console.log('✅ 初始化完成');
 })();
