@@ -3,11 +3,9 @@ import { fmt } from '../app.js';
 import { getEntriesRangeForEmail } from '../entries.js';
 import { currentUser } from '../app.js';
 import { db } from '../firebase.js';
-import {
-  doc, getDoc, deleteDoc, updateDoc
-} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+import { doc, getDoc, deleteDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-/* ========= 工具 ========= */
+/* ========= 小工具 ========= */
 function pad2(n){ return String(n).padStart(2,'0'); }
 function daysInMonth(y, m){ return new Date(y, m, 0).getDate(); }
 function yyyyMmDd(y, m, d){ return `${y}-${pad2(m)}-${pad2(d)}`; }
@@ -57,6 +55,8 @@ const TX_CACHE = new Map();
     margin-right:auto;width:100%}
   .tx-confirm.show{display:flex}
   .spacer{flex:1}
+  /* 整塊日期欄可點 */
+  .tx-field.clickable{ cursor:pointer; }
   @media (hover:none){ .tx-btn{min-height:44px;min-width:44px} }
   `;
   document.head.appendChild(css);
@@ -130,6 +130,10 @@ function ensureTxModal(){
         const node = $('#'+id);
         if (node) node.setAttribute('aria-readonly', String(ro));
       });
+      // 日期區塊的可點手勢只在編輯模式開啟
+      const dateField = $('#f-date');
+      if (dateField) dateField.classList.toggle('clickable', !!on);
+
       $('#txd-save').style.display = on ? 'inline-block' : 'none';
       $('#txd-edit').textContent = on ? '取消編輯' : '編輯';
       setConfirmBar(false);
@@ -147,7 +151,32 @@ function ensureTxModal(){
       setEdit(modal.dataset.edit !== '1');
     });
 
-    // 刪除流程（行動友善二段確認）
+    // ===== 整塊日期可點：開啟原生日曆 =====
+    (function setupDateFieldClick(){
+      const field = $('#f-date');
+      const input = $('#inp-date');
+      if (!field || !input) return;
+
+      field.setAttribute('tabindex', '0');
+
+      const openPicker = () => {
+        if (modal.dataset.edit !== '1') return; // 只在編輯模式
+        if (typeof input.showPicker === 'function') {
+          try { input.showPicker(); return; } catch {}
+        }
+        input.focus(); input.click();
+      };
+
+      field.addEventListener('click', (e) => {
+        if (e.target === input) return; // 避免重複
+        openPicker();
+      });
+      field.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
+      });
+    })();
+
+    // 刪除（二段確認）
     $('#txd-delete').addEventListener('click', ()=> setConfirmBar(true));
     $('#txd-no').addEventListener('click', ()=> setConfirmBar(false));
     $('#txd-yes').addEventListener('click', async ()=>{
@@ -168,7 +197,7 @@ function ensureTxModal(){
       }
     });
 
-    // 存檔
+    // 儲存
     $('#txd-save').addEventListener('click', async ()=>{
       const id    = modal.dataset.id || '';
       const path  = modal.dataset.path || '';
@@ -180,7 +209,6 @@ function ensureTxModal(){
         amount: Number($('#inp-amt').value),
         note:  $('#inp-note').value || ''
       };
-      // 簡單驗證
       if (!formData.date) { alert('請選擇日期'); return; }
       if (!Number.isFinite(formData.amount)) { alert('請輸入有效金額'); return; }
 
@@ -188,7 +216,6 @@ function ensureTxModal(){
       try{
         await smartUpdate({ id, path, email, data: formData });
         setEdit(false);
-        // 立即刷新列表/統計
         if (typeof window.__expense_detail_scheduleRender === 'function') window.__expense_detail_scheduleRender(0);
       }catch(err){
         alert('儲存失敗：' + (err?.message || err));
@@ -197,7 +224,7 @@ function ensureTxModal(){
       }
     });
 
-    // 暴露在閉包外
+    // 暴露在閉包外給 openTxModal 初始化時切換用
     modal.__setEdit = setEdit;
   }
   return { backdrop, modal };
@@ -208,7 +235,7 @@ function openTxModal(row, uid){
   const { backdrop, modal } = ensureTxModal();
   const isIncome = String(row.type||'').toLowerCase()==='income';
 
-  // dataset（刪除/儲存時用）
+  // 供刪除/更新使用
   modal.dataset.id     = row.id || '';
   modal.dataset.uid    = uid || '';
   modal.dataset.bookId = row.bookId || '';
@@ -251,22 +278,15 @@ async function smartDelete({ id, uid='', bookId='', path='', email='' }) {
 }
 
 async function smartUpdate({ id, path='', email='', data }) {
-  // 正規化資料（避免 NaN）
   const payload = {
     type: (data.type === 'income') ? 'income' : 'expense',
     amount: Number(data.amount) || 0,
     categoryId: data.categoryId || '其他',
     note: data.note || '',
-    date: data.date // 需為 YYYY-MM-DD
+    date: data.date
   };
-  if (path) {
-    await updateDoc(doc(db, path), payload);
-    return true;
-  }
-  if (email && id) {
-    await updateDoc(doc(db, `expenses/${email}/entries/${id}`), payload);
-    return true;
-  }
+  if (path) { await updateDoc(doc(db, path), payload); return true; }
+  if (email && id) { await updateDoc(doc(db, `expenses/${email}/entries/${id}`), payload); return true; }
   throw new Error('找不到可更新的雲端文件（缺少 path 或 email+id）');
 }
 
