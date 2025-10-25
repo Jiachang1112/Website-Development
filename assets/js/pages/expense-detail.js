@@ -3,11 +3,9 @@ import { fmt } from '../app.js';
 import { getEntriesRangeForEmail } from '../entries.js';
 import { currentUser } from '../app.js';
 
-// 🔽 新增：Firestore 刪除所需（用彈窗刪除時會用到）
+// Firestore：刪除用
 import { db } from '../firebase.js';
-import {
-  doc, getDoc, deleteDoc
-} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+import { doc, getDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
 /* -------------------- 工具 -------------------- */
 function pad2(n){ return String(n).padStart(2,'0'); }
@@ -26,12 +24,12 @@ function ts(v){
   const t = Date.parse(String(v));
   return Number.isFinite(t) ? t : 0;
 }
-const TX_CACHE = new Map(); // { id -> row }
+const TX_CACHE = new Map(); // { (id or path) -> row }
 
-/* -------------------- 內頁 Modal（新增） -------------------- */
+/* -------------------- 內頁 Modal -------------------- */
 (function injectModalStyle(){
-  const modalStyle = document.createElement('style');
-  modalStyle.textContent = `
+  const css = document.createElement('style');
+  css.textContent = `
   .tx-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:1000}
   .tx-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
             width:min(520px,92vw);background:#1f2937;color:#fff;border-radius:14px;
@@ -43,7 +41,7 @@ const TX_CACHE = new Map(); // { id -> row }
   .tx-btn.ghost{background:#374151;color:#fff}
   .tx-btn.danger{background:#ef4444;color:#fff}
   `;
-  document.head.appendChild(modalStyle);
+  document.head.appendChild(css);
 })();
 
 function ensureTxModal(){
@@ -81,23 +79,30 @@ function ensureTxModal(){
     modal.querySelector('#txd-close').addEventListener('click', close);
     modal.querySelector('#txd-cancel').addEventListener('click', close);
 
-    // 刪除按鈕事件（會呼叫 smartDelete）
+    // 刪除按鈕
     modal.querySelector('#txd-delete').addEventListener('click', async ()=>{
-      const id    = modal.dataset.id;
-      const uid   = modal.dataset.uid || '';
-      const bookId= modal.dataset.bookId || '';
-      if(!id) return;
-      if(!confirm('確定要刪除此筆紀錄嗎？')) return;
+      const id     = modal.dataset.id    || '';
+      const uid    = modal.dataset.uid   || '';
+      const bookId = modal.dataset.bookId|| '';
+      const path   = modal.dataset.path  || '';
+      const email  = modal.dataset.email || '';
+
+      if (!confirm('確定要刪除此筆紀錄嗎？')) return;
 
       const btn = modal.querySelector('#txd-delete');
       btn.disabled = true;
       try{
-        await smartDelete({ id, uid, bookId });
+        await smartDelete({ id, uid, bookId, path, email });
         close();
-        // 從列表移除那一列
-        document.querySelector(`.order-row[data-id="${CSS.escape(id)}"]`)?.remove();
-        // 重新計算上方數字與列表（穩妥）
-        if (typeof scheduleRender === 'function') scheduleRender(0);
+
+        // 從列表移除該列（id+path 皆嘗試）
+        const sel = `.order-row${id ? `[data-id="${CSS.escape(id)}"]` : ''}${path ? `[data-path="${CSS.escape(path)}"]` : ''}`;
+        document.querySelector(sel)?.remove();
+
+        // 重新拉資料重算（穩妥）
+        if (typeof window.__expense_detail_scheduleRender === 'function') {
+          window.__expense_detail_scheduleRender(0);
+        }
       }catch(err){
         alert('刪除失敗：' + (err?.message || err));
         btn.disabled = false;
@@ -113,9 +118,14 @@ function ensureTxModal(){
 function openTxModal(row, uid){
   const { backdrop, modal } = ensureTxModal();
   const isIncome = String(row.type||'').toLowerCase()==='income';
-  modal.dataset.id = row.id || '';
-  modal.dataset.uid = uid || '';
+
+  // 把識別資訊塞進 dataset（刪除時用）
+  modal.dataset.id     = row.id || '';
+  modal.dataset.uid    = uid || '';
   modal.dataset.bookId = row.bookId || '';
+  modal.dataset.path   = row.__path || row.path || '';
+  modal.dataset.email  = row.__email || '';
+
   modal.querySelector('#txd-title').textContent = `明細｜${isIncome?'收入':'支出'}`;
   modal.querySelector('#txd-date').textContent  = row.date || '';
   modal.querySelector('#txd-type').textContent  = isIncome ? '收入' : '支出';
@@ -126,17 +136,27 @@ function openTxModal(row, uid){
   modal.style.display='block';
 }
 
-// 聰明刪除：嘗試多種常見路徑
-async function smartDelete({ id, uid='', bookId='' }) {
-  // 依序嘗試：entries/{id}、users/{uid}/entries/{id}、transactions/{id}、expenses/{id}、incomes/{id}、
-  //           users/{uid}/books/{bookId}/transactions/{id}
+// 聰明刪除：優先用完整 path；沒有就用 email+id 組路徑；再退候選
+async function smartDelete({ id, uid='', bookId='', path='', email='' }) {
+  // 1) 明確 path（最準）
+  if (path) {
+    await deleteDoc(doc(db, path));
+    return true;
+  }
+  // 2) 依你的實際結構（expenses/{email}/entries/{id}）組路徑
+  if (email && id) {
+    const p = `expenses/${email}/entries/${id}`;
+    await deleteDoc(doc(db, p));
+    return true;
+  }
+  // 3) 其它常見候選（保險）
   const candidates = [
-    `entries/${id}`,
-    uid ? `users/${uid}/entries/${id}` : null,
-    `transactions/${id}`,
-    `expenses/${id}`,
-    `incomes/${id}`,
-    (uid && bookId) ? `users/${uid}/books/${bookId}/transactions/${id}` : null
+    id ? `entries/${id}` : null,
+    (uid && id) ? `users/${uid}/entries/${id}` : null,
+    id ? `transactions/${id}` : null,
+    id ? `expenses/${id}` : null,
+    id ? `incomes/${id}` : null,
+    (uid && bookId && id) ? `users/${uid}/books/${bookId}/transactions/${id}` : null
   ].filter(Boolean);
 
   for (const p of candidates) {
@@ -147,9 +167,7 @@ async function smartDelete({ id, uid='', bookId='' }) {
       return true;
     }
   }
-  // 若上述都找不到就直接嘗試刪除 entries/{id}（有些環境取不到 getDoc 也要能刪）
-  await deleteDoc(doc(db, `entries/${id}`));
-  return true;
+  throw new Error('找不到可刪除的雲端文件：缺少 path 或 email+id');
 }
 
 /* -------------------- 主頁面 -------------------- */
@@ -196,13 +214,15 @@ export function ExpenseDetailPage(){
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(()=>{
       const run = () => {
-        if (job !== latestJob) return; // 有更新就取消舊任務
+        if (job !== latestJob) return;
         render(job);
       };
       if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 1200 });
       else requestAnimationFrame(()=> requestAnimationFrame(run));
     }, wait);
   }
+  // 讓刪除後可重新觸發（給 modal 里呼叫）
+  window.__expense_detail_scheduleRender = scheduleRender;
 
   function addNotSpecifiedOption(select, text='不指定'){
     const o = document.createElement('option');
@@ -256,115 +276,5 @@ export function ExpenseDetailPage(){
   dSel.value = pad2(d0);
 
   function updateBadgeCaption(){
-    const isDay = Boolean(ySel.value && mSel.value && dSel.value);
-    const txt = isDay ? '當日' : '期間';
-    cap.textContent = txt; cap2.textContent = txt; cap3.textContent = txt;
-  }
-
-  function syncDaysAndSchedule(){
-    const keep = dSel.value || '';
-    fillDays(ySel.value, mSel.value);
-    if (mSel.value === ''){
-      dSel.value = '';
-    }else{
-      const lastOpt = dSel.options[dSel.options.length-1];
-      const lastDay = lastOpt ? lastOpt.value : '';
-      if (keep && keep !== '' && keep <= lastDay) dSel.value = keep;
-    }
-    updateBadgeCaption();
-    list.innerHTML = `<div class="small">載入中…</div>`;
-    scheduleRender(120);
-  }
-  ySel.addEventListener('change', syncDaysAndSchedule);
-  mSel.addEventListener('change', syncDaysAndSchedule);
-  dSel.addEventListener('change', ()=>{ updateBadgeCaption(); list.innerHTML = `<div class="small">載入中…</div>`; scheduleRender(60); });
-
-  async function render(jobId){
-    const u = currentUser();
-    if (!u?.email) {
-      list.innerHTML = `<p class="small">請先登入帳號再查看明細。</p>`;
-      outEl.textContent = incEl.textContent = balEl.textContent = fmt.money(0);
-      return;
-    }
-
-    const y = ySel.value;
-    const m = mSel.value;   // '' or '01'..'12'
-    const d = dSel.value;   // '' or '01'..'31'
-
-    let from, to;
-    if (!m){
-      from = `${y}-01-01`; to = `${y}-12-31`;
-    }else if (!d){
-      const ym = `${y}-${m}`;
-      from = firstDayOfMonth(ym); to = lastDayOfMonth(ym);
-    }else{
-      from = yyyyMmDd(y, m, d); to = from;
-    }
-
-    list.innerHTML = `<div class="small">載入中…</div>`;
-
-    const rows = await getEntriesRangeForEmail(u.email, from, to);
-
-    if (jobId !== latestJob) return;
-
-    const outs = rows.filter(r => r.type === 'expense');
-    const ins  = rows.filter(r => r.type === 'income');
-
-    const totalOut = outs.reduce((s, a) => s + (Number(a.amount) || 0), 0);
-    const totalIn  = ins.reduce((s, a) => s + (Number(a.amount) || 0), 0);
-
-    outEl.textContent = fmt.money(totalOut);
-    incEl.textContent = fmt.money(totalIn);
-    balEl.textContent = fmt.money(totalIn - totalOut);
-
-    // 排序：createdAt desc → date desc（讓最新紀錄在最上）
-    const all = [...rows].sort((a,b)=>{
-      const tb = ts(b.createdAt), ta = ts(a.createdAt);
-      if (tb !== ta) return tb - ta;
-      const db = b.date || '', da = a.date || '';
-      return db.localeCompare(da);
-    });
-
-    // 建立列表（可點整列 → 開啟 Modal）
-    TX_CACHE.clear();
-    list.innerHTML =
-      all.map(r => {
-        const typeTxt = r.type === 'income' ? '收入' : '支出';
-        const cat  = r.categoryId || r.categoryName || r.cat || '';
-        const note = r.note || '';
-        const amt  = r.type === 'income' ? +r.amount : -Math.abs(+r.amount || 0);
-        const id   = r.id || crypto.randomUUID(); // 確保有 id（若後端已提供則用後端 id）
-        r.id = id;
-        TX_CACHE.set(id, r);
-
-        return `
-          <div class="order-row" data-id="${id}" style="cursor:pointer">
-            <div>
-              <b>${r.date || ''}</b>
-              <span class="badge">${typeTxt}</span>
-              <div class="small">${cat}｜${note || '—'}</div>
-            </div>
-            <div>${fmt.money(amt)}</div>
-          </div>
-        `;
-      }).join('') || '<p class="small">這段期間沒有紀錄</p>';
-
-    // 事件委派：點整列開內頁 Modal（含刪除）
-    list.onclick = (ev)=>{
-      const rowEl = ev.target.closest('.order-row');
-      if (!rowEl) return;
-      const id = rowEl.dataset.id;
-      const row = TX_CACHE.get(id);
-      if (!row) return;
-      openTxModal(row, u?.uid || '');
-    };
-  }
-
-  // 初始化：先更新標籤，延後載入資料
-  updateBadgeCaption();
-  list.innerHTML = `<div class="small">載入中…</div>`;
-  scheduleRender(120);
-
-  return el;
-}
+  
 
