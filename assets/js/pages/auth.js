@@ -115,10 +115,47 @@ async function handleCredentialResponse(response) {
   }
 }
 
-// -------------------- 帳號頁 UI --------------------
+// -------------------- 帳號頁 UI（Google 外觀與 FB/LINE 一致） --------------------
 export function AuthPage() {
   const el = document.createElement('div');
-  el.className = 'container card';
+  el.className = 'container card login-card';
+
+  //（一次性）插入必要樣式；若你有全域 CSS，可把這段搬走
+  if (!document.getElementById('login-page-inline-style')) {
+    const style = document.createElement('style');
+    style.id = 'login-page-inline-style';
+    style.textContent = `
+      .login-card { max-width:520px; margin:40px auto; padding:28px 24px; }
+      .login-title { font-size:28px; margin:0 0 18px 0; }
+      .input-label { font-size:14px; color:#b7c1d1; display:block; margin-bottom:6px; }
+      .input { width:100%; padding:12px 14px; border:1px solid #2b3340; background:#101622; color:#e6eefc;
+               border-radius:8px; font-size:16px; outline:none; }
+      .input:focus { border-color:#409eff; box-shadow:0 0 0 3px rgba(64,158,255,.15); }
+      .primary { width:100%; margin-top:12px; padding:12px 14px; border:none; border-radius:8px; font-size:16px;
+                 cursor:pointer; background:#2b62ff; color:#fff; }
+      .primary:active { transform: translateY(1px); }
+
+      .divider { display:flex; align-items:center; gap:12px; margin:18px 0; color:#758198; }
+      .divider::before, .divider::after { content:""; height:1px; background:#2b3340; flex:1; }
+
+      .social { width:100%; margin-top:10px; padding:12px 14px;
+                border:1px solid #dcdfe6; border-radius:8px; background:#fff;
+                font-size:16px; cursor:pointer; display:flex; align-items:center; gap:10px;
+                justify-content:flex-start; position: relative; }
+      .social:active { transform: translateY(1px); }
+      .social-icon { width:20px; display:inline-block; text-align:center; }
+
+      .small { font-size:12px; color:#758198; }
+      .ghost { color:#7aa2ff; text-decoration:none; }
+      .ghost:hover { text-decoration:underline; }
+
+      /* 透明覆蓋層：官方 GSI 按鈕會被渲染在這裡並吃點擊 */
+      .gsi-overlay { position:absolute; inset:0; opacity:0; pointer-events:auto; }
+      /* 確保官方 GSI 內容撐滿父層寬度 */
+      #gsi-btn > div { width:100% !important; justify-content:flex-start !important; }
+    `;
+    document.head.appendChild(style);
+  }
 
   const user = readSession();
 
@@ -153,22 +190,75 @@ export function AuthPage() {
     });
 
     showWelcomeChip(user.name);
-  } else {
-    el.innerHTML = `
-      <h3>帳號</h3>
-      <p class="small">請下方的 Google 登入按鈕登入。</p>
-
-      <div class="g_id_signin"
-           data-type="standard"
-           data-shape="rectangular"
-           data-theme="outline"
-           data-text="signin_with"
-           data-size="large"
-           data-logo_alignment="left"></div>
-
-      <a class="ghost" href="#dashboard">回首頁</a>
-    `;
+    return el;
   }
+
+  // 未登入 → Email → 繼續 → 或 → Google/FB/LINE（三顆白鈕）
+  el.innerHTML = `
+    <h2 class="login-title">登入</h2>
+
+    <label class="input-label">電子郵件地址</label>
+    <input id="email" class="input" type="email" placeholder="name@example.com" autocomplete="email" />
+
+    <button id="continue" class="primary">繼續</button>
+
+    <div class="divider"><span>或</span></div>
+
+    <!-- Google：外觀與 FB/LINE 相同，內部用透明覆蓋層渲染官方 GSI -->
+    <div id="btn-google-wrap" class="social" role="button" tabindex="0" aria-label="使用 Google 帳戶登入">
+      <span class="social-icon">G</span>
+      <span>繼續使用 Google</span>
+      <div id="gsi-btn" class="gsi-overlay" aria-hidden="false"></div>
+    </div>
+
+    <button id="btn-facebook" class="social">
+      <span class="social-icon">f</span> 繼續使用 Facebook
+    </button>
+
+    <button id="btn-line" class="social">
+      <span class="social-icon">L</span> 繼續使用 LINE
+    </button>
+
+    <a class="ghost small" href="#dashboard" style="margin-top:8px; display:inline-block;">回首頁</a>
+  `;
+
+  // 預填上次輸入的 email（純 UI 友善）
+  const emailEl = el.querySelector('#email');
+  const lastEmail = localStorage.getItem('_last_email') || '';
+  if (lastEmail) emailEl.value = lastEmail;
+
+  // 「繼續」：暫存 email；如要做 magic link/密碼，從這裡接
+  el.querySelector('#continue').addEventListener('click', () => {
+    const email = (emailEl.value || '').trim();
+    if (!email) { alert('請先輸入電子郵件'); return; }
+    localStorage.setItem('_last_email', email);
+    // 可選：也可嘗試 One-Tap
+    try { google.accounts.id.prompt(); } catch {}
+  });
+
+  // 渲染官方 Google Sign-In 按鈕到覆蓋層（點擊你白色按鈕即會觸發）
+  const gsiMount = el.querySelector('#gsi-btn');
+  if (window.google?.accounts?.id) {
+    google.accounts.id.renderButton(gsiMount, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      text: 'signin_with',
+      shape: 'rectangular',
+      logo_alignment: 'left'
+    });
+  } else {
+    console.warn('Google Identity Services 尚未載入');
+  }
+
+  // 其他兩顆先佔位（未接 SDK 前先提示）
+  el.querySelector('#btn-facebook').addEventListener('click', () => {
+    alert('Facebook 登入尚未接上（之後可接 FB SDK）');
+  });
+  el.querySelector('#btn-line').addEventListener('click', () => {
+    alert('LINE 登入尚未接上（之後可接 LINE Login）');
+  });
+
   return el;
 }
 
@@ -188,7 +278,8 @@ window.addEventListener('load', () => {
     showWelcomeChip(user.name);
     ensureLoginLogged(user).catch(console.error);
   } else {
-    google.accounts.id.prompt(); // One-Tap 登入
+    // 顯示 One-Tap（若被抑制也無妨，頁面上有可點的官方按鈕）
+    google.accounts.id.prompt();
   }
 });
 
