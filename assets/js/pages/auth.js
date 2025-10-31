@@ -115,49 +115,12 @@ async function handleCredentialResponse(response) {
   }
 }
 
-// -------------------- 工具：穩定渲染官方 Google 按鈕（含 retry） --------------------
-function renderGoogleButtonWithRetry(mount, tries = 20) {
-  const ok = !!(window.google && google.accounts && google.accounts.id);
-  if (ok) {
-    try {
-      // 渲染官方 Google Sign-In 按鈕
-      google.accounts.id.renderButton(mount, {
-        type: 'standard',
-        theme: 'outline',
-        size: 'large',
-        text: 'signin_with',
-        shape: 'rectangular',
-        logo_alignment: 'left',
-      });
-      // 讓它撐滿寬度、左對齊（外觀像你白色大鈕）
-      mount.style.display = 'block';
-      const it = mount.querySelector('div');
-      if (it) { it.style.width = '100%'; it.style.justifyContent = 'flex-start'; }
-      return true;
-    } catch (e) {
-      console.warn('renderButton 失敗，重試一次…', e);
-    }
-  }
-  if (tries > 0) {
-    setTimeout(() => renderGoogleButtonWithRetry(mount, tries - 1), 200);
-  } else {
-    // 萬一官方按鈕還是沒成功，備援：呼叫 prompt()
-    mount.innerHTML = `
-      <button id="gsi-fallback" class="social" type="button">
-        <span class="social-icon">G</span> 使用 Google 帳戶登入
-      </button>`;
-    mount.querySelector('#gsi-fallback')?.addEventListener('click', () => {
-      try { google.accounts.id.prompt(); } catch {}
-    });
-  }
-}
-
-// -------------------- 帳號頁 UI（僅保留 Google） --------------------
+// -------------------- 帳號頁 UI（Google 外觀與 FB/LINE 一致） --------------------
 export function AuthPage() {
   const el = document.createElement('div');
   el.className = 'container card login-card';
 
-  //（一次性）插入必要樣式；之後可移到全域 CSS
+  //（一次性）插入必要樣式；若你有全域 CSS，可把這段搬走
   if (!document.getElementById('login-page-inline-style')) {
     const style = document.createElement('style');
     style.id = 'login-page-inline-style';
@@ -171,13 +134,25 @@ export function AuthPage() {
       .primary { width:100%; margin-top:12px; padding:12px 14px; border:none; border-radius:8px; font-size:16px;
                  cursor:pointer; background:#2b62ff; color:#fff; }
       .primary:active { transform: translateY(1px); }
+
       .divider { display:flex; align-items:center; gap:12px; margin:18px 0; color:#758198; }
       .divider::before, .divider::after { content:""; height:1px; background:#2b3340; flex:1; }
-      /* 讓官方 GSI 按鈕看起來像白色大鈕（外框、圓角同樣式） */
-      .gsi-mount { width:100%; }
+
+      .social { width:100%; margin-top:10px; padding:12px 14px;
+                border:1px solid #dcdfe6; border-radius:8px; background:#fff;
+                font-size:16px; cursor:pointer; display:flex; align-items:center; gap:10px;
+                justify-content:flex-start; position: relative; }
+      .social:active { transform: translateY(1px); }
+      .social-icon { width:20px; display:inline-block; text-align:center; }
+
       .small { font-size:12px; color:#758198; }
       .ghost { color:#7aa2ff; text-decoration:none; }
       .ghost:hover { text-decoration:underline; }
+
+      /* 透明覆蓋層：官方 GSI 按鈕會被渲染在這裡並吃點擊 */
+      .gsi-overlay { position:absolute; inset:0; opacity:0; pointer-events:auto; }
+      /* 確保官方 GSI 內容撐滿父層寬度 */
+      #gsi-btn > div { width:100% !important; justify-content:flex-start !important; }
     `;
     document.head.appendChild(style);
   }
@@ -218,7 +193,7 @@ export function AuthPage() {
     return el;
   }
 
-  // 未登入 → Email → 繼續 → 或 → Google（官方按鈕）
+  // 未登入 → Email → 繼續 → 或 → Google/FB/LINE（三顆白鈕）
   el.innerHTML = `
     <h2 class="login-title">登入</h2>
 
@@ -229,8 +204,20 @@ export function AuthPage() {
 
     <div class="divider"><span>或</span></div>
 
-    <!-- 官方 Google Sign-In 渲染點 -->
-    <div id="gsi-btn" class="gsi-mount"></div>
+    <!-- Google：外觀與 FB/LINE 相同，內部用透明覆蓋層渲染官方 GSI -->
+    <div id="btn-google-wrap" class="social" role="button" tabindex="0" aria-label="使用 Google 帳戶登入">
+      <span class="social-icon">G</span>
+      <span>繼續使用 Google</span>
+      <div id="gsi-btn" class="gsi-overlay" aria-hidden="false"></div>
+    </div>
+
+    <button id="btn-facebook" class="social">
+      <span class="social-icon">f</span> 繼續使用 Facebook
+    </button>
+
+    <button id="btn-line" class="social">
+      <span class="social-icon">L</span> 繼續使用 LINE
+    </button>
 
     <a class="ghost small" href="#dashboard" style="margin-top:8px; display:inline-block;">回首頁</a>
   `;
@@ -240,18 +227,37 @@ export function AuthPage() {
   const lastEmail = localStorage.getItem('_last_email') || '';
   if (lastEmail) emailEl.value = lastEmail;
 
-  // 「繼續」：暫存 email（未來要做 magic link/密碼可在這裡接）
+  // 「繼續」：暫存 email；如要做 magic link/密碼，從這裡接
   el.querySelector('#continue').addEventListener('click', () => {
     const email = (emailEl.value || '').trim();
     if (!email) { alert('請先輸入電子郵件'); return; }
     localStorage.setItem('_last_email', email);
-    // 可選：也可嘗試 One-Tap（若未被抑制）
+    // 可選：也可嘗試 One-Tap
     try { google.accounts.id.prompt(); } catch {}
   });
 
-  // 渲染官方 Google Sign-In 按鈕（含 retry，避免看到空白條）
+  // 渲染官方 Google Sign-In 按鈕到覆蓋層（點擊你白色按鈕即會觸發）
   const gsiMount = el.querySelector('#gsi-btn');
-  renderGoogleButtonWithRetry(gsiMount);
+  if (window.google?.accounts?.id) {
+    google.accounts.id.renderButton(gsiMount, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      text: 'signin_with',
+      shape: 'rectangular',
+      logo_alignment: 'left'
+    });
+  } else {
+    console.warn('Google Identity Services 尚未載入');
+  }
+
+  // 其他兩顆先佔位（未接 SDK 前先提示）
+  el.querySelector('#btn-facebook').addEventListener('click', () => {
+    alert('Facebook 登入尚未接上（之後可接 FB SDK）');
+  });
+  el.querySelector('#btn-line').addEventListener('click', () => {
+    alert('LINE 登入尚未接上（之後可接 LINE Login）');
+  });
 
   return el;
 }
@@ -272,7 +278,7 @@ window.addEventListener('load', () => {
     showWelcomeChip(user.name);
     ensureLoginLogged(user).catch(console.error);
   } else {
-    // 顯示 One-Tap（若被抑制也無妨，頁面上有官方按鈕）
+    // 顯示 One-Tap（若被抑制也無妨，頁面上有可點的官方按鈕）
     google.accounts.id.prompt();
   }
 });
