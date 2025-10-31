@@ -127,20 +127,25 @@ export function AuthPage() {
     style.textContent = `
       .login-card { max-width:520px; margin:40px auto; padding:28px 24px; }
       .login-title { font-size:28px; margin:0 0 18px 0; }
-      .input-label { font-size:14px; color:#555; display:block; margin-bottom:6px; }
-      .input { width:100%; padding:12px 14px; border:1px solid #dcdfe6; border-radius:8px; font-size:16px; outline:none; }
+      .input-label { font-size:14px; color:#b7c1d1; display:block; margin-bottom:6px; }
+      .input { width:100%; padding:12px 14px; border:1px solid #2b3340; background:#101622; color:#e6eefc;
+               border-radius:8px; font-size:16px; outline:none; }
       .input:focus { border-color:#409eff; box-shadow:0 0 0 3px rgba(64,158,255,.15); }
-      .primary { width:100%; margin-top:12px; padding:12px 14px; border:none; border-radius:8px; font-size:16px; cursor:pointer; background:#1f67ff; color:#fff; }
+      .primary { width:100%; margin-top:12px; padding:12px 14px; border:none; border-radius:8px; font-size:16px;
+                 cursor:pointer; background:#2b62ff; color:#fff; }
       .primary:active { transform: translateY(1px); }
-      .divider { display:flex; align-items:center; gap:12px; margin:18px 0; }
-      .divider::before, .divider::after { content:""; height:1px; background:#e5e7eb; flex:1; }
-      .divider > span { color:#6b7280; font-size:14px; }
-      .social { width:100%; margin-top:10px; padding:12px 14px; border:1px solid #dcdfe6; border-radius:8px; background:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; gap:10px; justify-content:flex-start; }
+      .divider { display:flex; align-items:center; gap:12px; margin:18px 0; color:#758198; }
+      .divider::before, .divider::after { content:""; height:1px; background:#2b3340; flex:1; }
+      .social { width:100%; margin-top:10px; padding:12px 14px; border:1px solid #2b3340; border-radius:8px;
+                background:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; gap:10px;
+                justify-content:flex-start; }
       .social:active { transform: translateY(1px); }
       .social-icon { width:20px; display:inline-block; text-align:center; }
-      .small { font-size:12px; color:#6b7280; }
-      .ghost { color:#1f67ff; text-decoration:none; }
+      .small { font-size:12px; color:#758198; }
+      .ghost { color:#7aa2ff; text-decoration:none; }
       .ghost:hover { text-decoration:underline; }
+      /* 讓官方 GSI 按鈕撐滿寬度 */
+      #gsi-btn > div { width:100% !important; justify-content:flex-start !important; }
     `;
     document.head.appendChild(style);
   }
@@ -181,7 +186,7 @@ export function AuthPage() {
     return el;
   }
 
-  // 未登入 → 顯示「Email → 繼續」＋第三方登入按鈕
+  // 未登入 → 顯示「Email → 繼續」＋第三方登入按鈕（Google 用官方 renderButton）
   el.innerHTML = `
     <h2 class="login-title">登入</h2>
 
@@ -192,9 +197,7 @@ export function AuthPage() {
 
     <div class="divider"><span>或</span></div>
 
-    <button id="btn-google" class="social">
-      <span class="social-icon">G</span> 繼續使用 Google
-    </button>
+    <div id="gsi-btn" style="margin-top:10px;"></div>
 
     <button id="btn-facebook" class="social">
       <span class="social-icon">f</span> 繼續使用 Facebook
@@ -212,23 +215,32 @@ export function AuthPage() {
   const lastEmail = localStorage.getItem('_last_email') || '';
   if (lastEmail) emailEl.value = lastEmail;
 
-  // 「繼續」：暫存 email，然後叫出 Google 登入（目前只接了 Google）
-  el.querySelector('#continue').addEventListener('click', async () => {
+  // 「繼續」：暫存 email；你之後要做 magic link / 密碼可在這裡接
+  el.querySelector('#continue').addEventListener('click', () => {
     const email = (emailEl.value || '').trim();
     if (!email) { alert('請先輸入電子郵件'); return; }
     localStorage.setItem('_last_email', email);
-
-    try { google.accounts.id.prompt(); } catch (e) {
-      console.error(e); alert('無法開啟 Google 登入，請稍後再試');
-    }
+    // 可選：也可以在此嘗試 One Tap（若未被瀏覽器抑制）
+    try { google.accounts.id.prompt(); } catch {}
   });
 
-  // 社群按鈕：Google 直接叫出 GIS；FB/LINE 先放 placeholder
-  el.querySelector('#btn-google').addEventListener('click', () => {
-    try { google.accounts.id.prompt(); } catch (e) {
-      console.error(e); alert('無法開啟 Google 登入，請稍後再試');
-    }
-  });
+  // 渲染官方 Google Sign-In 按鈕（點擊後會進到 handleCredentialResponse）
+  const gsiMount = el.querySelector('#gsi-btn');
+  if (window.google?.accounts?.id) {
+    google.accounts.id.renderButton(gsiMount, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      text: 'signin_with',
+      shape: 'rectangular',
+      logo_alignment: 'left',
+      width: '100',
+    });
+  } else {
+    console.warn('Google Identity Services 尚未載入');
+  }
+
+  // 其他兩顆先佔位
   el.querySelector('#btn-facebook').addEventListener('click', () => {
     alert('Facebook 登入尚未接上（之後可接 FB SDK）');
   });
@@ -255,7 +267,8 @@ window.addEventListener('load', () => {
     showWelcomeChip(user.name);
     ensureLoginLogged(user).catch(console.error);
   } else {
-    google.accounts.id.prompt(); // One-Tap 登入
+    // 顯示 One-Tap（若被抑制也沒關係，頁面上仍有官方 Sign-In 按鈕）
+    google.accounts.id.prompt();
   }
 });
 
