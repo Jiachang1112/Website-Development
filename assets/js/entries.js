@@ -1,13 +1,18 @@
 // assets/js/entries.js
-import { db } from './firebase.js';
+import { auth, db } from './firebase.js'; // ✅ 匯入 auth
 import {
   doc, collection, addDoc, getDocs, query, where, orderBy, limit,
   serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-/* ========== Auth helper ========== */
+/* ========== Auth helper (修正) ========== */
 function getSignedEmail() {
   try {
+    // 1. 優先檢查 Firebase Auth 實例 (最可靠)
+    if (auth && auth.currentUser && auth.currentUser.email) {
+      return auth.currentUser.email;
+    }
+    // 2. 備援：檢查您舊的 localStorage (相容用)
     const u = window.session_user || JSON.parse(localStorage.getItem('session_user') || 'null');
     return u?.email || null;
   } catch { return null; }
