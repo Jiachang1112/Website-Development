@@ -13,7 +13,6 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
-    /* ... (您所有的 CSS 樣式都保持不變) ... */
     /* ===== 上方導覽列維持原本深色 ===== */
     .top{
       background: var(--panel-dark, #17202a);
@@ -253,6 +252,26 @@
     .hamburger.active span:nth-child(2){ opacity:0; }
     .hamburger.active span:nth-child(3){ transform:translateY(-9px) rotate(-45deg); }
 
+    /* ======= ✅ (新增) Premium 按鈕樣式 ======= */
+    .nav .btn-premium-nav {
+      background-color: #4263EB; /* 參考圖片的藍色 */
+      color: #fff;
+      border: none;
+      border-radius: 10px; /* 匹配 .nav button 的圓角 */
+      padding: 6px 12px; /* 匹配 .nav button 的 padding */
+      text-decoration: none;
+      font-weight: 500;
+      margin-right: .4rem; /* 匹配 .nav button 的 margin */
+      cursor: pointer;
+      transition: background-color .2s;
+      display: inline-block; /* 讓 <a> 標籤像按鈕 */
+      line-height: 1.6; /* 確保文字垂直對齊 */
+    }
+    .nav .btn-premium-nav:hover {
+      background-color: #364fc7; /* 滑鼠懸停顏色 */
+    }
+
+
     @media (max-width: 768px){
       .hamburger{ display:inline-block; }
 
@@ -273,10 +292,12 @@
       .top .nav.open button,
       .top .nav.open .btn,
       .top .nav.open .btn.btn-primary,
-      .top .nav.open .btn.btn-outline-light{
+      .top .nav.open .btn.btn-outline-light,
+      .top .nav.open .btn-premium-nav { /* ✅ (新增) 讓 Premium 按鈕在漢堡選單中也填滿寬度 */
         width:100%;
         justify-content:center;
         border-radius:10px;
+        text-align: center; /* 確保 <a> 文字居中 */
       }
     }
 
@@ -317,6 +338,8 @@
   </button>
 
   <nav class="nav" id="mainNav">
+    <a href="cart-demo.html" class="btn-premium-nav">Get Premium</a>
+
     <button data-route="dashboard">首頁</button>
     <button data-route="auth">帳號</button>
     <button onclick="location.href='https://jiachang1112.github.io/Website-Development/book.html'">記帳</button>
@@ -468,16 +491,14 @@ window.addEventListener('load', () => {
     setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
   });
 
-  /* ✅ (修改) 
-    ===== 自動把彩色漸層套到內容卡片（保留字與功能） =====
-    - 將腳本包裝成 window.applyCardColors 函數
-    - 讓 app.js 在每次渲染頁面後呼叫
+  /* ===== 自動把彩色漸層套到內容卡片（保留字與功能） =====
+    - (我們在上一動中已將其包裝成函數)
+    - (我們在上一動中已加入 .kcard)
   */
   window.applyCardColors = function() {
     const container = document.querySelector('.gradient-wrap');
     if(!container) return;
 
-    // ✅ (修改) 加入 '.kcard' (dashboard.js 用的 class)
     const selectors = ['.card', '.panel', '.box', '.kcard'];
     const all = container.querySelectorAll(selectors.join(','));
     if(!all.length) return;
@@ -486,12 +507,9 @@ window.addEventListener('load', () => {
     let idx = 0;
 
     all.forEach((el, i)=>{
-      // 跳過英雄卡（第一張）與標記 keep-dark 的卡片
-      // (註：SPA 渲染時，英雄卡會是第一個)
       if(i === 0) return; 
       if(el.classList.contains('keep-dark')) return;
 
-      // ✅ (新增) 避免重複上色
       const hasColor = gradients.some(g => el.classList.contains(g));
       if (hasColor) return;
 
@@ -500,9 +518,6 @@ window.addEventListener('load', () => {
     });
   };
   
-  // 移除舊的 (function(){ ... })(); 
-  // app.js 會在 DOMContentLoaded 之後的 render 呼叫它
-
   /* ===== 手機漢堡選單開合（新增） ===== */
   (function(){
     const toggle = document.getElementById('menuToggle');
