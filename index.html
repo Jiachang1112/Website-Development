@@ -10,6 +10,7 @@
   <link rel="icon" type="image/png" href="assets/img/supertool-favicon.png">
   <link rel="stylesheet" href="assets/css/style.css" />
 
+  <!-- Google Identity Services：只載一次 -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
@@ -306,11 +307,13 @@
 </head>
 <body>
 
+<!-- ===== 導覽列（維持原樣） ===== -->
 <header class="top">
   <a href="#dashboard" class="brand">
     <img src="assets/img/supertool-logo.png" alt="SuperTool Logo" style="height:36px; vertical-align:middle; margin-right:10px;">
   </a>
 
+  <!-- 手機版漢堡按鈕 -->
   <button id="menuToggle" class="hamburger" aria-label="開啟選單" aria-controls="mainNav" aria-expanded="false">
     <span></span><span></span><span></span>
   </button>
@@ -332,13 +335,16 @@
   </nav>
 </header>
 
+<!-- ===== 下面整區加彩色漸層背景 ===== -->
 <div class="gradient-wrap">
   <main id="app"></main>
 </div>
 
+<!-- 你的 FAB 保持原本位置 -->
 <button id="fabExpense" class="fab">＋</button>
 <button id="fabShop" class="fab-square">🛒</button>
 
+<!-- ===== 聯絡我們 Modal（Formspree） ===== -->
 <div class="modal-mask" id="contactModal" aria-hidden="true">
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
     <div class="modal-hd" id="contactTitle">聯絡我們</div>
@@ -367,6 +373,7 @@
   </div>
 </div>
 
+<!-- 你的 SPA 腳本（維持原樣） -->
 <script type="module" src="assets/js/app.js"></script>
 
 <script>
@@ -477,8 +484,7 @@ window.addEventListener('load', () => {
     if(!container) return;
 
     // 你頁面卡片的可能 class（依你的版面而定），可自行加減
-    // ✅ (修改) 加入 '.kcard'
-    const selectors = ['.card', '.panel', '.box', '.kcard'];
+    const selectors = ['.card', '.panel', '.box'];
     const all = container.querySelectorAll(selectors.join(','));
     if(!all.length) return;
 
