@@ -10,10 +10,10 @@
   <link rel="icon" type="image/png" href="assets/img/supertool-favicon.png">
   <link rel="stylesheet" href="assets/css/style.css" />
 
-  <!-- Google Identity Services：只載一次 -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
+    /* ... (您所有的 CSS 樣式都保持不變) ... */
     /* ===== 上方導覽列維持原本深色 ===== */
     .top{
       background: var(--panel-dark, #17202a);
@@ -307,13 +307,11 @@
 </head>
 <body>
 
-<!-- ===== 導覽列（維持原樣） ===== -->
 <header class="top">
   <a href="#dashboard" class="brand">
     <img src="assets/img/supertool-logo.png" alt="SuperTool Logo" style="height:36px; vertical-align:middle; margin-right:10px;">
   </a>
 
-  <!-- 手機版漢堡按鈕 -->
   <button id="menuToggle" class="hamburger" aria-label="開啟選單" aria-controls="mainNav" aria-expanded="false">
     <span></span><span></span><span></span>
   </button>
@@ -335,16 +333,13 @@
   </nav>
 </header>
 
-<!-- ===== 下面整區加彩色漸層背景 ===== -->
 <div class="gradient-wrap">
   <main id="app"></main>
 </div>
 
-<!-- 你的 FAB 保持原本位置 -->
 <button id="fabExpense" class="fab">＋</button>
 <button id="fabShop" class="fab-square">🛒</button>
 
-<!-- ===== 聯絡我們 Modal（Formspree） ===== -->
 <div class="modal-mask" id="contactModal" aria-hidden="true">
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
     <div class="modal-hd" id="contactTitle">聯絡我們</div>
@@ -373,7 +368,6 @@
   </div>
 </div>
 
-<!-- 你的 SPA 腳本（維持原樣） -->
 <script type="module" src="assets/js/app.js"></script>
 
 <script>
@@ -474,17 +468,17 @@ window.addEventListener('load', () => {
     setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
   });
 
-  /* ===== 自動把彩色漸層套到內容卡片（保留字與功能） =====
-     - 只處理 .gradient-wrap 裡的卡片
-     - 第一張（英雄卡）維持你的深色樣式
-     - 想保留黑色的卡片 → 加上 .keep-dark
+  /* ✅ (修改) 
+    ===== 自動把彩色漸層套到內容卡片（保留字與功能） =====
+    - 將腳本包裝成 window.applyCardColors 函數
+    - 讓 app.js 在每次渲染頁面後呼叫
   */
-  (function(){
+  window.applyCardColors = function() {
     const container = document.querySelector('.gradient-wrap');
     if(!container) return;
 
-    // 你頁面卡片的可能 class（依你的版面而定），可自行加減
-    const selectors = ['.card', '.panel', '.box'];
+    // ✅ (修改) 加入 '.kcard' (dashboard.js 用的 class)
+    const selectors = ['.card', '.panel', '.box', '.kcard'];
     const all = container.querySelectorAll(selectors.join(','));
     if(!all.length) return;
 
@@ -493,13 +487,21 @@ window.addEventListener('load', () => {
 
     all.forEach((el, i)=>{
       // 跳過英雄卡（第一張）與標記 keep-dark 的卡片
-      if(i === 0) return;
+      // (註：SPA 渲染時，英雄卡會是第一個)
+      if(i === 0) return; 
       if(el.classList.contains('keep-dark')) return;
+
+      // ✅ (新增) 避免重複上色
+      const hasColor = gradients.some(g => el.classList.contains(g));
+      if (hasColor) return;
 
       el.classList.add('st-colored-card', gradients[idx % gradients.length]);
       idx++;
     });
-  })();
+  };
+  
+  // 移除舊的 (function(){ ... })(); 
+  // app.js 會在 DOMContentLoaded 之後的 render 呼叫它
 
   /* ===== 手機漢堡選單開合（新增） ===== */
   (function(){
