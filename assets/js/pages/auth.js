@@ -131,7 +131,7 @@ export function AuthPage() {
 
     if (user) {
       // 已登入
-      // ✅ 修正：交換「登出」和「回首頁」按鈕，並修改顏色
+      // ✅ 修正：交換按鈕，並為「回首頁」加上 style
       contentEl.innerHTML = `
         <div class="row">
           <img src="${user.photoURL || ''}" alt=""
@@ -143,7 +143,7 @@ export function AuthPage() {
           </div>
         </div>
         <div class="row" style="margin-top:10px">
-          <a class="primary" href="#dashboard">回首頁</a>
+          <a class="primary" href="#dashboard" style="text-decoration: none; padding: 6px 10px;">回首頁</a>
           <button class="ghost" id="logoutBtn">登出</button>
         </div>
       `;
@@ -156,7 +156,6 @@ export function AuthPage() {
 
     } else {
       // 未登入
-      // ✅ 修正：也為「未登入」狀態加上「回首頁」按鈕
       contentEl.innerHTML = `
         <p class="small">請使用 Google 登入。</p>
         <button class="primary btn btn-primary" id="googleLoginBtn" style="width:100%; max-width: 300px; padding: 10px; font-size: 16px;">
