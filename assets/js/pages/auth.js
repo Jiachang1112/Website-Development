@@ -86,7 +86,6 @@ export function AuthPage() {
   el.className = 'container card';
 
   // 1. 先顯示一個載入中/基礎UI
-  // ✅ 修正：移除這裡的「回首頁」按鈕，交給 onAuthStateChanged 內部處理
   el.innerHTML = `
     <h3>帳號</h3>
     <div id="auth-content">
@@ -132,7 +131,7 @@ export function AuthPage() {
 
     if (user) {
       // 已登入
-      // ✅ 修正：把「登出」和「回首頁」放在同一個 div.row 中
+      // ✅ 修正：交換「登出」和「回首頁」按鈕，並修改顏色
       contentEl.innerHTML = `
         <div class="row">
           <img src="${user.photoURL || ''}" alt=""
@@ -144,8 +143,8 @@ export function AuthPage() {
           </div>
         </div>
         <div class="row" style="margin-top:10px">
+          <a class="primary" href="#dashboard">回首頁</a>
           <button class="ghost" id="logoutBtn">登出</button>
-          <a class="ghost" href="#dashboard">回首頁</a>
         </div>
       `;
       el.querySelector('#logoutBtn').addEventListener('click', handleLogout);
