@@ -86,12 +86,12 @@ export function AuthPage() {
   el.className = 'container card';
 
   // 1. 先顯示一個載入中/基礎UI
+  // ✅ 修正：移除這裡的「回首頁」按鈕，交給 onAuthStateChanged 內部處理
   el.innerHTML = `
     <h3>帳號</h3>
     <div id="auth-content">
       <p class="small">正在檢查登入狀態...</p>
     </div>
-    <a class="ghost" href="#dashboard" style="margin-top:10px;">回首頁</a>
   `;
 
   // 2. 獲取UI節點
@@ -132,6 +132,7 @@ export function AuthPage() {
 
     if (user) {
       // 已登入
+      // ✅ 修正：把「登出」和「回首頁」放在同一個 div.row 中
       contentEl.innerHTML = `
         <div class="row">
           <img src="${user.photoURL || ''}" alt=""
@@ -144,6 +145,7 @@ export function AuthPage() {
         </div>
         <div class="row" style="margin-top:10px">
           <button class="ghost" id="logoutBtn">登出</button>
+          <a class="ghost" href="#dashboard">回首頁</a>
         </div>
       `;
       el.querySelector('#logoutBtn').addEventListener('click', handleLogout);
@@ -155,11 +157,13 @@ export function AuthPage() {
 
     } else {
       // 未登入
+      // ✅ 修正：也為「未登入」狀態加上「回首頁」按鈕
       contentEl.innerHTML = `
         <p class="small">請使用 Google 登入。</p>
         <button class="primary btn btn-primary" id="googleLoginBtn" style="width:100%; max-width: 300px; padding: 10px; font-size: 16px;">
           <i class="bi bi-google"></i> 使用 Google 登入
         </button>
+        <a class="ghost" href="#dashboard" style="margin-top:10px;">回首頁</a>
       `;
       el.querySelector('#googleLoginBtn').addEventListener('click', handleLogin);
     }
