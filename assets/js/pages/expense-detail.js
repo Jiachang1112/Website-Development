@@ -1,8 +1,8 @@
 // assets/js/pages/expense-detail.js
 import { fmt } from '../app.js';
 import { getEntriesRangeForEmail } from '../entries.js';
-import { currentUser } from '../app.js';
-import { db } from '../firebase.js';
+// import { currentUser } from '../app.js'; // 停用舊的
+import { auth, db } from '../firebase.js'; // ✅ 匯入 auth
 import { doc, getDoc, deleteDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
 /* ========= 小工具 ========= */
@@ -382,9 +382,17 @@ export function ExpenseDetailPage(){
   dSel.onchange=()=>{updateCaption();scheduleRender(60);};
 
   async function render(jobId){
-    const u=currentUser();
-    if(!u?.email){
+    // const u=currentUser(); // 舊的
+    const u=auth.currentUser; // ✅ 修正：檢查真正的 Firebase Auth 狀態
+    
+    // if(!u?.email){ // 舊的
+    if(!u || !u.email){ // ✅ 修正：更嚴謹的檢查
       list.innerHTML=`<p class="small">請先登入帳號</p>`;
+      
+      // ✅ 新增：清除統計數字
+      outEl.textContent=fmt.money(0);
+      incEl.textContent=fmt.money(0);
+      balEl.textContent=fmt.money(0);
       return;
     }
 
