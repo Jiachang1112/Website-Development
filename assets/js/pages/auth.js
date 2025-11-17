@@ -131,7 +131,6 @@ export function AuthPage() {
 
     if (user) {
       // 已登入
-      // ✅ 修正：交換按鈕，並為「回首頁」加上 style
       contentEl.innerHTML = `
         <div class="row">
           <img src="${user.photoURL || ''}" alt=""
@@ -156,12 +155,15 @@ export function AuthPage() {
 
     } else {
       // 未登入
+      // ✅ 修正：將登入按鈕和回首頁按鈕放入 .row 中
       contentEl.innerHTML = `
         <p class="small">請使用 Google 登入。</p>
-        <button class="primary btn btn-primary" id="googleLoginBtn" style="width:100%; max-width: 300px; padding: 10px; font-size: 16px;">
-          <i class="bi bi-google"></i> 使用 Google 登入
-        </button>
-        <a class="ghost" href="#dashboard" style="margin-top:10px;">回首頁</a>
+        <div class="row" style="margin-top:10px;">
+          <button class="primary" id="googleLoginBtn">
+            <i class="bi bi-google"></i> 使用 Google 登入
+          </button>
+          <a class="ghost" href="#dashboard" style="text-decoration: none;">回首頁</a>
+        </div>
       `;
       el.querySelector('#googleLoginBtn').addEventListener('click', handleLogin);
     }
