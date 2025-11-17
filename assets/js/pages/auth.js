@@ -1,10 +1,18 @@
 // assets/js/pages/auth.js
 // -------------------- Firebase --------------------
-import { db } from '../firebase.js';
+// ✅ 修正：同時匯入 auth
+import { db, auth } from '../firebase.js'; 
 import {
   doc, setDoc, serverTimestamp, collection, addDoc,
   waitForPendingWrites
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+
+// ✅ 修正：匯入 Firebase Auth 的功能
+import {
+  GoogleAuthProvider,
+  signInWithCredential
+} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
+
 
 // -------------------- 管理員白名單 --------------------
 const ADMIN_EMAILS = ['bruce9811123@gmail.com']; // ← 這些帳號會寫入 admin_logs
@@ -26,14 +34,14 @@ function showWelcomeChip(name) {
 
 // -------------------- Firestore：主檔 + 登入紀錄 --------------------
 async function upsertUserProfile(u) {
-  const uid = u.sub || u.uid;
+  const uid = u.uid; // ✅ 修正：使用 Firebase Auth 的 UID
   if (!uid) return;
   const ref = doc(db, 'users', uid);
   await setDoc(ref, {
     uid,
     email: u.email || '',
-    name: u.name || '',
-    picture: u.picture || '',
+    name: u.displayName || u.name || '', // ✅ 修正：使用 Firebase Auth 的 displayName
+    picture: u.photoURL || u.picture || '', // ✅ 修正：使用 Firebase Auth 的 photoURL
     providerId: 'google.com',
     updatedAt: serverTimestamp(),
     lastLoginAt: serverTimestamp(),
@@ -46,8 +54,8 @@ async function writeLoginLog(kind, u) {
   const payload = {
     kind,
     email: u.email || '',
-    name:  u.name  || '',
-    uid:   u.sub   || '',
+    name:  u.displayName || u.name  || '', // ✅ 修正
+    uid:   u.uid || '', // ✅ 修正
     providerId: 'google.com',
     userAgent: navigator.userAgent || '',
     ts: serverTimestamp(),
@@ -80,37 +88,37 @@ async function ensureLoginLogged(currentUser) {
 // -------------------- GIS callback：解析 JWT 並寫入 --------------------
 async function handleCredentialResponse(response) {
   try {
-    const token = response.credential;
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const json = decodeURIComponent(
-      atob(base64).split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    const payload = JSON.parse(json);
+    // 1. ✅ 修正：取得 Google 來的 ID Token
+    const idToken = response.credential;
+    
+    // 2. ✅ 修正：建立 Firebase 憑證
+    const credential = GoogleAuthProvider.credential(idToken);
+    
+    // 3. ✅ 修正：登入 Firebase Auth SDK
+    const result = await signInWithCredential(auth, credential);
+    const user = result.user; // 這才是 Firebase Auth User 物件
 
-    const user = {
-      email:   payload.email,
-      name:    payload.name,
-      picture: payload.picture,
-      sub:     payload.sub,   // 當 uid 用
-    };
+    // 4. (可選) 您的舊邏輯：寫入 localStorage session
+    //    (未來建議廢除，改用 onAuthStateChanged)
+    writeSession({
+      email:   user.email,
+      name:    user.displayName,
+      picture: user.photoURL,
+      sub:     user.uid,   // ✅ 修正：使用 Firebase UID
+    });
 
-    writeSession(user);
-
-    // ✅ 寫入 Firestore 並等待完成
+    // 5. ✅ 修正：使用 Firebase User 物件寫入 Firestore
     await ensureLoginLogged(user);
 
     // 關掉 OneTap 並顯示歡迎
     try { google.accounts.id.cancel(); } catch {}
-    showWelcomeChip(user.name);
+    showWelcomeChip(user.displayName); // ✅ 修正
 
     // 轉回首頁或其他頁面
     location.hash = '#dashboard';
     location.reload();
   } catch (e) {
-    console.error('Google 登入解析/寫入失敗：', e);
+    console.error('Google 登入或 Firebase 憑證交換失敗：', e);
     alert('登入失敗，請再試一次。');
   }
 }
@@ -120,18 +128,25 @@ export function AuthPage() {
   const el = document.createElement('div');
   el.className = 'container card';
 
-  const user = readSession();
+  // ✅ 修正：改為監聽 Firebase Auth 狀態來顯示
+  const user = auth.currentUser || readSession(); // 優先使用 Firebase Auth
 
   if (user) {
+    // (注意：user.name 和 user.picture 是來自 localStorage 的，
+    //  而 user.displayName 和 user.photoURL 是來自 Firebase Auth 的)
+    const picture = user.photoURL || user.picture || '';
+    const name = user.displayName || user.name || '';
+    const email = user.email || '';
+
     el.innerHTML = `
       <h3>帳號</h3>
       <div class="row">
-        <img src="${user.picture || ''}" alt=""
+        <img src="${picture}" alt=""
              style="width:40px;height:40px;border-radius:50%;
              object-fit:cover;margin-right:8px">
         <div>
-          <div><b>${user.name || ''}</b></div>
-          <div class="small">${user.email || ''}</div>
+          <div><b>${name}</b></div>
+          <div class="small">${email}</div>
         </div>
       </div>
 
@@ -142,17 +157,20 @@ export function AuthPage() {
     `;
 
     // 若上次登入資料存在，補寫一次（不 reload）
-    ensureLoginLogged(user).catch(console.error);
+    if (auth.currentUser) {
+      ensureLoginLogged(auth.currentUser).catch(console.error);
+    }
 
     el.querySelector('#logout').addEventListener('click', () => {
       clearSession();
+      auth.signOut(); // ✅ 修正：登出 Firebase Auth
       try { google.accounts.id.prompt(); } catch {}
       sessionStorage.removeItem('_login_written_user');
       sessionStorage.removeItem('_login_written_admin');
       location.reload();
     });
 
-    showWelcomeChip(user.name);
+    showWelcomeChip(name);
   } else {
     el.innerHTML = `
       <h3>帳號</h3>
@@ -177,22 +195,30 @@ window.addEventListener('load', () => {
   try { google.accounts.id.disableAutoSelect(); } catch {}
 
   google.accounts.id.initialize({
-    client_id: '577771534429-csromh0ttuk718chvgh66eqf6if3r5cg.apps.googleusercontent.com', // ✅ 你的 GIS Client ID
+    client_id: '577771534429-csromh0ttuk718chvgh66eqf6if3r5cg.apps.googleusercontent.com', // ✅ 您的 GIS Client ID
     callback: handleCredentialResponse,
     auto_select: false,
     cancel_on_tap_outside: true,
   });
 
-  const user = readSession();
-  if (user?.name) {
-    showWelcomeChip(user.name);
-    ensureLoginLogged(user).catch(console.error);
-  } else {
-    google.accounts.id.prompt(); // One-Tap 登入
-  }
+  // ✅ 修正：改為監聽 Firebase Auth 狀態
+  auth.onAuthStateChanged(user => {
+    if (user?.displayName) {
+      showWelcomeChip(user.displayName);
+      ensureLoginLogged(user).catch(console.error);
+    } else {
+      // 只有在 auth 狀態為空時才提示 One-Tap
+      google.accounts.id.prompt(); // One-Tap 登入
+    }
+  });
 });
 
 // 換頁時若未登入就再提示 One-Tap
 window.addEventListener('hashchange', () => {
-  try { if (!readSession()) google.accounts.id.prompt(); } catch {}
+  try { 
+    // ✅ 修正：檢查 Firebase Auth 狀態
+    if (!auth.currentUser) {
+      google.accounts.id.prompt(); 
+    }
+  } catch {}
 });
