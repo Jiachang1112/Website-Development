@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SuperTool｜結帳</title>
+  <link rel="icon" type="image/png" href="assets/img/supertool-favicon.png">
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+  <style>
+    /* === 沿用 index.html 的基礎樣式 === */
+    body { margin: 0; background: #0f1318; color: #e6e6e6; font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; }
+    
+    .top {
+      background: #17202a; color: #fff; padding: .6rem 1rem;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid #2b313a; position: sticky; top: 0; z-index: 20;
+    }
+    .brand { color: inherit; text-decoration: none; font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 10px; }
+    .btn-back { background: transparent; border: 1px solid #4b5563; color: #fff; padding: 6px 12px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 0.9rem; }
+    .btn-back:hover { background: #334155; }
+
+    /* === 背景漸層 === */
+    .gradient-wrap {
+      background: linear-gradient(135deg, #1e3a8a, #2563eb, #7e22ce, #db2777, #f97316, #fde047);
+      background-size: 300% 300%; animation: gradientShift 10s ease-in-out infinite;
+      min-height: calc(100vh - 64px); display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    @keyframes gradientShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+    /* === 結帳卡片 === */
+    .checkout-card {
+      background: #1e293b; border: 1px solid #334155; border-radius: 16px;
+      width: 100%; max-width: 900px; overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      display: grid; grid-template-columns: 1.2fr 0.8fr;
+    }
+    
+    /* 左側：表單 */
+    .form-side { padding: 30px; }
+    .form-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 20px; color: #fff; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; margin-bottom: 6px; font-size: 0.9rem; color: #cbd5e1; }
+    .form-input {
+      width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #475569;
+      background: #0f172a; color: #fff; outline: none; transition: 0.2s; font-size: 1rem;
+    }
+    .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
+    .row-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .btn-pay {
+      width: 100%; background: linear-gradient(90deg, #2563eb, #4f46e5); border: none;
+      padding: 14px; border-radius: 8px; color: #fff; font-weight: 700; font-size: 1rem;
+      cursor: pointer; margin-top: 20px; transition: 0.2s;
+    }
+    .btn-pay:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+    /* 右側：訂單摘要 */
+    .summary-side {
+      background: #0f172a; padding: 30px; border-left: 1px solid #334155;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .plan-box {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;
+      color: #fff; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+    }
+    .plan-name { font-size: 1.2rem; font-weight: 600; opacity: 0.9; }
+    .plan-price { font-size: 2.5rem; font-weight: 800; margin: 10px 0; }
+    .plan-desc { font-size: 0.9rem; opacity: 0.8; }
+
+    .secure-note { text-align: center; font-size: 0.85rem; color: #64748b; margin-top: auto; }
+    .secure-note i { color: #10b981; margin-right: 4px; }
+
+    @media (max-width: 768px) {
+      .checkout-card { grid-template-columns: 1fr; }
+      .summary-side { order: -1; border-left: none; border-bottom: 1px solid #334155; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="top">
+    <a href="index.html" class="brand">
+      <img src="assets/img/supertool-logo.png" alt="Logo" style="height:32px; margin-right:8px;">
+      SuperTool
+    </a>
+    <a href="index.html" class="btn-back">取消 / 返回</a>
+  </header>
+
+  <div class="gradient-wrap">
+    <div class="checkout-card">
+      <div class="form-side">
+        <div class="form-title">付款資訊</div>
+        <form id="paymentForm">
+          <div class="form-group">
+            <label class="form-label">持卡人姓名</label>
+            <input type="text" class="form-input" placeholder="請輸入信用卡上的姓名" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">信用卡號碼</label>
+            <input type="text" class="form-input" placeholder="0000 0000 0000 0000" maxlength="19" required>
+          </div>
+          <div class="row-inputs">
+            <div class="form-group">
+              <label class="form-label">有效期限 (MM/YY)</label>
+              <input type="text" class="form-input" placeholder="MM / YY" maxlength="5" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">CVC / CVV</label>
+              <input type="text" class="form-input" placeholder="123" maxlength="3" required>
+            </div>
+          </div>
+          
+          <button type="submit" class="btn-pay">
+            確認付款 <span id="btnPrice">$90</span>
+          </button>
+        </form>
+      </div>
+
+      <div class="summary-side">
+        <div class="plan-box">
+          <div class="plan-name" id="planName">專業版 PRO</div>
+          <div class="plan-price" id="planPrice">$90</div>
+          <div class="plan-desc">每月自動扣款，隨時可取消</div>
+        </div>
+        <div class="secure-note">
+          <i class="bi bi-shield-lock-fill"></i> SSL 安全加密傳輸<br>
+          我們不會儲存您的完整卡號
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // === 簡單的邏輯：抓取網址參數來顯示方案 ===
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get('plan');
+    
+    const nameEl = document.getElementById('planName');
+    const priceEl = document.getElementById('planPrice');
+    const btnPriceEl = document.getElementById('btnPrice');
+
+    if (plan === 'enterprise') {
+      nameEl.textContent = '企業版 Enterprise';
+      priceEl.textContent = '$299';
+      btnPriceEl.textContent = '$299';
+    } else {
+      // 預設為 Pro
+      nameEl.textContent = '專業版 PRO';
+      priceEl.textContent = '$90';
+      btnPriceEl.textContent = '$90';
+    }
+
+    // === 模擬付款送出 ===
+    document.getElementById('paymentForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const btn = document.querySelector('.btn-pay');
+      const originalText = btn.innerHTML;
+      
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 處理中...';
+      btn.style.opacity = '0.7';
+
+      // 模擬 1.5 秒後成功
+      setTimeout(() => {
+        btn.innerHTML = '✅ 付款成功！';
+        btn.style.background = '#10b981'; // 綠色
+        
+        setTimeout(() => {
+          alert('感謝您的訂閱！權限已開通。');
+          window.location.href = 'index.html'; // 跳轉回首頁
+        }, 500);
+      }, 1500);
+    });
+  </script>
+
+</body>
+</html>
