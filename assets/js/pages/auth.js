@@ -102,10 +102,8 @@ export function AuthPage() {
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
-      // 登入成功，onAuthStateChanged 會自動處理 UI 更新
-      // 但我們在這裡立即手動寫入 Log
       await ensureLoginLogged(user); 
-      location.hash = '#dashboard'; // 登入後跳轉
+      location.hash = '#dashboard'; 
     } catch (err) {
       console.error("登入失敗:", err);
       if (contentEl) contentEl.innerHTML += `<p style="color:red;">登入失敗: ${err.message}</p>`;
@@ -118,8 +116,11 @@ export function AuthPage() {
       await signOut(auth);
       sessionStorage.removeItem('_login_written_user');
       sessionStorage.removeItem('_login_written_admin');
-      // onAuthStateChanged 會自動更新 UI
-      location.reload(); // 簡單起見，直接重載
+      
+      // ✅ 登出時也清除訂閱狀態 (模擬用)
+      // localStorage.removeItem('site_subscription'); 
+      
+      location.reload(); 
     } catch (err) {
       console.error("登出失敗:", err);
     }
@@ -130,17 +131,46 @@ export function AuthPage() {
     if (!contentEl) return; // 節點不存在
 
     if (user) {
-      // 已登入
+      // ✅ (新增) 判斷訂閱狀態
+      // 這裡我們先讀取 localStorage (因為是純前端模擬付款)
+      // 如果是真實專案，這裡應該讀取 user.claims 或 Firestore 資料
+      const isPro = localStorage.getItem('site_subscription') === 'pro';
+      
+      const planLabel = isPro ? '🏆 PRO 專業版' : '🌱 免費會員';
+      
+      // 根據狀態設定顏色 (PRO=金色, Free=深灰)
+      const planBadgeStyle = isPro 
+        ? 'background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border: none; box-shadow: 0 2px 8px rgba(245,158,11,0.4);'
+        : 'background: #334155; color: #94a3b8; border: 1px solid #475569;';
+
+      // 已登入 UI
       contentEl.innerHTML = `
-        <div class="row">
+        <div class="row" style="align-items: center;">
           <img src="${user.photoURL || ''}" alt=""
-               style="width:40px;height:40px;border-radius:50%;
-               object-fit:cover;margin-right:8px">
+               style="width:56px; height:56px; border-radius:50%;
+               object-fit:cover; margin-right:14px; border: 2px solid #3b82f6;">
           <div>
-            <div><b>${user.displayName || ''}</b></div>
-            <div class="small">${user.email || ''}</div>
+            <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 2px;">
+              ${user.displayName || '使用者'}
+            </div>
+            <div class="small" style="color: #cbd5e1; margin-bottom: 6px;">
+              ${user.email || ''}
+            </div>
+            
+            <span style="
+              display: inline-block; 
+              font-size: 0.75rem; 
+              padding: 2px 10px; 
+              border-radius: 99px; 
+              font-weight: 600; 
+              letter-spacing: 0.5px;
+              ${planBadgeStyle}
+            ">
+              ${planLabel}
+            </span>
           </div>
         </div>
+
         <div class="row" style="margin-top:10px">
           <a class="primary" href="#dashboard" style="text-decoration: none; padding: 6px 10px;">回首頁</a>
           <button class="ghost" id="logoutBtn">登出</button>
@@ -150,12 +180,10 @@ export function AuthPage() {
       
       // 顯示歡迎語
       showWelcomeChip(user.displayName);
-      // 補寫登入日誌 (如果 session 中沒有)
       ensureLoginLogged(user).catch(console.error);
 
     } else {
       // 未登入
-      // ✅ 修正：將登入按鈕和回首頁按鈕放入 .row 中
       contentEl.innerHTML = `
         <p class="small">請使用 Google 登入。</p>
         <div class="row" style="margin-top:10px;">
@@ -169,11 +197,5 @@ export function AuthPage() {
     }
   });
 
-  // (可選) 當元件被移除時，取消監聽
-  // el.addEventListener('DOMNodeRemoved', unsubscribe);
-
   return el;
 }
-
-// -------------------- (移除) 初始化 GIS --------------------
-// (app.js 會自動呼叫 AuthPage)
