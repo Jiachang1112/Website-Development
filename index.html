@@ -223,9 +223,9 @@
     }
     #contactModal .btn-primary:hover{ background:#1d4ed8; }
 
-    /* ========= ✅ (新增) Premium Modal 專屬樣式 ========= */
+    /* ========= Premium Modal (方案) 樣式 ========= */
     #premiumModal .modal-card {
-      width: min(900px, 94vw); /* 寬一點，因為有三張卡 */
+      width: min(900px, 94vw);
       background: #f8fafc;
     }
     .pricing-grid {
@@ -246,7 +246,6 @@
       transform: translateY(-5px);
       box-shadow: 0 10px 20px rgba(0,0,0,0.08);
     }
-    /* 推薦方案 (中間) */
     .pricing-card.featured {
       border: 2px solid #3b82f6;
       background: linear-gradient(to bottom right, #eff6ff, #fff);
@@ -279,6 +278,52 @@
     }
     .btn-pricing.primary:hover { box-shadow: 0 6px 16px rgba(37,99,235,0.4); transform: translateY(-1px); }
 
+    /* ========= ✅ (新增) Checkout Modal (付款) 樣式 ========= */
+    #checkoutModal .modal-card {
+      width: min(900px, 94vw);
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+    .checkout-layout {
+      display: grid; grid-template-columns: 1.2fr 0.8fr;
+    }
+    @media (max-width: 768px) {
+      .checkout-layout { grid-template-columns: 1fr; }
+      #checkoutSummary { order: -1; border-left: none; border-bottom: 1px solid #334155; }
+    }
+    /* 左側：表單 */
+    .form-side { padding: 30px; color: #fff; }
+    .form-side-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 20px; }
+    .ck-label { display: block; margin-bottom: 6px; font-size: 0.9rem; color: #cbd5e1; }
+    .ck-input {
+      width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #475569;
+      background: #0f172a; color: #fff; outline: none; transition: 0.2s; font-size: 1rem;
+    }
+    .ck-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
+    .row-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .btn-pay {
+      width: 100%; background: linear-gradient(90deg, #2563eb, #4f46e5); border: none;
+      padding: 14px; border-radius: 8px; color: #fff; font-weight: 700; font-size: 1rem;
+      cursor: pointer; margin-top: 20px; transition: 0.2s;
+    }
+    .btn-pay:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+    /* 右側：訂單摘要 */
+    .summary-side {
+      background: #0f172a; padding: 30px; border-left: 1px solid #334155;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .plan-box {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;
+      color: #fff; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+    }
+    .plan-name { font-size: 1.2rem; font-weight: 600; opacity: 0.9; }
+    .plan-price { font-size: 2.5rem; font-weight: 800; margin: 10px 0; }
+    .plan-desc { font-size: 0.9rem; opacity: 0.8; }
+    .secure-note { text-align: center; font-size: 0.85rem; color: #64748b; margin-top: auto; }
+    .secure-note i { color: #10b981; margin-right: 4px; }
+
 
     /* ======= 手機版漢堡選單 ======= */
     .hamburger{
@@ -300,7 +345,7 @@
     .hamburger.active span:nth-child(2){ opacity:0; }
     .hamburger.active span:nth-child(3){ transform:translateY(-9px) rotate(-45deg); }
 
-    /* ======= ✅ Premium 按鈕樣式 ======= */
+    /* ======= Premium 按鈕樣式 ======= */
     .nav .btn-premium-nav {
       background-color: #4263EB; /* 參考圖片的藍色 */
       color: #fff;
@@ -342,7 +387,7 @@
       .top .nav.open .btn,
       .top .nav.open .btn.btn-primary,
       .top .nav.open .btn.btn-outline-light,
-      .top .nav.open .btn-premium-nav { /* ✅ 讓 Premium 按鈕在漢堡選單中也填滿寬度 */
+      .top .nav.open .btn-premium-nav { 
         width:100%;
         justify-content:center;
         border-radius:10px;
@@ -476,7 +521,7 @@
             <li>股票資產即時追蹤</li>
             <li>匯出 Excel 報表</li>
           </ul>
-          <button class="btn-pricing primary" onclick="alert('感謝您的支持！此功能尚未開放付款。')">立即升級</button>
+          <button class="btn-pricing primary" onclick="openCheckoutModal('pro')">立即升級</button>
         </div>
         
         <div class="pricing-card">
@@ -489,7 +534,57 @@
             <li>權限管理設定</li>
             <li>專屬客服支援</li>
           </ul>
-          <button class="btn-pricing ghost" onclick="alert('請聯繫我們以開通企業版')">聯繫業務</button>
+          <button class="btn-pricing ghost" onclick="openCheckoutModal('enterprise')">立即升級</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="checkoutModal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" style="width: min(900px, 94vw); overflow:visible;">
+    <div class="checkout-layout" style="background:#1e293b; border-radius:12px; overflow:hidden;">
+      <div class="form-side">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <div class="form-side-title" style="margin:0;">付款資訊</div>
+          <button onclick="closeCheckoutModal()" style="background:none; border:none; color:#cbd5e1; font-size:1.2rem; cursor:pointer;">✕</button>
+        </div>
+        
+        <form id="paymentForm">
+          <div style="margin-bottom:16px;">
+            <label class="ck-label">持卡人姓名</label>
+            <input type="text" class="ck-input" placeholder="請輸入信用卡上的姓名" required>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label class="ck-label">信用卡號碼</label>
+            <input type="text" class="ck-input" placeholder="0000 0000 0000 0000" maxlength="19" required>
+          </div>
+          <div class="row-inputs">
+            <div>
+              <label class="ck-label">有效期限 (MM/YY)</label>
+              <input type="text" class="ck-input" placeholder="MM / YY" maxlength="5" required>
+            </div>
+            <div>
+              <label class="ck-label">CVC / CVV</label>
+              <input type="text" class="ck-input" placeholder="123" maxlength="3" required>
+            </div>
+          </div>
+          
+          <button type="submit" class="btn-pay">
+            確認付款 <span id="ckBtnPrice">$90</span>
+          </button>
+        </form>
+      </div>
+
+      <div class="summary-side" id="checkoutSummary">
+        <div class="plan-box">
+          <div class="plan-name" id="ckPlanName">專業版 PRO</div>
+          <div class="plan-price" id="ckPlanPrice">$90</div>
+          <div class="plan-desc">每月自動扣款，隨時可取消</div>
+        </div>
+        <div class="secure-note">
+          <i class="bi bi-shield-lock-fill"></i> SSL 安全加密傳輸<br>
+          我們不會儲存您的完整卡號
         </div>
       </div>
     </div>
@@ -595,29 +690,77 @@ window.addEventListener('load', () => {
     setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
   });
 
-  /* ===== ✅ (新增) Premium Modal 開關 ===== */
+  /* ===== Premium Modal 開關 ===== */
   const premiumModal = document.getElementById('premiumModal');
-  // 暴露給全域使用 (因為 onclick 寫在 HTML 裡)
   window.openPremiumModal = function() {
     premiumModal.classList.add('show');
-    premiumModal.setAttribute('aria-hidden','false');
   }
   window.closePremiumModal = function() {
     premiumModal.classList.remove('show');
-    premiumModal.setAttribute('aria-hidden','true');
   }
-  
-  // 點擊背景關閉 Premium Modal
   premiumModal.addEventListener('click', (e) => {
     if(e.target === premiumModal) window.closePremiumModal();
   });
 
-  // 按 ESC 關閉所有 Modal
-  window.addEventListener('keydown', (e)=>{ 
-    if(e.key === 'Escape') {
-      closeModal();
-      window.closePremiumModal();
+  /* ===== ✅ (新增) Checkout Modal 邏輯 ===== */
+  const checkoutModal = document.getElementById('checkoutModal');
+  
+  window.openCheckoutModal = function(plan) {
+    // 1. 先關閉方案 Modal
+    window.closePremiumModal();
+    
+    // 2. 更新 Checkout Modal 內容
+    const ckName = document.getElementById('ckPlanName');
+    const ckPrice = document.getElementById('ckPlanPrice');
+    const ckBtn = document.getElementById('ckBtnPrice');
+    
+    if (plan === 'enterprise') {
+      ckName.textContent = '企業版 Enterprise';
+      ckPrice.textContent = '$299';
+      ckBtn.textContent = '$299';
+    } else {
+      ckName.textContent = '專業版 PRO';
+      ckPrice.textContent = '$90';
+      ckBtn.textContent = '$90';
     }
+
+    // 3. 開啟 Checkout Modal
+    checkoutModal.classList.add('show');
+  }
+
+  window.closeCheckoutModal = function() {
+    checkoutModal.classList.remove('show');
+    // 關閉時重置按鈕狀態 (如果已經點了付款)
+    const btn = document.querySelector('.btn-pay');
+    btn.disabled = false;
+    btn.innerHTML = `確認付款 <span id="ckBtnPrice">${document.getElementById('ckPlanPrice').textContent}</span>`;
+    btn.style.background = 'linear-gradient(90deg, #2563eb, #4f46e5)';
+    btn.style.opacity = '1';
+  }
+
+  // 點擊背景關閉
+  checkoutModal.addEventListener('click', (e) => {
+    if(e.target === checkoutModal) window.closeCheckoutModal();
+  });
+
+  // 模擬付款送出
+  document.getElementById('paymentForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const btn = document.querySelector('.btn-pay');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 處理中...';
+    btn.style.opacity = '0.7';
+
+    setTimeout(() => {
+      btn.innerHTML = '✅ 付款成功！';
+      btn.style.background = '#10b981'; // 綠色
+      
+      setTimeout(() => {
+        alert('感謝您的訂閱！權限已開通。');
+        window.closeCheckoutModal(); // 關閉付款視窗
+      }, 500);
+    }, 1500);
   });
 
 
