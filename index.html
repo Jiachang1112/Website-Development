@@ -50,26 +50,20 @@
     }
 
     /* 側邊欄 Logo 區 */
-    .sidebar-header {
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-bottom: 1px solid var(--border-dark);
-    }
-    .brand {
-      color: #fff;
-      text-decoration: none;
-      font-weight: 800;
-      font-size: 22px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .brand img {
-      height: 32px;
-      filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
-    }
+   /* 讓 header 可以讓內容溢出在外面 */
+.sidebar-header {
+  position: relative;
+  overflow: visible;   /* 很重要，預設是 visible 但保險寫一下 */
+}
+
+/* 放大 Logo，但不改變 layout 高度 */
+.sidebar-header .brand img {
+  height: 32px;                 /* 保持原本高度，版面不會被撐大 */
+  transform: scale(1.8);        /* 想多大改這個倍率 1.5、2 都可以 */
+  transform-origin: center top; /* 從上方往外長，看起來會「越線」 */
+  margin-top: -6px;             /* 視覺上再往上拉一點，可視情況調整 */
+}
+
 
     /* 側邊欄導覽區 */
     .sidebar-nav {
