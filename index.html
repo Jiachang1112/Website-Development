@@ -50,28 +50,26 @@
     }
 
     /* 側邊欄 Logo 區 */
-/* 讓 header 允許 Logo 超出 */
-.sidebar-header {
-  position: relative;
-  overflow: visible;
-}
-
-/* 將品牌區固定在 sidebar 正中央（可自由微調高度） */
-.sidebar-header .brand {
-  position: absolute;
-  left: 50%;
-  top: 60%;               /* ← 調這個讓 Logo 往下 */
-  transform: translate(-50%, -50%);
-}
-
-/* Logo 放大 + 調整位置 */
-.sidebar-header .brand img {
-  height: 32px;
-  transform: scale(1.8);
-  transform-origin: center top;
-  margin-left: 12px;
-  margin-top: -6px;
-}
+    .sidebar-header {
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 1px solid var(--border-dark);
+    }
+    .brand {
+      color: #fff;
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand img {
+      height: 32px;
+      filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
+    }
 
     /* 側邊欄導覽區 */
     .sidebar-nav {
