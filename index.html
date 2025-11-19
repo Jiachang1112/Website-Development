@@ -16,171 +16,224 @@
     /* =========================================
        1. 全局佈局 (Layout)
        ========================================= */
+    :root {
+      --sidebar-width: 260px;
+      --header-height: 60px; /* 僅用於手機版頂部 */
+      --panel-dark: #17202a;
+      --border-dark: #2b313a;
+    }
+    
     body {
       margin: 0;
       background: #0f1318;
       font-family: system-ui, -apple-system, sans-serif;
+      display: flex; /* 讓 body 變成左右佈局 */
       min-height: 100vh;
-      /* 移除 flex 佈局，回歸上下佈局 */
-    }
-
-    :root {
-      --panel-dark: #17202a;
-      --border-dark: #2b313a;
     }
 
     /* =========================================
-       2. 頂部導覽列 (Top Header) - 置中版
+       2. 左側側邊欄 (Sidebar)
        ========================================= */
-    .top {
+    .sidebar {
+      width: var(--sidebar-width);
       background: var(--panel-dark);
-      color: #fff;
-      padding: 0.8rem 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between; /* Logo左，漢堡右 */
-      border-bottom: 1px solid var(--border-dark);
-      position: sticky;
+      border-right: 1px solid var(--border-dark);
+      height: 100vh;
+      position: fixed;
+      left: 0;
       top: 0;
       z-index: 50;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s ease;
+      overflow-y: auto; /* 內容過多時可捲動 */
     }
 
+    /* 側邊欄 Logo 區 */
+    .sidebar-header {
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid var(--border-dark);
+    }
     .brand {
-      color: inherit;
+      color: #fff;
       text-decoration: none;
       font-weight: 800;
       font-size: 22px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      flex-shrink: 0; /* 防止 Logo 被擠壓 */
+      gap: 12px;
     }
     .brand img {
       height: 32px;
+      filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
     }
 
-    /* 導覽按鈕容器 - ✅ 關鍵修改：置中 */
-    .nav {
+    /* 側邊欄導覽區 */
+    .sidebar-nav {
+      padding: 20px 12px;
+      flex: 1;
       display: flex;
-      align-items: center;
-      justify-content: center; /* 按鈕置中 */
-      flex: 1; /* 佔據剩餘空間 */
-      gap: 6px; /* 按鈕間距 */
+      flex-direction: column;
+      gap: 6px;
     }
 
-    /* 導覽按鈕樣式 */
-    .nav button, .nav a.btn-link {
+    /* 側邊欄按鈕樣式 */
+    .nav-btn {
       background: transparent;
       border: none;
-      color: #cbd5e1;
-      font-size: 0.95rem;
-      padding: 8px 14px;
-      border-radius: 8px;
+      color: #94a3b8;
+      padding: 12px 16px;
+      border-radius: 12px;
       cursor: pointer;
-      transition: 0.2s;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      text-align: left;
+      font-size: 15px;
       font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.2s;
+      text-decoration: none;
+      width: 100%;
     }
-    .nav button:hover, .nav a.btn-link:hover {
-      background: #2b3542;
+    .nav-btn i {
+      font-size: 18px;
+      color: #64748b;
+      transition: color 0.2s;
+    }
+    .nav-btn:hover {
+      background: #1e293b;
       color: #fff;
     }
+    .nav-btn:hover i {
+      color: #60a5fa; /* 懸停時 Icon 變藍 */
+    }
     
-    /* Premium 按鈕特別樣式 */
-    .btn-premium-nav {
-      background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+    /* 特別樣式：Premium 按鈕 */
+    .btn-premium-sidebar {
+      background: linear-gradient(135deg, #2563eb, #4f46e5);
       color: #fff !important;
-      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
-      font-weight: 700 !important;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      justify-content: center;
+      font-weight: 700;
     }
-    .btn-premium-nav:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+    .btn-premium-sidebar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
     }
+    .btn-premium-sidebar i { color: #fff !important; }
 
-    /* 股票按鈕 */
+    /* 特別樣式：股票按鈕 */
     .btn-stock {
-      border: 1px solid #334155 !important;
-    }
-    
-    /* 聯絡我們按鈕 */
-    .btn-contact {
-      border: 1px solid #475569 !important;
-      color: #94a3b8 !important;
-    }
-    .btn-contact:hover {
-      background: #1e293b !important;
-      color: #fff !important;
-      border-color: #64748b !important;
+      border: 1px solid #334155;
     }
 
+    /* 分隔線 */
+    .nav-divider {
+      height: 1px;
+      background: var(--border-dark);
+      margin: 8px 0;
+    }
+    .nav-label {
+      font-size: 12px;
+      color: #475569;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 12px 16px 4px;
+      letter-spacing: 0.5px;
+    }
 
     /* =========================================
        3. 主內容區 (Main Content)
        ========================================= */
-    /* 背景漸層 */
+    .main-content {
+      margin-left: var(--sidebar-width); /* 留出側邊欄空間 */
+      width: calc(100% - var(--sidebar-width));
+      min-height: 100vh;
+      position: relative;
+    }
+
+    /* 背景漸層 (現在只作用在 main-content) */
     .gradient-wrap {
       background: linear-gradient(135deg,
         #1e3a8a 0%, #2563eb 20%, #7e22ce 40%, #db2777 60%, #f97316 80%, #fde047 100%
       );
       background-size: 300% 300%;
       animation: gradientShift 10s ease-in-out infinite;
-      min-height: calc(100vh - 70px); /* 扣除 Header 高度 */
-      padding: 40px 20px 100px;
+      min-height: 100vh; /* 滿版 */
+      padding: 40px 20px 100px; /* 下方留空給 FAB */
+      box-sizing: border-box;
     }
     @keyframes gradientShift{
       0%{ background-position: 0% 50%; } 50%{ background-position: 100% 50%; } 100%{ background-position: 0% 50%; }
     }
 
-
     /* =========================================
-       4. 手機版適配 (Mobile) - 漢堡選單
+       4. 手機版適配 (Mobile)
        ========================================= */
-    .hamburger {
+    .mobile-header {
       display: none; /* 桌機隱藏 */
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-height);
+      background: rgba(23, 32, 42, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-dark);
+      z-index: 60;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+    }
+    
+    .hamburger {
       width: 40px; height: 40px;
-      background: #1e293b;
-      border: 1px solid var(--border-dark);
-      border-radius: 8px;
+      background: transparent;
+      border: none;
       color: #fff;
-      font-size: 20px;
+      font-size: 24px;
       cursor: pointer;
-      align-items: center; justify-content: center;
+      display: flex; align-items: center; justify-content: center;
     }
 
-    @media (max-width: 1024px) { /* 平板/手機 */
-      .hamburger { display: flex; }
+    /* 遮罩 (手機版打開側邊欄時顯示) */
+    .sidebar-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 40;
+      backdrop-filter: blur(3px);
+    }
+
+    @media (max-width: 768px) {
+      .mobile-header { display: flex; }
       
-      /* 手機版導覽列：變成下拉選單 */
-      .top .nav {
-        display: none;
-        position: absolute;
-        left: 0; right: 0; top: 100%;
-        background: var(--panel-dark);
-        border-bottom: 1px solid var(--border-dark);
-        padding: 16px;
-        flex-direction: column;
-        gap: 8px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      /* 手機版側邊欄預設隱藏 (往左推) */
+      .sidebar {
+        transform: translateX(-100%);
+        width: 280px; /* 手機版稍寬 */
+        box-shadow: 5px 0 20px rgba(0,0,0,0.5);
       }
-      
       /* 打開狀態 */
-      .top .nav.open { display: flex; }
+      .sidebar.open { transform: translateX(0); }
       
-      /* 手機版按鈕全寬 */
-      .nav button, .nav a.btn-link {
+      /* 顯示遮罩 */
+      .sidebar-overlay.show { display: block; }
+
+      /* 主內容不留邊距，因為側邊欄是浮動的 */
+      .main-content {
+        margin-left: 0;
         width: 100%;
-        justify-content: center;
-        padding: 12px;
-        font-size: 1rem;
+        padding-top: var(--header-height); /* 留出頂部 Header 空間 */
+      }
+      .gradient-wrap {
+        min-height: calc(100vh - var(--header-height));
       }
     }
 
     /* =========================================
-       5. 卡片與元件樣式 (保留)
+       5. 卡片與元件樣式 (保留您原本的設計)
        ========================================= */
     .dashboard-card, .gradient-wrap .card.hero, .gradient-wrap .hero-card, .gradient-wrap #hero,
     .gradient-wrap #app > .card:first-of-type, .gradient-wrap main > .card:first-of-type{
@@ -253,41 +306,64 @@
 </head>
 <body>
 
-  <header class="top">
-    <a href="#dashboard" class="brand">
-      <img src="assets/img/supertool-logo.png" alt="SuperTool">
+  <header class="mobile-header">
+    <div class="brand">
+      <img src="assets/img/supertool-logo.png" alt="Logo">
       SuperTool
-    </a>
-
-    <button class="hamburger" id="menuToggle">
+    </div>
+    <button class="hamburger" id="mobileMenuBtn">
       <i class="bi bi-list"></i>
     </button>
+  </header>
 
-    <nav class="nav" id="mainNav">
-      <button class="btn-premium-nav" onclick="openPremiumModal()">
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="#dashboard" class="brand">
+        <img src="assets/img/supertool-logo.png" alt="SuperTool">
+        SuperTool
+      </a>
+    </div>
+
+    <nav class="sidebar-nav" id="mainNav">
+      <button class="nav-btn btn-premium-sidebar" onclick="openPremiumModal()">
         <i class="bi bi-gem"></i> Get Premium
       </button>
 
-      <button data-route="dashboard"><i class="bi bi-grid-fill"></i> 首頁</button>
-      <button data-route="auth"><i class="bi bi-person-circle"></i> 帳號</button>
-      
-      <a href="book.html" class="btn-link"><i class="bi bi-journal-plus"></i> 記帳</a>
-      <a href="admin/accounting-settings.html#ledgers" class="btn-link"><i class="bi bi-wallet2"></i> 我的</a>
-      <button data-route="acct_detail"><i class="bi bi-list-task"></i> 明細</button>
-      <button data-route="acct_analysis"><i class="bi bi-pie-chart-fill"></i> 分析</button>
+      <div class="nav-label">主選單</div>
+      <button class="nav-btn" data-route="dashboard"><i class="bi bi-grid-fill"></i> 首頁</button>
+      <button class="nav-btn" data-route="auth"><i class="bi bi-person-circle"></i> 帳號</button>
 
-      <a href="cart-demo.html" class="btn-link"><i class="bi bi-bag-heart-fill"></i> 購物</a>
-      <a href="stock/stocks.html" class="btn-link btn-stock"><i class="bi bi-graph-up-arrow"></i> 股票</a>
-
-      <button data-route="admin"><i class="bi bi-shield-lock-fill"></i> 後台</button>
-      <button data-route="settings"><i class="bi bi-gear-fill"></i> 設定</button>
+      <div class="nav-divider"></div>
+      <div class="nav-label">財務管理</div>
       
-      <button class="btn-contact" id="btnContact"><i class="bi bi-envelope-fill"></i> 聯絡</button>
+      <a href="book.html" class="nav-btn"><i class="bi bi-journal-plus"></i> 記帳</a>
+      <a href="admin/accounting-settings.html#ledgers" class="nav-btn"><i class="bi bi-wallet2"></i> 我的帳本</a>
+      <button class="nav-btn" data-route="acct_detail"><i class="bi bi-list-task"></i> 明細查詢</button>
+      <button class="nav-btn" data-route="acct_analysis"><i class="bi bi-pie-chart-fill"></i> 報表分析</button>
+
+      <div class="nav-divider"></div>
+      <div class="nav-label">工具與商城</div>
+
+      <a href="cart-demo.html" class="nav-btn"><i class="bi bi-bag-heart-fill"></i> 購物商城</a>
+      <a href="stock/stocks.html" class="nav-btn btn-stock"><i class="bi bi-graph-up-arrow"></i> 股票追蹤</a>
+
+      <div class="nav-divider"></div>
+      <div class="nav-label">系統</div>
+
+      <button class="nav-btn" data-route="admin"><i class="bi bi-shield-lock-fill"></i> 後台管理</button>
+      <button class="nav-btn" data-route="settings"><i class="bi bi-gear-fill"></i> 設定</button>
+      <button class="nav-btn" data-route="backup"><i class="bi bi-cloud-download-fill"></i> 備份與還原</button>
+      
+      <div style="flex:1"></div> <button class="nav-btn" id="btnContact"><i class="bi bi-envelope-fill"></i> 聯絡我們</button>
     </nav>
-  </header>
+  </aside>
 
-  <div class="gradient-wrap">
-    <main id="app"></main>
+  <div class="main-content">
+    <div class="gradient-wrap">
+      <main id="app"></main>
+    </div>
   </div>
 
   <button id="fabExpense" class="fab">＋</button>
@@ -435,6 +511,8 @@ window.addEventListener('load', () => {
   /* ===== Modal 邏輯 ===== */
   function closeModal(id){ document.getElementById(id).classList.remove('show'); }
   document.getElementById('btnContact').addEventListener('click', ()=> {
+    // 手機版點擊選單項目後，通常希望關閉側邊欄
+    if(window.innerWidth <= 768) closeMobileMenu();
     document.getElementById('contactModal').classList.add('show');
   });
   document.getElementById('contactForm').addEventListener('submit', function(){
@@ -444,7 +522,10 @@ window.addEventListener('load', () => {
   /* Premium & Checkout */
   const premiumModal = document.getElementById('premiumModal');
   const checkoutModal = document.getElementById('checkoutModal');
-  window.openPremiumModal = function(){ premiumModal.classList.add('show'); }
+  window.openPremiumModal = function(){ 
+    if(window.innerWidth <= 768) closeMobileMenu();
+    premiumModal.classList.add('show'); 
+  }
   window.closePremiumModal = function(){ premiumModal.classList.remove('show'); }
   
   window.openCheckoutModal = function(plan){
@@ -487,24 +568,37 @@ window.addEventListener('load', () => {
     });
   };
 
-  /* ===== 手機版選單 (Simple Hamburger) ===== */
-  (function(){
-    const toggle = document.getElementById('menuToggle');
-    const nav = document.getElementById('mainNav');
-    if(!toggle || !nav) return;
+  /* ===== 手機版側邊欄控制 (Mobile Sidebar) ===== */
+  const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+  const sidebar = document.getElementById('sidebar');
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
 
-    toggle.addEventListener('click', ()=>{
-      const opened = nav.classList.toggle('open');
-      toggle.classList.toggle('active', opened);
-    });
+  function openMobileMenu() {
+    sidebar.classList.add('open');
+    sidebarOverlay.classList.add('show');
+  }
+  function closeMobileMenu() {
+    sidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('show');
+  }
 
-    // 點擊外部收起
-    document.addEventListener('click', (e)=>{
-      if(window.innerWidth > 1024) return;
-      if(e.target === toggle || toggle.contains(e.target)) return;
-      if(!nav.contains(e.target)) nav.classList.remove('open');
+  mobileMenuBtn.addEventListener('click', openMobileMenu);
+  sidebarOverlay.addEventListener('click', closeMobileMenu);
+
+  // 點擊任何側邊欄內的按鈕後，自動關閉側邊欄 (僅手機)
+  sidebar.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        closeMobileMenu();
+      }
     });
-  })();
+  });
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) {
+      closeMobileMenu(); // 恢復桌機版狀態
+    }
+  });
 </script>
 </body>
 </html>
