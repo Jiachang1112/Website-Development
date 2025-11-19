@@ -50,28 +50,30 @@
     }
 
     /* 側邊欄 Logo 區 */
-   /* 讓 header 可以讓內容溢出在外面 */
-/* 讓 header 可以讓 Logo 溢出 */
+/* 讓 header 允許 Logo 超出 */
 .sidebar-header {
   position: relative;
   overflow: visible;
 }
 
-/* 先把整個品牌區塊水平置中 */
+/* 將品牌區固定在 sidebar 正中央 */
 .sidebar-header .brand {
-  position: relative;
+  position: absolute;
   left: 50%;
-  transform: translateX(-50%);  /* 水平置中整個 .brand */
+  top: 50%;
+  transform: translate(-50%, -50%); /* 完全置中 */
 }
 
-/* 再放大圖片，但不影響 header 高度 */
+/* 放大 Logo，不推動 layout */
 .sidebar-header .brand img {
-  height: 32px;                  /* 保持 layout 高度 */
-  transform: scale(1.8);         /* 想多大就改這裡 */
-  transform-origin: center top;  /* 以上方中間為基準放大 */
-  margin-top: -6px;              /* 覺得太低就再往上拉一點 */
+  height: 32px;                 /* 保留原本 layout 高度 */
+  transform: scale(1.8);        /* 放大倍率 */
+  transform-origin: center top; /* 從上方中心放大 */
+  
+  /* 讓放大後的視覺回正（可微調）*/
+  margin-left: 12px;            /* ← 這是重點：右移修正視覺中心 */
+  margin-top: -6px;
 }
-
 
     /* 側邊欄導覽區 */
     .sidebar-nav {
