@@ -56,22 +56,20 @@
   overflow: visible;
 }
 
-/* 將品牌區固定在 sidebar 正中央 */
+/* 將品牌區固定在 sidebar 正中央（可自由微調高度） */
 .sidebar-header .brand {
   position: absolute;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%); /* 完全置中 */
+  top: 60%;               /* ← 調這個讓 Logo 往下 */
+  transform: translate(-50%, -50%);
 }
 
-/* 放大 Logo，不推動 layout */
+/* Logo 放大 + 調整位置 */
 .sidebar-header .brand img {
-  height: 32px;                 /* 保留原本 layout 高度 */
-  transform: scale(1.8);        /* 放大倍率 */
-  transform-origin: center top; /* 從上方中心放大 */
-  
-  /* 讓放大後的視覺回正（可微調）*/
-  margin-left: 12px;            /* ← 這是重點：右移修正視覺中心 */
+  height: 32px;
+  transform: scale(1.8);
+  transform-origin: center top;
+  margin-left: 12px;
   margin-top: -6px;
 }
 
