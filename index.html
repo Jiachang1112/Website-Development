@@ -13,633 +13,474 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
-    /* ===== 上方導覽列維持原本深色 ===== */
-    .top{
-      background: var(--panel-dark, #17202a);
-      color: #fff;
-      padding: .6rem 1rem;
+    /* =========================================
+       1. 全局佈局 (Layout)
+       ========================================= */
+    :root {
+      --sidebar-width: 260px;
+      --header-height: 60px; /* 僅用於手機版頂部 */
+      --panel-dark: #17202a;
+      --border-dark: #2b313a;
+    }
+    
+    body {
+      margin: 0;
+      background: #0f1318;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex; /* 讓 body 變成左右佈局 */
+      min-height: 100vh;
+    }
+
+    /* =========================================
+       2. 左側側邊欄 (Sidebar)
+       ========================================= */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--panel-dark);
+      border-right: 1px solid var(--border-dark);
+      height: 100vh;
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s ease;
+      overflow-y: auto; /* 內容過多時可捲動 */
+    }
+
+    /* 側邊欄 Logo 區 */
+    .sidebar-header {
+      padding: 20px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border-dark, #2b313a);
-      position: sticky;
-      top: 0;
-      z-index: 20;
+      border-bottom: 1px solid var(--border-dark);
     }
-    .brand{
-      color: inherit; text-decoration: none; font-weight: 700;
-      font-size: 20px; cursor: pointer;
+    .brand {
+      color: #fff;
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-    .brand:hover{ opacity: .85; }
-    .nav button{ margin-right:.4rem; }
-    /* 股票右邊空一格 */
-    .nav .gap{ display:inline-block; width:10px; }
+    .brand img {
+      height: 32px;
+      filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
+    }
 
-    /* ===== 下面主要背景區：強烈多色漸層（只作用在導覽列下方） ===== */
-    .gradient-wrap{
+    /* 側邊欄導覽區 */
+    .sidebar-nav {
+      padding: 20px 12px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* 側邊欄按鈕樣式 */
+    .nav-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 12px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      text-align: left;
+      font-size: 15px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.2s;
+      text-decoration: none;
+      width: 100%;
+    }
+    .nav-btn i {
+      font-size: 18px;
+      color: #64748b;
+      transition: color 0.2s;
+    }
+    .nav-btn:hover {
+      background: #1e293b;
+      color: #fff;
+    }
+    .nav-btn:hover i {
+      color: #60a5fa; /* 懸停時 Icon 變藍 */
+    }
+    
+    /* 特別樣式：Premium 按鈕 */
+    .btn-premium-sidebar {
+      background: linear-gradient(135deg, #2563eb, #4f46e5);
+      color: #fff !important;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      justify-content: center;
+      font-weight: 700;
+    }
+    .btn-premium-sidebar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+    }
+    .btn-premium-sidebar i { color: #fff !important; }
+
+    /* 特別樣式：股票按鈕 */
+    .btn-stock {
+      border: 1px solid #334155;
+    }
+
+    /* 分隔線 */
+    .nav-divider {
+      height: 1px;
+      background: var(--border-dark);
+      margin: 8px 0;
+    }
+    .nav-label {
+      font-size: 12px;
+      color: #475569;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 12px 16px 4px;
+      letter-spacing: 0.5px;
+    }
+
+    /* =========================================
+       3. 主內容區 (Main Content)
+       ========================================= */
+    .main-content {
+      margin-left: var(--sidebar-width); /* 留出側邊欄空間 */
+      width: calc(100% - var(--sidebar-width));
+      min-height: 100vh;
+      position: relative;
+    }
+
+    /* 背景漸層 (現在只作用在 main-content) */
+    .gradient-wrap {
       background: linear-gradient(135deg,
-        #1e3a8a 0%,
-        #2563eb 20%,
-        #7e22ce 40%,
-        #db2777 60%,
-        #f97316 80%,
-        #fde047 100%
+        #1e3a8a 0%, #2563eb 20%, #7e22ce 40%, #db2777 60%, #f97316 80%, #fde047 100%
       );
       background-size: 300% 300%;
       animation: gradientShift 10s ease-in-out infinite;
-      min-height: calc(100vh - 64px);
-      padding-bottom: 64px;
+      min-height: 100vh; /* 滿版 */
+      padding: 40px 20px 100px; /* 下方留空給 FAB */
+      box-sizing: border-box;
     }
     @keyframes gradientShift{
-      0%{ background-position: 0% 50%; }
-      50%{ background-position: 100% 50%; }
-      100%{ background-position: 0% 50%; }
+      0%{ background-position: 0% 50%; } 50%{ background-position: 100% 50%; } 100%{ background-position: 0% 50%; }
     }
 
-    /* ===== 「工作面板」彩色化（盡量不改你的 DOM） ===== */
-    .dashboard-card,
-    .gradient-wrap .card.hero,
-    .gradient-wrap .hero-card,
-    .gradient-wrap #hero,
-    .gradient-wrap #app > .card:first-of-type,
-    .gradient-wrap main > .card:first-of-type{
-      background: linear-gradient(145deg, #0f172a, #1e293b) !important; /* 深藍亮面 */
-      border: 2px solid transparent;
-      border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1; /* 彩色邊框 */
-      border-radius: 14px;
-      padding: 22px;
+    /* =========================================
+       4. 手機版適配 (Mobile)
+       ========================================= */
+    .mobile-header {
+      display: none; /* 桌機隱藏 */
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-height);
+      background: rgba(23, 32, 42, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-dark);
+      z-index: 60;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+    }
+    
+    .hamburger {
+      width: 40px; height: 40px;
+      background: transparent;
+      border: none;
       color: #fff;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.45);
-      transition: all .3s ease;
-    }
-    .dashboard-card:hover,
-    .gradient-wrap .card.hero:hover,
-    .gradient-wrap .hero-card:hover,
-    .gradient-wrap #hero:hover,
-    .gradient-wrap #app > .card:first-of-type:hover,
-    .gradient-wrap main > .card:first-of-type:hover{
-      transform: translateY(-4px);
-      box-shadow: 0 10px 28px rgba(0,0,0,0.55);
-    }
-    /* 英雄卡片標題做彩色漸層字 */
-    .dashboard-card h1,
-    .gradient-wrap .card.hero h1,
-    .gradient-wrap .hero-card h1,
-    .gradient-wrap #hero h1,
-    .gradient-wrap #app > .card:first-of-type h1,
-    .gradient-wrap main > .card:first-of-type h1{
-      background: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      font-size: 1.8rem;
-      font-weight: 800;
-      margin: 0 0 .4rem 0;
-    }
-    .dashboard-card p,
-    .gradient-wrap .card.hero p,
-    .gradient-wrap .hero-card p,
-    .gradient-wrap #hero p,
-    .gradient-wrap #app > .card:first-of-type p,
-    .gradient-wrap main > .card:first-of-type p{
-      color: #d1d5db;
-      margin: 0;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
     }
 
-    /* 其他資訊卡：浮起效果（顏色由下方自動套色 JS 決定） */
+    /* 遮罩 (手機版打開側邊欄時顯示) */
+    .sidebar-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 40;
+      backdrop-filter: blur(3px);
+    }
+
+    @media (max-width: 768px) {
+      .mobile-header { display: flex; }
+      
+      /* 手機版側邊欄預設隱藏 (往左推) */
+      .sidebar {
+        transform: translateX(-100%);
+        width: 280px; /* 手機版稍寬 */
+        box-shadow: 5px 0 20px rgba(0,0,0,0.5);
+      }
+      /* 打開狀態 */
+      .sidebar.open { transform: translateX(0); }
+      
+      /* 顯示遮罩 */
+      .sidebar-overlay.show { display: block; }
+
+      /* 主內容不留邊距，因為側邊欄是浮動的 */
+      .main-content {
+        margin-left: 0;
+        width: 100%;
+        padding-top: var(--header-height); /* 留出頂部 Header 空間 */
+      }
+      .gradient-wrap {
+        min-height: calc(100vh - var(--header-height));
+      }
+    }
+
+    /* =========================================
+       5. 卡片與元件樣式 (保留您原本的設計)
+       ========================================= */
+    .dashboard-card, .gradient-wrap .card.hero, .gradient-wrap .hero-card, .gradient-wrap #hero,
+    .gradient-wrap #app > .card:first-of-type, .gradient-wrap main > .card:first-of-type{
+      background: linear-gradient(145deg, #0f172a, #1e293b) !important;
+      border: 2px solid transparent;
+      border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1;
+      border-radius: 14px; padding: 22px; color: #fff;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.45); transition: all .3s ease;
+    }
+    .dashboard-card:hover, .gradient-wrap .card.hero:hover{
+      transform: translateY(-4px); box-shadow: 0 10px 28px rgba(0,0,0,0.55);
+    }
+    .dashboard-card h1, .gradient-wrap .card.hero h1{
+      background: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      font-size: 1.8rem; font-weight: 800; margin: 0 0 .4rem 0;
+    }
     .gradient-wrap .card{
       box-shadow: 0 3px 12px rgba(0,0,0,0.35);
       transition: transform .25s ease, box-shadow .25s ease;
       border-radius: 14px;
     }
     .gradient-wrap .card:hover{
-      transform: translateY(-3px);
-      box-shadow: 0 8px 22px rgba(0,0,0,0.45);
+      transform: translateY(-3px); box-shadow: 0 8px 22px rgba(0,0,0,0.45);
     }
 
-    /* ===== 輕量 Modal（通用） ===== */
-    .modal-mask{
-      position: fixed; inset: 0; background: rgba(0,0,0,.45);
-      display: none; align-items: center; justify-content: center; z-index: 9999;
-    }
+    /* Modal 樣式 */
+    .modal-mask{ position: fixed; inset: 0; background: rgba(0,0,0,.65); display: none; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(4px); }
     .modal-mask.show{ display: flex; }
-    .modal-card{
-      width: min(560px, 92vw);
-      background: #ffffff; color:#111;
-      border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
-      overflow: hidden; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-    }
-    .modal-hd,.modal-ft{ padding:12px 16px; background:#f5f7fb; }
-    .modal-hd{ font-weight:700; border-bottom:1px solid #e5e7eb; }
-    .modal-bd{ padding:16px; background:#fff; }
-    .modal-ft{ border-top:1px solid #e5e7eb; display:flex; gap:8px; justify-content:flex-end; }
-    .btn-line{ border:1px solid #cbd5e1; background:#fff; color:#111; padding:8px 12px; border-radius:8px; cursor:pointer; }
-    .btn-line:hover{ background:#eef2f7; }
-    .btn-primary{
-      border:1px solid #2563eb; background:#3b82f6; color:#fff;
-      padding:8px 12px; border-radius:8px; cursor:pointer;
-    }
-    .btn-primary:hover{ background:#60a5fa; }
-    .form-ctl{ width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; }
-    .form-ctl:focus{ outline:none; border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,.35); }
-    .form-row{ margin-bottom:12px; }
-    .form-lb{ display:block; margin-bottom:6px; font-weight:600; }
+    .modal-card{ width: min(560px, 92vw); background: #ffffff; color:#111; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,.5); }
+    .modal-hd{ padding:16px 20px; background:#f5f7fb; font-weight:700; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; }
+    .modal-bd{ padding:20px; background:#fff; }
+    .modal-ft{ padding:14px 20px; background:#f5f7fb; border-top:1px solid #e5e7eb; display:flex; gap:10px; justify-content:flex-end; }
+    
+    /* 表單元件 */
+    .form-ctl{ width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; margin-top:4px; }
+    .btn-primary{ background:#2563eb; color:#fff; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; }
+    .btn-line{ background:#fff; border:1px solid #cbd5e1; padding:8px 16px; border-radius:8px; cursor:pointer; }
 
-    /* 深色主題時，Modal 仍維持淺底深字以利閱讀 */
-    html:not(.light) .modal-card{ background:#f8fafc; color:#111; }
-    html:not(.light) .modal-hd, html:not(.light) .modal-ft{ background:#eef2f7; }
+    /* Pricing Grid */
+    .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top:10px; }
+    .pricing-card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; text-align: center; }
+    .pricing-card.featured { border: 2px solid #3b82f6; background: linear-gradient(to bottom right, #eff6ff, #fff); position: relative; }
+    .badge-feature { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #2563eb; color: #fff; font-size: 12px; padding: 4px 12px; border-radius: 99px; font-weight: bold; }
+    .btn-pricing { display: block; width: 100%; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; margin-top:16px; }
+    .btn-pricing.primary { background: linear-gradient(135deg,#2563eb,#60a5fa); color: #fff; }
+    .btn-pricing.ghost { background: #e2e8f0; color: #475569; }
 
-    /* ====== 彩色卡片主題（由 JS 輪流套用） ====== */
-    .st-colored-card{ color:#fff; }
+    /* Checkout Modal */
+    #checkoutModal .modal-card { width: min(900px, 94vw); background: #1e293b; border: 1px solid #334155; color: #fff; }
+    .checkout-layout { display: grid; grid-template-columns: 1.2fr 0.8fr; }
+    .form-side { padding: 30px; }
+    .summary-side { background: #0f172a; padding: 30px; border-left: 1px solid #334155; }
+    @media (max-width: 768px) { .checkout-layout { grid-template-columns: 1fr; } .summary-side { order: -1; border-left:none; border-bottom:1px solid #334155; } }
+    .ck-input { background:#0f172a; border:1px solid #475569; color:#fff; width:100%; padding:10px; border-radius:8px; }
+    .btn-pay { width:100%; background: linear-gradient(90deg, #2563eb, #4f46e5); border:none; padding:12px; border-radius:8px; color:#fff; font-weight:700; cursor:pointer; margin-top:20px; }
+
+    /* 彩色卡片樣式 */
+    .st-colored-card{ border-radius: 16px; padding: 18px; box-shadow: 0 6px 18px rgba(0,0,0,.35); color:#fff; transition: transform .2s; }
+    .st-colored-card:hover{ transform: translateY(-4px); }
     .st-g1{ background: linear-gradient(135deg,#2563eb,#60a5fa); }
     .st-g2{ background: linear-gradient(135deg,#10b981,#34d399); }
-    .st-g3{ background: linear-gradient(135deg,#f59e0b,#fbbf24); color:#1f2937; } /* 黃色系深字 */
+    .st-g3{ background: linear-gradient(135deg,#f59e0b,#fbbf24); color:#1f2937; }
     .st-g4{ background: linear-gradient(135deg,#9333ea,#c084fc); }
     .st-g5{ background: linear-gradient(135deg,#db2777,#f472b6); }
     .st-g6{ background: linear-gradient(135deg,#0ea5e9,#22d3ee); }
     .st-g7{ background: linear-gradient(135deg,#ef4444,#f97316); }
     .st-g8{ background: linear-gradient(135deg,#14b8a6,#84cc16); }
-
-    /* ========= 聯絡我們 Modal 美化 ========= */
-    #contactModal.modal-mask{
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(4px);
-    }
-    #contactModal .modal-card{
-      border: none;
-      border-radius: 16px;
-      overflow: hidden;
-      box-shadow: 0 18px 50px rgba(0,0,0,.35);
-    }
-    #contactModal .modal-hd{
-      padding: 16px 20px;
-      background: #f5f7fb;
-      border-bottom: 1px solid #e5e7eb;
-      font-weight: 800;
-      font-size: 16px;
-    }
-    #contactModal .modal-bd{
-      background: #fff;
-      padding: 20px;
-    }
-    #contactModal .form-row{ margin-bottom: 14px; }
-    #contactModal .form-lb{
-      display:block;
-      margin-bottom: 8px;
-      font-weight: 700;
-    }
-    #contactModal .form-ctl{
-      width: 100%;
-      padding: 12px 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 12px;
-      background: #ffffff;
-      color: #0f172a;
-      box-shadow: inset 0 1px 0 rgba(0,0,0,.03);
-      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
-    }
-    #contactModal textarea.form-ctl{
-      min-height: 130px;
-      resize: vertical;
-    }
-    #contactModal .form-ctl:focus{
-      outline: none;
-      border-color: #60a5fa;
-      box-shadow: 0 0 0 4px rgba(96,165,250,.25);
-    }
-    #contactModal .modal-ft{
-      padding: 14px 20px;
-      background: #f5f7fb;
-      border-top: 1px solid #e5e7eb;
-      display: flex; gap: 10px; justify-content: flex-end;
-    }
-    #contactModal .btn-line{
-      border:1px solid #cbd5e1; background:#fff; color:#111;
-      padding:10px 16px; border-radius: 10px; cursor:pointer;
-    }
-    #contactModal .btn-line:hover{ background:#eef2f7; }
-    #contactModal .btn-primary{
-      border:1px solid #1d4ed8; background:#2563eb; color:#fff;
-      padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600;
-    }
-    #contactModal .btn-primary:hover{ background:#1d4ed8; }
-
-    /* ========= Premium Modal (方案) 樣式 ========= */
-    #premiumModal .modal-card {
-      width: min(900px, 94vw);
-      background: #f8fafc;
-    }
-    .pricing-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
-      padding: 16px 0;
-    }
-    .pricing-card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 24px;
-      border: 1px solid #e2e8f0;
-      text-align: center;
-      transition: transform .2s;
-    }
-    .pricing-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 20px rgba(0,0,0,0.08);
-    }
-    .pricing-card.featured {
-      border: 2px solid #3b82f6;
-      background: linear-gradient(to bottom right, #eff6ff, #fff);
-      position: relative;
-    }
-    .badge-feature {
-      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
-      background: #2563eb; color: #fff; font-size: 12px; padding: 4px 12px; border-radius: 999px;
-      font-weight: bold;
-    }
-    .p-title { font-size: 1.2rem; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
-    .p-price { font-size: 2rem; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
-    .p-price small { font-size: 1rem; color: #64748b; font-weight: 400; }
-    .p-desc { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; }
-    .p-features { list-style: none; padding: 0; margin: 0 0 24px 0; text-align: left; font-size: 0.9rem; color: #475569; }
-    .p-features li { margin-bottom: 8px; padding-left: 20px; position: relative; }
-    .p-features li::before {
-      content: "✓"; color: #10b981; position: absolute; left: 0; font-weight: bold;
-    }
-    .btn-pricing {
-      display: block; width: 100%; padding: 10px; border-radius: 8px;
-      font-weight: 600; cursor: pointer; border: none;
-      transition: .2s;
-    }
-    .btn-pricing.ghost { background: #e2e8f0; color: #475569; }
-    .btn-pricing.ghost:hover { background: #cbd5e1; }
-    .btn-pricing.primary {
-      background: linear-gradient(135deg,#2563eb,#60a5fa); color: #fff;
-      box-shadow: 0 4px 12px rgba(37,99,235,0.3);
-    }
-    .btn-pricing.primary:hover { box-shadow: 0 6px 16px rgba(37,99,235,0.4); transform: translateY(-1px); }
-
-    /* ========= ✅ (新增) Checkout Modal (付款) 樣式 ========= */
-    #checkoutModal .modal-card {
-      width: min(900px, 94vw);
-      background: #1e293b;
-      border: 1px solid #334155;
-    }
-    .checkout-layout {
-      display: grid; grid-template-columns: 1.2fr 0.8fr;
-    }
-    @media (max-width: 768px) {
-      .checkout-layout { grid-template-columns: 1fr; }
-      #checkoutSummary { order: -1; border-left: none; border-bottom: 1px solid #334155; }
-    }
-    /* 左側：表單 */
-    .form-side { padding: 30px; color: #fff; }
-    .form-side-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 20px; }
-    .ck-label { display: block; margin-bottom: 6px; font-size: 0.9rem; color: #cbd5e1; }
-    .ck-input {
-      width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #475569;
-      background: #0f172a; color: #fff; outline: none; transition: 0.2s; font-size: 1rem;
-    }
-    .ck-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
-    .row-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .btn-pay {
-      width: 100%; background: linear-gradient(90deg, #2563eb, #4f46e5); border: none;
-      padding: 14px; border-radius: 8px; color: #fff; font-weight: 700; font-size: 1rem;
-      cursor: pointer; margin-top: 20px; transition: 0.2s;
-    }
-    .btn-pay:hover { filter: brightness(1.1); transform: translateY(-1px); }
-
-    /* 右側：訂單摘要 */
-    .summary-side {
-      background: #0f172a; padding: 30px; border-left: 1px solid #334155;
-      display: flex; flex-direction: column; justify-content: center;
-    }
-    .plan-box {
-      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-      padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;
-      color: #fff; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
-    }
-    .plan-name { font-size: 1.2rem; font-weight: 600; opacity: 0.9; }
-    .plan-price { font-size: 2.5rem; font-weight: 800; margin: 10px 0; }
-    .plan-desc { font-size: 0.9rem; opacity: 0.8; }
-    .secure-note { text-align: center; font-size: 0.85rem; color: #64748b; margin-top: auto; }
-    .secure-note i { color: #10b981; margin-right: 4px; }
-
-
-    /* ======= 手機版漢堡選單 ======= */
-    .hamburger{
-      display:none;
-      position:relative;
-      width:40px; height:34px;
-      border:1px solid var(--border-dark, #2b313a);
-      border-radius:8px;
-      background:#111722;
-      cursor:pointer;
-      margin-left:8px;
-    }
-    .hamburger span{
-      display:block; height:4px; margin:5px 7px;
-      background:#fff; border-radius:999px;
-      transition:transform .25s ease, opacity .2s ease;
-    }
-    .hamburger.active span:nth-child(1){ transform:translateY(9px) rotate(45deg); }
-    .hamburger.active span:nth-child(2){ opacity:0; }
-    .hamburger.active span:nth-child(3){ transform:translateY(-9px) rotate(-45deg); }
-
-    /* ======= Premium 按鈕樣式 ======= */
-    .nav .btn-premium-nav {
-      background-color: #4263EB; /* 參考圖片的藍色 */
-      color: #fff;
-      border: none;
-      border-radius: 10px; /* 匹配 .nav button 的圓角 */
-      padding: 6px 12px; /* 匹配 .nav button 的 padding */
-      text-decoration: none;
-      font-weight: 500;
-      margin-right: .4rem; /* 匹配 .nav button 的 margin */
-      cursor: pointer;
-      transition: background-color .2s;
-      display: inline-block; /* 讓 <a> 標籤像按鈕 */
-      line-height: 1.6; /* 確保文字垂直對齊 */
-      border: none;
-      font-size: 0.9rem;
-    }
-    .nav .btn-premium-nav:hover {
-      background-color: #364fc7; /* 滑鼠懸停顏色 */
-    }
-
-    @media (max-width: 768px){
-      .hamburger{ display:inline-block; }
-
-      .top .nav{
-        display:none;
-        position:absolute; left:0; right:0; top:100%;
-        background: var(--panel-dark, #17202a);
-        border-top:1px solid var(--border-dark, #2b313a);
-        padding:12px;
-        box-shadow:0 10px 30px rgba(0,0,0,.35);
-      }
-      .top .nav.open{
-        display:grid;
-        grid-template-columns: repeat(3, minmax(0,1fr));
-        gap:8px;
-      }
-      .top .nav.open .gap{ display:none; }
-      .top .nav.open button,
-      .top .nav.open .btn,
-      .top .nav.open .btn.btn-primary,
-      .top .nav.open .btn.btn-outline-light,
-      .top .nav.open .btn-premium-nav { 
-        width:100%;
-        justify-content:center;
-        border-radius:10px;
-        text-align: center;
-      }
-    }
-
-    /* ======= 新增：卡片基礎外觀 + 微彈跳特效（沿用 st-g 顏色） ======= */
-    .st-colored-card{
-      border-radius: 16px;
-      padding: 18px;
-      box-shadow: 0 6px 18px rgba(0,0,0,.35);
-      transition: transform .25s ease, box-shadow .25s ease, filter .25s ease;
-      will-change: transform;
-      backdrop-filter: saturate(110%);
-    }
-    .st-colored-card:hover{
-      transform: translateY(-6px) scale(1.02);
-      box-shadow: 0 12px 30px rgba(0,0,0,.5);
-      filter: brightness(1.02);
-    }
-    .st-colored-card:active{
-      animation: stCardBounce .35s ease;
-    }
-    @keyframes stCardBounce{
-      0%   { transform: scale(1) }
-      40%  { transform: scale(1.04) }
-      70%  { transform: scale(0.99) }
-      100% { transform: scale(1) }
-    }
   </style>
 </head>
 <body>
 
-<header class="top">
-  <a href="#dashboard" class="brand">
-    <img src="assets/img/supertool-logo.png" alt="SuperTool Logo" style="height:36px; vertical-align:middle; margin-right:10px;">
-  </a>
-
-  <button id="menuToggle" class="hamburger" aria-label="開啟選單" aria-controls="mainNav" aria-expanded="false">
-    <span></span><span></span><span></span>
-  </button>
-
-  <nav class="nav" id="mainNav">
-    <button class="btn-premium-nav" onclick="openPremiumModal()">Get Premium</button>
-
-    <button data-route="dashboard">首頁</button>
-    <button data-route="auth">帳號</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/book.html'">記帳</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/admin/accounting-settings.html#ledgers'">我的</button>
-    <button data-route="acct_detail">明細</button>
-    <button data-route="acct_analysis">分析</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/cart-demo.html'">購物</button>
-    <button data-route="admin">後台</button>
-    <button data-route="settings">設定</button>
-    <button data-route="backup">備份</button>
-    <button onclick="location.href='https://jiachang1112.github.io/Website-Development/stock/stocks.html'" class="btn btn-primary">股票</button>
-    <span class="gap"></span>
-    <button class="btn btn-outline-light" id="btnContact">聯絡我們</button>
-  </nav>
-</header>
-
-<div class="gradient-wrap">
-  <main id="app"></main>
-</div>
-
-<button id="fabExpense" class="fab">＋</button>
-<button id="fabShop" class="fab-square">🛒</button>
-
-<div class="modal-mask" id="contactModal" aria-hidden="true">
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
-    <div class="modal-hd" id="contactTitle">聯絡我們</div>
-    <form id="contactForm" action="https://formspree.io/f/mvgwdkwy" method="POST">
-      <div class="modal-bd">
-        <input type="hidden" name="_subject" value="SuperTool｜聯絡我們來信">
-        <input type="hidden" name="_captcha" value="false">
-        <div class="form-row">
-          <label class="form-lb">姓名</label>
-          <input class="form-ctl" name="name" required>
-        </div>
-        <div class="form-row">
-          <label class="form-lb">Email</label>
-          <input class="form-ctl" type="email" name="email" required>
-        </div>
-        <div class="form-row">
-          <label class="form-lb">訊息內容</label>
-          <textarea class="form-ctl" rows="4" name="message" required></textarea>
-        </div>
-      </div>
-      <div class="modal-ft">
-        <button type="button" class="btn-line" id="btnContactCancel">取消</button>
-        <button type="submit" class="btn-primary">送出</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="modal-mask" id="premiumModal" aria-hidden="true">
-  <div class="modal-card" role="dialog" aria-modal="true">
-    <div class="modal-hd" style="display:flex; justify-content:space-between; align-items:center;">
-      <span>升級 Premium 方案</span>
-      <button onclick="closePremiumModal()" style="border:none; background:none; cursor:pointer; font-size:1.2rem;">✕</button>
+  <header class="mobile-header">
+    <div class="brand">
+      <img src="assets/img/supertool-logo.png" alt="Logo">
+      SuperTool
     </div>
-    <div class="modal-bd" style="background:#f8fafc;">
-      <div style="text-align:center; margin-bottom:20px;">
-        <h2 style="margin:0 0 8px 0; color:#1e293b;">解鎖更多強大功能</h2>
-        <p style="color:#64748b; margin:0;">選擇最適合您的方案，隨時可以取消。</p>
-      </div>
+    <button class="hamburger" id="mobileMenuBtn">
+      <i class="bi bi-list"></i>
+    </button>
+  </header>
+
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="#dashboard" class="brand">
+        <img src="assets/img/supertool-logo.png" alt="SuperTool">
+        SuperTool
+      </a>
+    </div>
+
+    <nav class="sidebar-nav" id="mainNav">
+      <button class="nav-btn btn-premium-sidebar" onclick="openPremiumModal()">
+        <i class="bi bi-gem"></i> Get Premium
+      </button>
+
+      <div class="nav-label">主選單</div>
+      <button class="nav-btn" data-route="dashboard"><i class="bi bi-grid-fill"></i> 首頁</button>
+      <button class="nav-btn" data-route="auth"><i class="bi bi-person-circle"></i> 帳號</button>
+
+      <div class="nav-divider"></div>
+      <div class="nav-label">財務管理</div>
       
-      <div class="pricing-grid">
-        <div class="pricing-card">
-          <div class="p-title">免費版</div>
-          <div class="p-price">$0<small>/月</small></div>
-          <div class="p-desc">適合個人記帳使用</div>
-          <ul class="p-features">
-            <li>基本記帳功能</li>
-            <li>雲端資料同步</li>
-            <li>簡易圖表分析</li>
-          </ul>
-          <button class="btn-pricing ghost" onclick="closePremiumModal()">目前方案</button>
+      <a href="book.html" class="nav-btn"><i class="bi bi-journal-plus"></i> 記帳</a>
+      <a href="admin/accounting-settings.html#ledgers" class="nav-btn"><i class="bi bi-wallet2"></i> 我的帳本</a>
+      <button class="nav-btn" data-route="acct_detail"><i class="bi bi-list-task"></i> 明細查詢</button>
+      <button class="nav-btn" data-route="acct_analysis"><i class="bi bi-pie-chart-fill"></i> 報表分析</button>
+
+      <div class="nav-divider"></div>
+      <div class="nav-label">工具與商城</div>
+
+      <a href="cart-demo.html" class="nav-btn"><i class="bi bi-bag-heart-fill"></i> 購物商城</a>
+      <a href="stock/stocks.html" class="nav-btn btn-stock"><i class="bi bi-graph-up-arrow"></i> 股票追蹤</a>
+
+      <div class="nav-divider"></div>
+      <div class="nav-label">系統</div>
+
+      <button class="nav-btn" data-route="admin"><i class="bi bi-shield-lock-fill"></i> 後台管理</button>
+      <button class="nav-btn" data-route="settings"><i class="bi bi-gear-fill"></i> 設定</button>
+      <button class="nav-btn" data-route="backup"><i class="bi bi-cloud-download-fill"></i> 備份與還原</button>
+      
+      <div style="flex:1"></div> <button class="nav-btn" id="btnContact"><i class="bi bi-envelope-fill"></i> 聯絡我們</button>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="gradient-wrap">
+      <main id="app"></main>
+    </div>
+  </div>
+
+  <button id="fabExpense" class="fab">＋</button>
+  <button id="fabShop" class="fab-square">🛒</button>
+
+
+  <div class="modal-mask" id="contactModal" aria-hidden="true">
+    <div class="modal-card" role="dialog">
+      <div class="modal-hd">
+        <span>聯絡我們</span>
+        <button onclick="closeModal('contactModal')" style="border:none;background:none;cursor:pointer;font-size:1.2rem">✕</button>
+      </div>
+      <form id="contactForm" action="https://formspree.io/f/mvgwdkwy" method="POST">
+        <div class="modal-bd">
+          <input class="form-ctl" name="name" placeholder="姓名" required>
+          <input class="form-ctl" type="email" name="email" placeholder="Email" required>
+          <textarea class="form-ctl" rows="4" name="message" placeholder="訊息內容..." required></textarea>
         </div>
-        
-        <div class="pricing-card featured">
-          <div class="badge-feature">最熱門</div>
-          <div class="p-title">專業版 PRO</div>
-          <div class="p-price">$90<small>/月</small></div>
-          <div class="p-desc">進階分析與自動化</div>
-          <ul class="p-features">
-            <li><b>AI 拍照記帳</b> (無限次)</li>
-            <li>自訂多帳本與類別</li>
-            <li>股票資產即時追蹤</li>
-            <li>匯出 Excel 報表</li>
-          </ul>
-          <button class="btn-pricing primary" onclick="openCheckoutModal('pro')">立即升級</button>
+        <div class="modal-ft">
+          <button type="button" class="btn-line" onclick="closeModal('contactModal')">取消</button>
+          <button type="submit" class="btn-primary">送出</button>
         </div>
-        
-        <div class="pricing-card">
-          <div class="p-title">企業版</div>
-          <div class="p-price">$299<small>/月</small></div>
-          <div class="p-desc">適合團隊協作</div>
-          <ul class="p-features">
-            <li>包含所有 PRO 功能</li>
-            <li>多人共用帳本</li>
-            <li>權限管理設定</li>
-            <li>專屬客服支援</li>
-          </ul>
-          <button class="btn-pricing ghost" onclick="openCheckoutModal('enterprise')">立即升級</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-mask" id="premiumModal" aria-hidden="true">
+    <div class="modal-card" role="dialog">
+      <div class="modal-hd">
+        <span>升級 Premium 方案</span>
+        <button onclick="closePremiumModal()" style="border:none;background:none;cursor:pointer;font-size:1.2rem">✕</button>
+      </div>
+      <div class="modal-bd" style="background:#f8fafc;">
+        <div class="pricing-grid">
+          <div class="pricing-card">
+            <div class="p-title">免費版</div>
+            <div class="p-price">$0</div>
+            <button class="btn-pricing ghost" onclick="closePremiumModal()">目前方案</button>
+          </div>
+          <div class="pricing-card featured">
+            <div class="badge-feature">最熱門</div>
+            <div class="p-title">專業版 PRO</div>
+            <div class="p-price">$90<small>/月</small></div>
+            <button class="btn-pricing primary" onclick="openCheckoutModal('pro')">立即升級</button>
+          </div>
+          <div class="pricing-card">
+            <div class="p-title">企業版</div>
+            <div class="p-price">$299<small>/月</small></div>
+            <button class="btn-pricing ghost" onclick="openCheckoutModal('enterprise')">立即升級</button>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<div class="modal-mask" id="checkoutModal" aria-hidden="true">
-  <div class="modal-card" role="dialog" aria-modal="true" style="width: min(900px, 94vw); overflow:visible;">
-    <div class="checkout-layout" style="background:#1e293b; border-radius:12px; overflow:hidden;">
-      <div class="form-side">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-          <div class="form-side-title" style="margin:0;">付款資訊</div>
-          <button onclick="closeCheckoutModal()" style="background:none; border:none; color:#cbd5e1; font-size:1.2rem; cursor:pointer;">✕</button>
-        </div>
-        
-        <form id="paymentForm">
-          <div style="margin-bottom:16px;">
-            <label class="ck-label">持卡人姓名</label>
-            <input type="text" class="ck-input" placeholder="請輸入信用卡上的姓名" required>
+  <div class="modal-mask" id="checkoutModal" aria-hidden="true">
+    <div class="modal-card" role="dialog">
+      <div class="checkout-layout" style="background:#1e293b; border-radius:12px; overflow:hidden;">
+        <div class="form-side">
+          <div style="display:flex; justify-content:space-between; margin-bottom:20px; color:#fff;">
+            <h3 style="margin:0;">付款資訊</h3>
+            <button onclick="closeCheckoutModal()" style="background:none;border:none;color:#cbd5e1;cursor:pointer;font-size:1.2rem">✕</button>
           </div>
-          <div style="margin-bottom:16px;">
-            <label class="ck-label">信用卡號碼</label>
-            <input type="text" class="ck-input" placeholder="0000 0000 0000 0000" maxlength="19" required>
-          </div>
-          <div class="row-inputs">
-            <div>
-              <label class="ck-label">有效期限 (MM/YY)</label>
-              <input type="text" class="ck-input" placeholder="MM / YY" maxlength="5" required>
+          <form id="paymentForm">
+            <input type="text" class="ck-input" placeholder="持卡人姓名" style="margin-bottom:10px;" required>
+            <input type="text" class="ck-input" placeholder="信用卡號碼" style="margin-bottom:10px;" maxlength="19" required>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <input type="text" class="ck-input" placeholder="MM / YY" required>
+              <input type="text" class="ck-input" placeholder="CVC" required>
             </div>
-            <div>
-              <label class="ck-label">CVC / CVV</label>
-              <input type="text" class="ck-input" placeholder="123" maxlength="3" required>
-            </div>
-          </div>
-          
-          <button type="submit" class="btn-pay">
-            確認付款 <span id="ckBtnPrice">$90</span>
-          </button>
-        </form>
-      </div>
-
-      <div class="summary-side" id="checkoutSummary">
-        <div class="plan-box">
-          <div class="plan-name" id="ckPlanName">專業版 PRO</div>
-          <div class="plan-price" id="ckPlanPrice">$90</div>
-          <div class="plan-desc">每月自動扣款，隨時可取消</div>
+            <button type="submit" class="btn-pay">確認付款 <span id="ckBtnPrice">$90</span></button>
+          </form>
         </div>
-        <div class="secure-note">
-          <i class="bi bi-shield-lock-fill"></i> SSL 安全加密傳輸<br>
-          我們不會儲存您的完整卡號
+        <div class="summary-side">
+          <div class="plan-box">
+            <div class="plan-name" id="ckPlanName">專業版 PRO</div>
+            <div class="plan-price" id="ckPlanPrice">$90</div>
+          </div>
+          <div class="secure-note"><i class="bi bi-shield-lock-fill"></i> SSL 安全加密</div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
 <script type="module" src="assets/js/app.js"></script>
 
 <script>
-/* ------------------ 共用：JWT 解析 ------------------ */
 function parseGoogleJWT(credential){
   const base64Url = credential.split('.')[1];
   const base64 = base64Url.replace(/-/g,'+').replace(/_/g,'/');
-  const json = decodeURIComponent(
-    atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
-  );
+  const json = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
   return JSON.parse(json);
 }
-
-/* ------------------ 共用：在帳號卡片顯示歡迎 ------------------ */
 window.__showWelcomeInAuth = function(name){
   let slot = document.getElementById('welcome-slot');
   if(!slot){
     const card = document.querySelector('#auth-card');
-    if(card){
-      slot = document.createElement('div');
-      slot.id = 'welcome-slot';
-      card.insertBefore(slot, card.firstChild ? card.firstChild.nextSibling : null);
-    }
+    if(card){ slot = document.createElement('div'); slot.id = 'welcome-slot'; card.insertBefore(slot, card.firstChild.nextSibling); }
   }
   if(slot){ slot.innerHTML = `<div class="welcome-chip">👋 歡迎 ${name}</div>`; }
 };
-
-/* ------------------ Google 初始化 & 登入回呼 ------------------ */
 function handleCredentialResponse(res){
   try{
     const payload = parseGoogleJWT(res.credential);
-    const user = {
-      email: payload.email, name: payload.name,
-      picture: payload.picture, sub: payload.sub
-    };
+    const user = { email: payload.email, name: payload.name, picture: payload.picture, sub: payload.sub };
     localStorage.setItem('session_user', JSON.stringify(user));
     try{ google.accounts.id.cancel(); }catch(e){}
     window.__showWelcomeInAuth && window.__showWelcomeInAuth(user.name);
     if(location.hash !== '#auth'){ location.hash = '#dashboard'; }
-  }catch(e){ console.error('解析 Google Token 失敗：', e); }
+  }catch(e){ console.error(e); }
 }
-
 function initGoogle(){
   if(!window.google || !google.accounts || !google.accounts.id) return;
   google.accounts.id.initialize({
     client_id: "225238850447-tds4p75o2nsforov086amnrj1nha7tuh.apps.googleusercontent.com",
     callback: handleCredentialResponse,
-    auto_select: false,
-    cancel_on_tap_outside: true
+    auto_select: false, cancel_on_tap_outside: true
   });
   window.__renderGoogleBtn = function(){
     const mount = document.getElementById('googleBtnMount') || document.querySelector('.g_id_signin');
@@ -655,17 +496,11 @@ function initGoogle(){
   refreshAuthUI();
   window.addEventListener('hashchange', refreshAuthUI);
 }
-
 window.addEventListener('load', () => {
   const ready = () => initGoogle();
   if(window.google && google.accounts && google.accounts.id){ ready(); }
   else{
-    let tries = 0;
-    const timer = setInterval(()=>{
-      tries++;
-      if(window.google && google.accounts && google.accounts.id){ clearInterval(timer); ready(); }
-      else if(tries>50){ clearInterval(timer); }
-    },100);
+    let tries = 0; const timer = setInterval(()=>{ tries++; if(window.google && google.accounts && google.accounts.id){ clearInterval(timer); ready(); } else if(tries>50){ clearInterval(timer); } },100);
   }
 });
 </script>
@@ -673,149 +508,97 @@ window.addEventListener('load', () => {
 <script>
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
 
-  /* ===== 聯絡我們 Modal 開關 ===== */
-  const modal = document.getElementById('contactModal');
-  const btnOpen = document.getElementById('btnContact');
-  const btnClose = document.getElementById('btnContactCancel');
-
-  function openModal(){ modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); }
-  function closeModal(){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); }
-
-  btnOpen.addEventListener('click', openModal);
-  btnClose.addEventListener('click', closeModal);
-  modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
-  
-  // 送出後給提示（不阻塞 Formspree 提交）
+  /* ===== Modal 邏輯 ===== */
+  function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+  document.getElementById('btnContact').addEventListener('click', ()=> {
+    // 手機版點擊選單項目後，通常希望關閉側邊欄
+    if(window.innerWidth <= 768) closeMobileMenu();
+    document.getElementById('contactModal').classList.add('show');
+  });
   document.getElementById('contactForm').addEventListener('submit', function(){
-    setTimeout(()=>{ closeModal(); alert('已送出，感謝您的來信！'); }, 50);
+    setTimeout(()=>{ closeModal('contactModal'); alert('已送出！'); }, 50);
   });
 
-  /* ===== Premium Modal 開關 ===== */
+  /* Premium & Checkout */
   const premiumModal = document.getElementById('premiumModal');
-  window.openPremiumModal = function() {
-    premiumModal.classList.add('show');
-  }
-  window.closePremiumModal = function() {
-    premiumModal.classList.remove('show');
-  }
-  premiumModal.addEventListener('click', (e) => {
-    if(e.target === premiumModal) window.closePremiumModal();
-  });
-
-  /* ===== ✅ (新增) Checkout Modal 邏輯 ===== */
   const checkoutModal = document.getElementById('checkoutModal');
+  window.openPremiumModal = function(){ 
+    if(window.innerWidth <= 768) closeMobileMenu();
+    premiumModal.classList.add('show'); 
+  }
+  window.closePremiumModal = function(){ premiumModal.classList.remove('show'); }
   
-  window.openCheckoutModal = function(plan) {
-    // 1. 先關閉方案 Modal
+  window.openCheckoutModal = function(plan){
     window.closePremiumModal();
-    
-    // 2. 更新 Checkout Modal 內容
     const ckName = document.getElementById('ckPlanName');
     const ckPrice = document.getElementById('ckPlanPrice');
     const ckBtn = document.getElementById('ckBtnPrice');
-    
-    if (plan === 'enterprise') {
-      ckName.textContent = '企業版 Enterprise';
-      ckPrice.textContent = '$299';
-      ckBtn.textContent = '$299';
-    } else {
-      ckName.textContent = '專業版 PRO';
-      ckPrice.textContent = '$90';
-      ckBtn.textContent = '$90';
-    }
-
-    // 3. 開啟 Checkout Modal
+    if(plan==='enterprise'){ ckName.textContent='企業版'; ckPrice.textContent='$299'; ckBtn.textContent='$299'; }
+    else{ ckName.textContent='專業版 PRO'; ckPrice.textContent='$90'; ckBtn.textContent='$90'; }
     checkoutModal.classList.add('show');
   }
+  window.closeCheckoutModal = function(){ checkoutModal.classList.remove('show'); }
 
-  window.closeCheckoutModal = function() {
-    checkoutModal.classList.remove('show');
-    // 關閉時重置按鈕狀態 (如果已經點了付款)
-    const btn = document.querySelector('.btn-pay');
-    btn.disabled = false;
-    btn.innerHTML = `確認付款 <span id="ckBtnPrice">${document.getElementById('ckPlanPrice').textContent}</span>`;
-    btn.style.background = 'linear-gradient(90deg, #2563eb, #4f46e5)';
-    btn.style.opacity = '1';
-  }
-
-  // 點擊背景關閉
-  checkoutModal.addEventListener('click', (e) => {
-    if(e.target === checkoutModal) window.closeCheckoutModal();
-  });
-
-  // 模擬付款送出
-  document.getElementById('paymentForm').addEventListener('submit', (e) => {
+  document.getElementById('paymentForm').addEventListener('submit', (e)=>{
     e.preventDefault();
-    const btn = document.querySelector('.btn-pay');
-    
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 處理中...';
-    btn.style.opacity = '0.7';
-
-    setTimeout(() => {
-      btn.innerHTML = '✅ 付款成功！';
-      btn.style.background = '#10b981'; // 綠色
-      
-      setTimeout(() => {
-        alert('感謝您的訂閱！權限已開通。');
-        window.closeCheckoutModal(); // 關閉付款視窗
-      }, 500);
+    const btn = e.target.querySelector('.btn-pay');
+    btn.disabled=true; btn.innerHTML='處理中...'; btn.style.opacity='0.7';
+    setTimeout(()=>{
+      btn.innerHTML='✅ 成功！'; btn.style.background='#10b981';
+      localStorage.setItem('site_subscription', 'pro');
+      setTimeout(()=>{ alert('權限已開通！'); window.closeCheckoutModal(); if(location.hash==='#auth')location.reload(); btn.disabled=false; btn.innerHTML=`確認付款 <span id="ckBtnPrice">${document.getElementById('ckPlanPrice').textContent}</span>`; btn.style.background='linear-gradient(90deg,#2563eb,#4f46e5)'; btn.style.opacity='1'; }, 500);
     }, 1500);
   });
 
-
-  /* ===== 自動把彩色漸層套到內容卡片（保留字與功能） ===== */
+  /* ===== 自動上色 (保留) ===== */
   window.applyCardColors = function() {
     const container = document.querySelector('.gradient-wrap');
     if(!container) return;
-
     const selectors = ['.card', '.panel', '.box', '.kcard'];
     const all = container.querySelectorAll(selectors.join(','));
     if(!all.length) return;
-
     const gradients = ['st-g1','st-g2','st-g3','st-g4','st-g5','st-g6','st-g7','st-g8'];
     let idx = 0;
-
     all.forEach((el, i)=>{
-      if(i === 0) return; 
-      if(el.classList.contains('keep-dark')) return;
-
+      if(i === 0) return; if(el.classList.contains('keep-dark')) return;
       const hasColor = gradients.some(g => el.classList.contains(g));
       if (hasColor) return;
-
       el.classList.add('st-colored-card', gradients[idx % gradients.length]);
       idx++;
     });
   };
-  
-  /* ===== 手機漢堡選單開合 ===== */
-  (function(){
-    const toggle = document.getElementById('menuToggle');
-    const nav = document.getElementById('mainNav');
-    if(!toggle || !nav) return;
 
-    const mq = window.matchMedia('(max-width: 768px)');
+  /* ===== 手機版側邊欄控制 (Mobile Sidebar) ===== */
+  const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+  const sidebar = document.getElementById('sidebar');
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
 
-    function closeMenu(){
-      nav.classList.remove('open');
-      toggle.classList.remove('active');
-      toggle.setAttribute('aria-expanded','false');
+  function openMobileMenu() {
+    sidebar.classList.add('open');
+    sidebarOverlay.classList.add('show');
+  }
+  function closeMobileMenu() {
+    sidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('show');
+  }
+
+  mobileMenuBtn.addEventListener('click', openMobileMenu);
+  sidebarOverlay.addEventListener('click', closeMobileMenu);
+
+  // 點擊任何側邊欄內的按鈕後，自動關閉側邊欄 (僅手機)
+  sidebar.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        closeMobileMenu();
+      }
+    });
+  });
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) {
+      closeMobileMenu(); // 恢復桌機版狀態
     }
-
-    toggle.addEventListener('click', ()=>{
-      const opened = nav.classList.toggle('open');
-      toggle.classList.toggle('active', opened);
-      toggle.setAttribute('aria-expanded', opened ? 'true' : 'false');
-    });
-
-    window.addEventListener('resize', ()=>{ if(!mq.matches) closeMenu(); });
-
-    document.addEventListener('click', (e)=>{
-      if (!mq.matches) return;
-      if (e.target === toggle || toggle.contains(e.target)) return;
-      if (!nav.contains(e.target)) closeMenu();
-    });
-  })();
+  });
 </script>
 </body>
 </html>
