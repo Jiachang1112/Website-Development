@@ -1,10 +1,11 @@
 // assets/js/pages/expense.js
-// Firestore: /expenses/{email}/entries/{autoId}
-// 寫入欄位：type, date, amount, categoryId, item, note, createdAt, updatedAt
+// Firestore: /users/{uid}/ledgers/{ledgerId}/entries/{autoId}
+// 修改：將「品項」欄位改為「帳本」選擇器，支援多帳本寫入
 
 import { auth, db } from '../firebase.js';
 import {
-  collection, addDoc, doc, setDoc, serverTimestamp
+  collection, addDoc, doc, setDoc, serverTimestamp,
+  query, orderBy, getDocs, where
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 import { onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
@@ -15,7 +16,6 @@ export function ExpensePage(){
   el.innerHTML = `
     <h3>支出記帳</h3>
 
-    <!-- ✅ 全部同一行排列 -->
     <div id="formRow" style="
       display:flex;
       gap:4px;
@@ -34,13 +34,14 @@ export function ExpensePage(){
       <select id="month" class="form-control" style="min-width:70px;flex:0 0 auto;"></select>
       <select id="day"   class="form-control" style="min-width:70px;flex:0 0 auto;"></select>
 
-      <!-- ⚡️調整寬度：金額更小、分類略縮、品項放大 -->
       <input id="amt"  type="text" inputmode="decimal" placeholder="金額"
              class="form-control" style="min-width:10px;flex:1 1 auto;"/>
       <input id="cat"  placeholder="分類" class="form-control"
              style="min-width:25px;flex:0 0 auto;"/>
-      <input id="item" placeholder="品項" class="form-control"
-             style="min-width:90px;flex:1 1 auto;"/>
+
+      <select id="ledger" class="form-control" style="min-width:100px;flex:1 1 auto;">
+        <option value="" disabled selected>載入中...</option>
+      </select>
 
       <input id="note" placeholder="備註" class="form-control"
              style="min-width:140px;flex:1 1 auto;"/>
@@ -58,7 +59,7 @@ export function ExpensePage(){
   const daySel   = el.querySelector('#day');
   const amtInput  = el.querySelector('#amt');
   const catInput  = el.querySelector('#cat');
-  const itemInput = el.querySelector('#item');
+  const ledgerSel = el.querySelector('#ledger'); // 改為 Ledger
   const noteInput = el.querySelector('#note');
   const addBtn    = el.querySelector('#add');
 
@@ -123,53 +124,85 @@ export function ExpensePage(){
     return parseFloat(s);
   };
 
-  // === 取得登入 email ===
-  const getActiveEmailNow=()=>{
-    if(auth?.currentUser?.email) return auth.currentUser.email;
-    try{
-      const s=JSON.parse(localStorage.getItem('session_user')||'null');
-      return s?.email||null;
-    }catch{return null;}
-  };
-  const waitEmail=(ms=2000)=>new Promise(res=>{
-    const now=getActiveEmailNow(); if(now) return res(now);
-    let done=false;
-    const off=onAuthStateChanged(auth,u=>{
-      if(done) return;
-      if(u?.email){ done=true; off(); res(u.email);}
-    });
-    setTimeout(()=>{ if(done)return; done=true; try{off();}catch{} res(getActiveEmailNow()); },ms);
-  });
+  // === ✅ (新增) 載入帳本列表 ===
+  async function loadUserLedgers(uid) {
+    ledgerSel.innerHTML = '<option value="" disabled>載入中...</option>';
+    try {
+      const q = query(collection(db, 'users', uid, 'ledgers'), orderBy('createdAt', 'asc'));
+      const snap = await getDocs(q);
+      
+      if (snap.empty) {
+        ledgerSel.innerHTML = '<option value="" disabled>無帳本，請至設定新增</option>';
+        return;
+      }
 
-  // === Firestore 寫入 ===
-  const SUBCOL='entries';
-  async function saveEntry(email,rec){
-    await setDoc(doc(db,'expenses',email),{ email,updatedAt:serverTimestamp() },{merge:true});
-    await addDoc(collection(db,'expenses',email,SUBCOL),{
-      ...rec,
-      createdAt:serverTimestamp(),
-      updatedAt:serverTimestamp()
-    });
+      ledgerSel.innerHTML = '';
+      let defaultId = null;
+
+      snap.forEach(doc => {
+        const d = doc.data();
+        const opt = document.createElement('option');
+        opt.value = doc.id;
+        opt.textContent = d.name || '(未命名)';
+        if (d.isDefault) defaultId = doc.id;
+        ledgerSel.appendChild(opt);
+      });
+
+      // 自動選取預設帳本，若無則選第一個
+      if (defaultId) {
+        ledgerSel.value = defaultId;
+      } else if (ledgerSel.options.length > 0) {
+        ledgerSel.selectedIndex = 0;
+      }
+
+    } catch (e) {
+      console.error("載入帳本失敗:", e);
+      ledgerSel.innerHTML = '<option value="" disabled>載入失敗</option>';
+    }
   }
+
+  // 監聽登入狀態以載入帳本
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      loadUserLedgers(user.uid);
+    } else {
+      ledgerSel.innerHTML = '<option value="" disabled>請先登入</option>';
+    }
+  });
 
   // === 新增 ===
   async function addRecord(){
-    const email=await waitEmail(2000);
-    if(!email){ alert('請先登入帳號再記帳'); return; }
+    const user = auth.currentUser;
+    if(!user){ alert('請先登入帳號再記帳'); return; }
 
-    const date=`${yearSel.value}-${monthSel.value}-${daySel.value}`;
-    const amount=parseAmount(amtInput.value);
-    if(!Number.isFinite(amount)||amount<=0){ alert('金額需為正數'); return; }
+    const date = `${yearSel.value}-${monthSel.value}-${daySel.value}`;
+    const amount = parseAmount(amtInput.value);
+    if(!Number.isFinite(amount) || amount <= 0){ alert('金額需為正數'); return; }
 
-    const categoryId=(catInput.value||'').trim()||'其他';
-    const item=(itemInput.value||'').trim()||'未命名品項';
-    const note=(noteInput.value||'').trim()||'';
-    const type=typeSel.value;
+    const categoryId = (catInput.value||'').trim()||'其他';
+    const note = (noteInput.value||'').trim()||'';
+    const type = typeSel.value;
+    
+    // ✅ 取得選中的帳本 ID
+    const ledgerId = ledgerSel.value;
+    const ledgerName = ledgerSel.options[ledgerSel.selectedIndex]?.text;
+
+    if(!ledgerId) { alert('請選擇帳本'); return; }
 
     try{
-      await saveEntry(email,{ type,date,amount,categoryId,item,note });
-      alert(`✅ 已加入${type==='income'?'收入':'支出'}：${item}`);
-      amtInput.value=''; catInput.value=''; itemInput.value=''; noteInput.value='';
+      // ✅ 修改寫入路徑：users/{uid}/ledgers/{ledgerId}/entries
+      await addDoc(collection(db, 'users', user.uid, 'ledgers', ledgerId, 'entries'), {
+        type,
+        date,
+        amount,
+        categoryId,
+        note,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      alert(`✅ 已加入${type==='income'?'收入':'支出'} 到 [${ledgerName}]`);
+      amtInput.value=''; catInput.value=''; noteInput.value='';
       amtInput.focus();
     }catch(err){
       console.error(err);
@@ -179,9 +212,10 @@ export function ExpensePage(){
   addBtn.addEventListener('click', addRecord);
 
   // === Enter 快速送出 ===
-  const inputsForEnter = [amtInput, catInput, itemInput, noteInput, yearSel, monthSel, daySel, typeSel];
+  // 將 ledgerSel 加入監聽列表，移除 itemInput
+  const inputsForEnter = [amtInput, catInput, ledgerSel, noteInput, yearSel, monthSel, daySel, typeSel];
   function handleEnterToAdd(e){
-    if (e.isComposing) return;  // 輸入法組字中不觸發
+    if (e.isComposing) return;
     if (e.key !== 'Enter') return;
     e.preventDefault();
     addRecord();
