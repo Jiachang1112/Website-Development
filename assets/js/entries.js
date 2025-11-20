@@ -1,87 +1,79 @@
 // assets/js/entries.js
-import { auth, db } from './firebase.js'; // ✅ 匯入 auth
+// 負責從 Firestore 讀取記帳資料 (支援多帳本)
+
+import { auth, db } from './firebase.js';
 import {
-  doc, collection, addDoc, getDocs, query, where, orderBy, limit,
-  serverTimestamp
+  collection, getDocs, query, where, orderBy
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-/* ========== Auth helper (修正) ========== */
-function getSignedEmail() {
+// ----------------------------------------
+// 核心：取得目前使用者的所有帳本資料
+// ----------------------------------------
+export async function getEntriesRange(from, to) {
+  const user = auth.currentUser;
+  if (!user) return [];
+
   try {
-    // 1. 優先檢查 Firebase Auth 實例 (最可靠)
-    if (auth && auth.currentUser && auth.currentUser.email) {
-      return auth.currentUser.email;
-    }
-    // 2. 備援：檢查您舊的 localStorage (相容用)
-    const u = window.session_user || JSON.parse(localStorage.getItem('session_user') || 'null');
-    return u?.email || null;
-  } catch { return null; }
+    // 1. 先取得使用者有哪些帳本 (包含自己建立的 + 別人分享的)
+    const ledgersRef = collection(db, 'users', user.uid, 'ledgers');
+    const ledgersSnap = await getDocs(ledgersRef);
+
+    if (ledgersSnap.empty) return [];
+
+    // 2. 平行去抓取「每一個帳本」在指定日期範圍內的資料
+    const promises = ledgersSnap.docs.map(async (docSnap) => {
+      const ledgerId = docSnap.id;
+      const ledgerName = docSnap.data().name || '未命名帳本';
+      
+      // 進入該帳本的 entries 子集合
+      const entriesRef = collection(db, 'users', user.uid, 'ledgers', ledgerId, 'entries');
+      
+      // 設定日期查詢條件
+      const q = query(
+        entriesRef,
+        where('date', '>=', from),
+        where('date', '<=', to)
+      );
+
+      const snap = await getDocs(q);
+      
+      // 整理資料，並補上 ledgerName 方便顯示
+      return snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          __path: d.ref.path, // 存下完整路徑，之後刪除/修改需要用到
+          __ledgerName: ledgerName, // 補上帳本名稱
+          ...data
+        };
+      });
+    });
+
+    // 3. 等待所有查詢完成
+    const results = await Promise.all(promises);
+
+    // 4. 將所有帳本的資料合併成一個大陣列
+    const allEntries = results.flat();
+
+    // 5. 依照日期排序 (由新到舊)
+    allEntries.sort((a, b) => {
+      // 先比日期
+      if (b.date !== a.date) return b.date.localeCompare(a.date);
+      // 如果日期一樣，比建立時間 (createdAt)
+      const tA = a.createdAt?.seconds || 0;
+      const tB = b.createdAt?.seconds || 0;
+      return tB - tA;
+    });
+
+    return allEntries;
+
+  } catch (e) {
+    console.error("讀取明細失敗:", e);
+    return [];
+  }
 }
 
-/* ========== Path helpers（你的真實結構：expenses/{email}/entries/{docId}） ========== */
-function colRefForEmail(email) {
-  return collection(doc(db, 'expenses', email), 'entries');
-}
-function mapDoc(email, docSnap) {
-  const data = docSnap.data();
-  return {
-    id: docSnap.id,                                   // Firestore docId
-    __path: `expenses/${email}/entries/${docSnap.id}`,// 完整路徑（刪除/編輯用）
-    __email: email,                                   // 備援用
-    ...data
-  };
-}
-
-/* ========== Create ========== */
-export async function addEntryForEmail(payload) {
-  const email = getSignedEmail();
-  if (!email) throw new Error('尚未登入');
-
-  const ref = colRefForEmail(email);
-  const docRef = await addDoc(ref, {
-    type: payload.type || 'expense',           // 'expense' | 'income'
-    amount: Number(payload.amount),
-    categoryId: payload.categoryId || '其他',
-    note: payload.note || '',
-    date: payload.date,                        // YYYY-MM-DD
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
-
-  return { id: docRef.id, path: `expenses/${email}/entries/${docRef.id}` };
-}
-
-/* ========== Aggregations ========== */
-export async function getTodayTotalForEmail(email = getSignedEmail()) {
-  if (!email) return 0;
-  const today = new Date().toISOString().slice(0, 10);
-  const ref = colRefForEmail(email);
-  const qy = query(ref, where('date', '==', today));
-  const snap = await getDocs(qy);
-  let sum = 0;
-  snap.forEach(d => sum += Number(d.data().amount || 0));
-  return sum;
-}
-
-/* ========== Reads ========== */
-export async function getRecentEntriesForEmail(email = getSignedEmail(), n = 10) {
-  if (!email) return [];
-  const ref = colRefForEmail(email);
-  const qy = query(ref, orderBy('createdAt', 'desc'), limit(n));
-  const snap = await getDocs(qy);
-  return snap.docs.map(d => mapDoc(email, d));
-}
-
-/** 取得一段日期範圍（含頭含尾；依 date 升冪） */
-export async function getEntriesRangeForEmail(email = getSignedEmail(), from, to) {
-  if (!email) return [];
-  const ref = colRefForEmail(email);
-  const qy = query(
-    ref,
-    where('date', '>=', from),
-    where('date', '<=', to),
-    orderBy('date', 'asc')
-  );
-  const snap = await getDocs(qy);
-  return snap.docs.map(d => mapDoc(email, d));
+// (保留舊函式名稱以防報錯，但直接轉接新邏輯)
+export async function getEntriesRangeForEmail(email, from, to) {
+  return getEntriesRange(from, to);
 }
