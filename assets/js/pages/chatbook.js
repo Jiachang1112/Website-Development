@@ -1,5 +1,10 @@
 // assets/js/pages/chatbook.js
-import { addEntryForEmail } from '../entries.js';
+// 修改：自動讀取「預設帳本」並寫入新結構
+
+import { auth, db } from '../firebase.js';
+import {
+  collection, addDoc, query, where, orderBy, getDocs, serverTimestamp
+} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 import { fmt } from '../app.js';
 
 /* --- 小工具 --- */
@@ -34,8 +39,30 @@ function inferType(note, amount) {
   if (amount < 0) return 'expense';
   if (/薪|獎金|收入|轉入|贈|退費/.test(note)) return 'income';
   if (/刷|繳|買|花|餐|飲|車|票|租/.test(note)) return 'expense';
-  // 預設正數視為支出（也可改成 income，看你的習慣）
   return 'expense';
+}
+
+// ✅ 新增：取得預設帳本的 Helper
+async function getDefaultLedger(uid) {
+  try {
+    // 1. 找設定為預設的帳本
+    const q1 = query(collection(db, 'users', uid, 'ledgers'), where('isDefault', '==', true));
+    const snap1 = await getDocs(q1);
+    if (!snap1.empty) {
+      const d = snap1.docs[0];
+      return { id: d.id, name: d.data().name || '預設帳本' };
+    }
+    // 2. 如果沒有預設，找建立時間最早的那一本
+    const q2 = query(collection(db, 'users', uid, 'ledgers'), orderBy('createdAt', 'asc'));
+    const snap2 = await getDocs(q2);
+    if (!snap2.empty) {
+      const d = snap2.docs[0];
+      return { id: d.id, name: d.data().name || '未命名帳本' };
+    }
+  } catch (e) {
+    console.error("找帳本失敗", e);
+  }
+  return null;
 }
 
 export function ChatbookPage(){
@@ -69,9 +96,17 @@ export function ChatbookPage(){
     const raw = (text || '').trim();
     if (!raw) return;
 
+    // ✅ 1. 檢查登入
+    const user = auth.currentUser;
+    if (!user) {
+      bubble(raw, 'me');
+      bubble('請先登入帳號才能記帳喔！', 'bot');
+      return;
+    }
+
     bubble(raw, 'me');
 
-    // 1) 解析
+    // 2. 解析
     const date = parseDate(raw);
     let amount = parseAmount(raw);
     if (Number.isNaN(amount)) {
@@ -79,7 +114,6 @@ export function ChatbookPage(){
       return;
     }
 
-    // 允許以負號輸入（-500 視為支出）
     const category = guessCategory(raw);
     const note = raw
       .replace(/今天|昨天|前天/g, ' ')
@@ -88,31 +122,44 @@ export function ChatbookPage(){
       .replace(/\s+/g, ' ')
       .trim() || (category === '收入' ? '收入' : '未命名品項');
 
-    // 2) 判斷收入/支出
     const type = inferType(note, amount);
     const amountAbs = Math.abs(amount);
 
-    // 3) 寫入 Firestore
-    await addEntryForEmail({
-      type,                      // 'expense' or 'income'
-      amount: amountAbs,         // 正數存
-      categoryId: category,
-      note,
-      date
-    });
+    // ✅ 3. 取得預設帳本
+    const ledger = await getDefaultLedger(user.uid);
+    if (!ledger) {
+      bubble('找不到您的帳本，請先到「設定 > 管理帳本」新增一本！', 'bot');
+      return;
+    }
 
-    bubble(
-      `已記帳：${note}｜${category}｜${type === 'income' ? '+' : '-'}${fmt.money(amountAbs)}｜${date}`,
-      'bot'
-    );
+    // ✅ 4. 寫入 Firestore (新路徑)
+    try {
+      await addDoc(collection(db, 'users', user.uid, 'ledgers', ledger.id, 'entries'), {
+        type,
+        amount: amountAbs,
+        categoryId: category,
+        note,
+        date,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
 
-    msg.value = '';
-    msg.focus();
+      bubble(
+        `已存入 [${ledger.name}]：${note}｜${category}｜${type === 'income' ? '+' : '-'}${fmt.money(amountAbs)}｜${date}`,
+        'bot'
+      );
+      
+      msg.value = '';
+      msg.focus();
+    } catch (e) {
+      console.error(e);
+      bubble('記帳失敗：' + e.message, 'bot');
+    }
   }
 
   el.querySelector('#send').addEventListener('click', ()=> handle(msg.value));
   msg.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') handle(msg.value); });
 
-  bubble('嗨！說：「今天 全聯 牛奶 65」我會幫你記帳（支出）。說「今天 領薪水 25000」會記為收入。', 'bot');
+  bubble('嗨！說：「今天 全聯 牛奶 65」我會自動幫你記到預設帳本。', 'bot');
   return el;
 }
