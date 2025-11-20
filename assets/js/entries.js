@@ -1,87 +1,103 @@
 // assets/js/entries.js
-import { auth, db } from './firebase.js'; // ✅ 匯入 auth
+// 負責從 Firestore 讀取記帳資料 (支援多帳本結構)
+
+import { auth, db } from './firebase.js';
 import {
-  doc, collection, addDoc, getDocs, query, where, orderBy, limit,
-  serverTimestamp
+  collection, getDocs, query, where, orderBy, limit
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
-/* ========== Auth helper (修正) ========== */
-function getSignedEmail() {
+/* ========== 讀取邏輯核心 ========== */
+
+// 1. 取得目前使用者的所有帳本
+async function getUserLedgers(uid) {
+  const ledgersRef = collection(db, 'users', uid, 'ledgers');
+  const snap = await getDocs(ledgersRef);
+  return snap.docs.map(d => ({
+    id: d.id,
+    name: d.data().name || '未命名帳本'
+  }));
+}
+
+// 2. (主要功能) 讀取指定日期範圍內的所有明細
+export async function getEntriesRange(from, to) {
+  const user = auth.currentUser;
+  if (!user) return [];
+
   try {
-    // 1. 優先檢查 Firebase Auth 實例 (最可靠)
-    if (auth && auth.currentUser && auth.currentUser.email) {
-      return auth.currentUser.email;
-    }
-    // 2. 備援：檢查您舊的 localStorage (相容用)
-    const u = window.session_user || JSON.parse(localStorage.getItem('session_user') || 'null');
-    return u?.email || null;
-  } catch { return null; }
+    // A. 先查出有哪些帳本
+    const ledgers = await getUserLedgers(user.uid);
+    if (ledgers.length === 0) return [];
+
+    // B. 平行去查每個帳本的 entries
+    const promises = ledgers.map(async (ledger) => {
+      const entriesRef = collection(db, 'users', user.uid, 'ledgers', ledger.id, 'entries');
+      const q = query(
+        entriesRef,
+        where('date', '>=', from),
+        where('date', '<=', to)
+        // 注意：這裡不加 orderBy，因為跨多個查詢合併後再排序比較準確
+      );
+      
+      const snap = await getDocs(q);
+      return snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          __path: d.ref.path,       // 存下路徑供刪除/修改用
+          __ledgerName: ledger.name, // 補上帳本名稱供顯示
+          ...data
+        };
+      });
+    });
+
+    // C. 等待全部結果並合併
+    const results = await Promise.all(promises);
+    const allEntries = results.flat();
+
+    // D. 在前端進行排序 (日期新 -> 舊)
+    allEntries.sort((a, b) => {
+      if (b.date !== a.date) return b.date.localeCompare(a.date);
+      // 如果日期一樣，比建立時間 (createdAt)
+      const tA = a.createdAt?.seconds || 0;
+      const tB = b.createdAt?.seconds || 0;
+      return tB - tA;
+    });
+
+    return allEntries;
+
+  } catch (e) {
+    console.error("讀取失敗:", e);
+    return [];
+  }
 }
 
-/* ========== Path helpers（你的真實結構：expenses/{email}/entries/{docId}） ========== */
-function colRefForEmail(email) {
-  return collection(doc(db, 'expenses', email), 'entries');
-}
-function mapDoc(email, docSnap) {
-  const data = docSnap.data();
-  return {
-    id: docSnap.id,                                   // Firestore docId
-    __path: `expenses/${email}/entries/${docSnap.id}`,// 完整路徑（刪除/編輯用）
-    __email: email,                                   // 備援用
-    ...data
-  };
+// 3. (相容舊版) 為了不讓其他還沒改的頁面壞掉，保留這個函式名稱
+// 但內部直接轉接給新的 getEntriesRange
+export async function getEntriesRangeForEmail(email, from, to) {
+  return getEntriesRange(from, to);
 }
 
-/* ========== Create ========== */
-export async function addEntryForEmail(payload) {
-  const email = getSignedEmail();
-  if (!email) throw new Error('尚未登入');
-
-  const ref = colRefForEmail(email);
-  const docRef = await addDoc(ref, {
-    type: payload.type || 'expense',           // 'expense' | 'income'
-    amount: Number(payload.amount),
-    categoryId: payload.categoryId || '其他',
-    note: payload.note || '',
-    date: payload.date,                        // YYYY-MM-DD
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
-
-  return { id: docRef.id, path: `expenses/${email}/entries/${docRef.id}` };
+// 4. (相容舊版) 取得最近 N 筆 (改為抓取最近一個月的資料來模擬)
+export async function getRecentEntriesForEmail(email, n = 10) {
+  // 簡單實作：抓前後 60 天的資料，然後切片
+  const today = new Date();
+  const prior = new Date(); prior.setDate(today.getDate() - 60);
+  
+  const to = today.toISOString().split('T')[0];
+  const from = prior.toISOString().split('T')[0];
+  
+  const list = await getEntriesRange(from, to);
+  return list.slice(0, n);
 }
 
-/* ========== Aggregations ========== */
-export async function getTodayTotalForEmail(email = getSignedEmail()) {
-  if (!email) return 0;
-  const today = new Date().toISOString().slice(0, 10);
-  const ref = colRefForEmail(email);
-  const qy = query(ref, where('date', '==', today));
-  const snap = await getDocs(qy);
-  let sum = 0;
-  snap.forEach(d => sum += Number(d.data().amount || 0));
-  return sum;
+// 5. (相容舊版) 取得今日總額
+export async function getTodayTotalForEmail(email) {
+  const today = new Date().toISOString().split('T')[0];
+  const list = await getEntriesRange(today, today);
+  return list.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 }
 
-/* ========== Reads ========== */
-export async function getRecentEntriesForEmail(email = getSignedEmail(), n = 10) {
-  if (!email) return [];
-  const ref = colRefForEmail(email);
-  const qy = query(ref, orderBy('createdAt', 'desc'), limit(n));
-  const snap = await getDocs(qy);
-  return snap.docs.map(d => mapDoc(email, d));
-}
-
-/** 取得一段日期範圍（含頭含尾；依 date 升冪） */
-export async function getEntriesRangeForEmail(email = getSignedEmail(), from, to) {
-  if (!email) return [];
-  const ref = colRefForEmail(email);
-  const qy = query(
-    ref,
-    where('date', '>=', from),
-    where('date', '<=', to),
-    orderBy('date', 'asc')
-  );
-  const snap = await getDocs(qy);
-  return snap.docs.map(d => mapDoc(email, d));
+// (其他不需要的 Create 函式可移除，因為已經移到 expense.js 處理了)
+export async function addEntryForEmail() {
+  throw new Error("請改用 ExpensePage 的新版寫入邏輯");
 }
