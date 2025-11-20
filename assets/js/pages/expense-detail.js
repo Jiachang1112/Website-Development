@@ -1,9 +1,10 @@
 // assets/js/pages/expense-detail.js
 import { fmt } from '../app.js';
-import { getEntriesRangeForEmail } from '../entries.js';
-// import { currentUser } from '../app.js'; // 停用舊的
-import { auth, db } from '../firebase.js'; // ✅ 匯入 auth
+import { getEntriesRange } from '../entries.js'; // ✅ 改用 entries.js 的新函式
+import { auth, db } from '../firebase.js';
 import { doc, getDoc, deleteDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+// ✅ 匯入監聽器
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
 /* ========= 小工具 ========= */
 function pad2(n){ return String(n).padStart(2,'0'); }
@@ -57,6 +58,9 @@ const TX_CACHE = new Map();
   .spacer{flex:1}
   /* 整塊日期欄可點 */
   .tx-field.clickable{ cursor:pointer; }
+  /* ✅ 新增：帳本標籤樣式 */
+  .badge-ledger { font-size:12px; background:#4b5563; color:#fff; padding:2px 6px; border-radius:4px; margin-left:6px; vertical-align: text-bottom; }
+  
   @media (hover:none){ .tx-btn{min-height:44px;min-width:44px} }
   `;
   document.head.appendChild(css);
@@ -187,7 +191,10 @@ function ensureTxModal(){
       const email  = modal.dataset.email || '';
       const btnYes = $('#txd-yes'); btnYes.disabled = true;
       try{
-        await smartDelete({ id, uid, bookId, path, email });
+        // ✅ 若有 path，直接刪除
+        if (path) { await deleteDoc(doc(db, path)); }
+        else { await smartDelete({ id, uid, bookId, path, email }); }
+
         close();
         document.querySelector(`[data-path="${path}"]`)?.remove();
         if (typeof window.__expense_detail_scheduleRender === 'function') window.__expense_detail_scheduleRender(0);
@@ -214,7 +221,10 @@ function ensureTxModal(){
 
       const btn = $('#txd-save'); btn.disabled = true;
       try{
-        await smartUpdate({ id, path, email, data: formData });
+        // ✅ 若有 path，直接更新
+        if (path) { await updateDoc(doc(db, path), formData); }
+        else { await smartUpdate({ id, path, email, data: formData }); }
+
         setEdit(false);
         if (typeof window.__expense_detail_scheduleRender === 'function') window.__expense_detail_scheduleRender(0);
       }catch(err){
@@ -239,11 +249,11 @@ function openTxModal(row, uid){
   modal.dataset.id     = row.id || '';
   modal.dataset.uid    = uid || '';
   modal.dataset.bookId = row.bookId || '';
-  modal.dataset.path   = row.__path || row.path || '';
+  modal.dataset.path   = row.__path || row.path || ''; // ✅ 關鍵：寫入路徑
   modal.dataset.email  = row.__email || '';
 
-  // 標題
-  modal.querySelector('#txd-title').textContent = `明細｜${isIncome?'收入':'支出'}`;
+  // 標題 (顯示帳本名稱)
+  modal.querySelector('#txd-title').textContent = `明細｜${row.__ledgerName || (isIncome?'收入':'支出')}`;
 
   // 填初值
   modal.querySelector('#inp-date').value = row.date || '';
@@ -260,34 +270,18 @@ function openTxModal(row, uid){
   modal.style.display='block';
 }
 
-/* ========= Firestore：刪除與更新 ========= */
+/* ========= Firestore：刪除與更新 (舊邏輯保留) ========= */
 async function smartDelete({ id, uid='', bookId='', path='', email='' }) {
   if (path) { await deleteDoc(doc(db, path)); return true; }
   if (email && id) { await deleteDoc(doc(db, `expenses/${email}/entries/${id}`)); return true; }
-  const candidates = [
-    id ? `entries/${id}` : null,
-    id ? `expenses/${id}` : null,
-    id ? `incomes/${id}` : null
-  ].filter(Boolean);
-  for (const p of candidates) {
-    const ref = doc(db, p);
-    const s = await getDoc(ref).catch(()=>null);
-    if (s && s.exists()) { await deleteDoc(ref); return true; }
-  }
-  throw new Error('找不到可刪除的雲端文件（缺少 path 或 email+id）');
+  throw new Error('找不到可刪除的雲端文件');
 }
 
 async function smartUpdate({ id, path='', email='', data }) {
-  const payload = {
-    type: (data.type === 'income') ? 'income' : 'expense',
-    amount: Number(data.amount) || 0,
-    categoryId: data.categoryId || '其他',
-    note: data.note || '',
-    date: data.date
-  };
+  const payload = { ...data };
   if (path) { await updateDoc(doc(db, path), payload); return true; }
   if (email && id) { await updateDoc(doc(db, `expenses/${email}/entries/${id}`), payload); return true; }
-  throw new Error('找不到可更新的雲端文件（缺少 path 或 email+id）');
+  throw new Error('找不到可更新的雲端文件');
 }
 
 /* ========= 主畫面 ========= */
@@ -382,14 +376,9 @@ export function ExpenseDetailPage(){
   dSel.onchange=()=>{updateCaption();scheduleRender(60);};
 
   async function render(jobId){
-    // const u=currentUser(); // 舊的
-    const u=auth.currentUser; // ✅ 修正：檢查真正的 Firebase Auth 狀態
-    
-    // if(!u?.email){ // 舊的
-    if(!u || !u.email){ // ✅ 修正：更嚴謹的檢查
+    const u=auth.currentUser; 
+    if(!u || !u.email){
       list.innerHTML=`<p class="small">請先登入帳號</p>`;
-      
-      // ✅ 新增：清除統計數字
       outEl.textContent=fmt.money(0);
       incEl.textContent=fmt.money(0);
       balEl.textContent=fmt.money(0);
@@ -402,7 +391,8 @@ export function ExpenseDetailPage(){
     else if(!d){const ym=`${y}-${m}`;from=firstDayOfMonth(ym);to=lastDayOfMonth(ym);}
     else{from=yyyyMmDd(y,m,d);to=from;}
 
-    const rows=await getEntriesRangeForEmail(u.email,from,to);
+    // ✅ 改用新的 getEntriesRange 函式 (entries.js 已更新為支援多帳本)
+    const rows=await getEntriesRange(from,to);
     if(jobId!==latestJob)return;
 
     const outs=rows.filter(r=>r.type==='expense');
@@ -419,10 +409,13 @@ export function ExpenseDetailPage(){
       const typeTxt=r.type==='income'?'收入':'支出';
       const amt=r.type==='income'?+r.amount:-Math.abs(+r.amount||0);
       const path=r.__path||r.path||'';
-      TX_CACHE.set(path,r);
+      TX_CACHE.set(r.id,r); // 用 ID 當 key 比較穩
+
       return `
-        <div class="order-row" data-path="${path}" style="cursor:pointer">
-          <div><b>${r.date||''}</b>
+        <div class="order-row" data-id="${r.id}" style="cursor:pointer">
+          <div>
+            <b>${r.date||''}</b> 
+            <span class="badge-ledger">${r.__ledgerName || '未命名'}</span>
             <span class="badge">${typeTxt}</span>
             <div class="small">${r.categoryId||''}｜${r.note||''}</div>
           </div>
@@ -432,13 +425,22 @@ export function ExpenseDetailPage(){
 
     list.querySelectorAll('.order-row').forEach(div=>{
       div.addEventListener('click',()=>{
-        const row=TX_CACHE.get(div.dataset.path)||{};
+        const row=TX_CACHE.get(div.dataset.id)||{};
         openTxModal(row,u.uid||'');
       });
     });
   }
 
+  // ✅ 使用 onAuthStateChanged 觸發渲染
+  onAuthStateChanged(auth, (user) => {
+    if(user) scheduleRender(120);
+    else {
+       list.innerHTML=`<p class="small">請先登入帳號</p>`;
+    }
+  });
+
   updateCaption();
-  scheduleRender(120);
+  // 初始不直接 render，改由 onAuthStateChanged 觸發，避免 null 錯誤
+  
   return el;
 }
