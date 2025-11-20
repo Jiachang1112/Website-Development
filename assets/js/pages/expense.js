@@ -1,198 +1,192 @@
 // assets/js/pages/expense.js
-// Firestore: /expenses/{email}/entries/{autoId}
-// 寫入欄位：type, date, amount, categoryId, item, note, createdAt, updatedAt
-
 import { auth, db } from '../firebase.js';
-import {
-  collection, addDoc, doc, setDoc, serverTimestamp
+import { 
+  collection, addDoc, getDocs, query, orderBy, serverTimestamp, where, doc
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
-import { onAuthStateChanged }
-  from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
+
+// 硬編碼的類別（暫時保留，未來可改為讀取帳本設定的類別）
+const categories = [
+  '飲食', '交通', '娛樂', '購物', 
+  '居住', '醫療', '教育', '其他'
+];
 
 export function ExpensePage(){
   const el = document.createElement('div');
-  el.className = 'container card';
+  el.className = 'container';
+  
+  // 取得當前時間
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+  const timeStr = now.toTimeString().split(' ')[0].slice(0,5);
+
   el.innerHTML = `
-    <h3>支出記帳</h3>
+    <section class="card">
+      <h3>新增支出</h3>
+      
+      <div class="row">
+        <div class="col-6 p-1">
+          <small class="muted">日期</small>
+          <input type="date" id="txDate" class="form-control" value="${dateStr}">
+        </div>
+        <div class="col-6 p-1">
+          <small class="muted">時間</small>
+          <input type="time" id="txTime" class="form-control" value="${timeStr}">
+        </div>
+      </div>
 
-    <!-- ✅ 全部同一行排列 -->
-    <div id="formRow" style="
-      display:flex;
-      gap:4px;
-      align-items:center;
-      overflow-x:auto;
-      padding-bottom:4px;
-      scrollbar-width:thin;
-      margin-bottom:8px;
-    ">
-      <select id="type" class="form-control" style="min-width:80px;flex:0 0 auto;">
-        <option value="expense">支出</option>
-        <option value="income">收入</option>
-      </select>
+      <div class="p-1">
+        <small class="muted">帳本</small>
+        <select id="txLedger" class="form-control">
+          <option value="" disabled>載入中...</option>
+        </select>
+      </div>
 
-      <select id="year"  class="form-control" style="min-width:90px;flex:0 0 auto;"></select>
-      <select id="month" class="form-control" style="min-width:70px;flex:0 0 auto;"></select>
-      <select id="day"   class="form-control" style="min-width:70px;flex:0 0 auto;"></select>
+      <div class="p-1">
+        <small class="muted">金額</small>
+        <input type="number" id="txAmount" class="form-control" inputmode="decimal" placeholder="0">
+      </div>
 
-      <!-- ⚡️調整寬度：金額更小、分類略縮、品項放大 -->
-      <input id="amt"  type="text" inputmode="decimal" placeholder="金額"
-             class="form-control" style="min-width:10px;flex:1 1 auto;"/>
-      <input id="cat"  placeholder="分類" class="form-control"
-             style="min-width:25px;flex:0 0 auto;"/>
-      <input id="item" placeholder="品項" class="form-control"
-             style="min-width:90px;flex:1 1 auto;"/>
+      <div class="p-1">
+        <small class="muted">類別</small>
+        <div id="tagContainer" class="tags-input-container">
+          </div>
+        <input type="hidden" id="txCategory">
+      </div>
 
-      <input id="note" placeholder="備註" class="form-control"
-             style="min-width:140px;flex:1 1 auto;"/>
-
-      <button class="primary btn btn-primary" id="add" style="min-width:80px;flex:0 0 auto;">新增</button>
-    </div>
-
-    <div class="small text-muted">快速鍵：按 Enter 或 Ctrl+Enter 可直接新增。</div>
+      <div class="row" style="margin-top:20px">
+        <button id="btnSubmit" class="btn btn-primary" style="width:100%; padding:12px; font-size:16px; font-weight:bold;">
+          儲存支出
+        </button>
+      </div>
+    </section>
   `;
 
-  // === 節點 ===
-  const typeSel  = el.querySelector('#type');
-  const yearSel  = el.querySelector('#year');
-  const monthSel = el.querySelector('#month');
-  const daySel   = el.querySelector('#day');
-  const amtInput  = el.querySelector('#amt');
-  const catInput  = el.querySelector('#cat');
-  const itemInput = el.querySelector('#item');
-  const noteInput = el.querySelector('#note');
-  const addBtn    = el.querySelector('#add');
-
-  // === 日期選單 ===
-  const pad2 = n => String(n).padStart(2,'0');
-  const daysInMonth = (y,m) => new Date(y,m,0).getDate();
-  function fillYears(){
-    const frag=document.createDocumentFragment();
-    for(let y=2020;y<=3000;y++){
-      const o=document.createElement('option');
-      o.value=o.textContent=String(y);
-      frag.appendChild(o);
-    }
-    yearSel.appendChild(frag);
-  }
-  function fillMonths(){
-    const frag=document.createDocumentFragment();
-    for(let m=1;m<=12;m++){
-      const o=document.createElement('option');
-      o.value=o.textContent=pad2(m);
-      frag.appendChild(o);
-    }
-    monthSel.appendChild(frag);
-  }
-  function fillDays(y,m){
-    daySel.innerHTML='';
-    const frag=document.createDocumentFragment();
-    const dmax=daysInMonth(+y,+m);
-    for(let d=1;d<=dmax;d++){
-      const o=document.createElement('option');
-      o.value=o.textContent=pad2(d);
-      frag.appendChild(o);
-    }
-    daySel.appendChild(frag);
-  }
-  (function initDate(){
-    const now=new Date();
-    fillYears(); fillMonths();
-    yearSel.value=String(now.getFullYear());
-    monthSel.value=pad2(now.getMonth()+1);
-    fillDays(yearSel.value,monthSel.value);
-    daySel.value=pad2(now.getDate());
-  })();
-  function syncDays(){
-    const prev=+daySel.value||1;
-    fillDays(yearSel.value,monthSel.value);
-    const max=+daySel.options[daySel.options.length-1].value;
-    daySel.value=pad2(Math.min(prev,max));
-  }
-  yearSel.addEventListener('change',syncDays);
-  monthSel.addEventListener('change',syncDays);
-
-  // === 金額輸入過濾 ===
-  amtInput.addEventListener('input',()=>{
-    amtInput.value=amtInput.value.replace(/[^\d.,\-]/g,'');
+  // 1. 初始化類別按鈕
+  const tagContainer = el.querySelector('#tagContainer');
+  const catInput = el.querySelector('#txCategory');
+  
+  categories.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'tag-btn';
+    btn.textContent = cat;
+    btn.onclick = () => {
+      // 移除其他 active
+      el.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
+      // 自己 active
+      btn.classList.add('active');
+      catInput.value = cat;
+    };
+    tagContainer.appendChild(btn);
   });
-  const parseAmount=v=>{
-    if(!v) return NaN;
-    let s=String(v).trim().replace(/\s/g,'').replace(/,/g,'.').replace(/[^\d.\-]/g,'');
-    const i=s.indexOf('.');
-    if(i!==-1) s=s.slice(0,i+1)+s.slice(i+1).replace(/\./g,'');
-    return parseFloat(s);
-  };
+  // 預設選第一個
+  if(tagContainer.firstChild) tagContainer.firstChild.click();
 
-  // === 取得登入 email ===
-  const getActiveEmailNow=()=>{
-    if(auth?.currentUser?.email) return auth.currentUser.email;
-    try{
-      const s=JSON.parse(localStorage.getItem('session_user')||'null');
-      return s?.email||null;
-    }catch{return null;}
-  };
-  const waitEmail=(ms=2000)=>new Promise(res=>{
-    const now=getActiveEmailNow(); if(now) return res(now);
-    let done=false;
-    const off=onAuthStateChanged(auth,u=>{
-      if(done) return;
-      if(u?.email){ done=true; off(); res(u.email);}
-    });
-    setTimeout(()=>{ if(done)return; done=true; try{off();}catch{} res(getActiveEmailNow()); },ms);
+
+  // 2. 載入使用者的帳本列表
+  const ledgerSelect = el.querySelector('#txLedger');
+  
+  async function loadUserLedgers(user) {
+    if(!user) return;
+    
+    try {
+      const q = query(
+        collection(db, 'users', user.uid, 'ledgers'), 
+        orderBy('createdAt', 'asc')
+      );
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        // 如果沒帳本，建立一個預設的 (防呆)
+        ledgerSelect.innerHTML = '<option value="default" selected>預設帳本</option>';
+        return;
+      }
+
+      ledgerSelect.innerHTML = ''; // 清空 Loading
+      let defaultLedgerId = null;
+
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const opt = document.createElement('option');
+        opt.value = docSnap.id;
+        opt.textContent = data.name || '(未命名帳本)';
+        
+        // 檢查是否為預設
+        if (data.isDefault) defaultLedgerId = docSnap.id;
+        
+        ledgerSelect.appendChild(opt);
+      });
+
+      // 如果有找到預設帳本，就選它；否則選第一個
+      if (defaultLedgerId) {
+        ledgerSelect.value = defaultLedgerId;
+      } else if (ledgerSelect.options.length > 0) {
+        ledgerSelect.selectedIndex = 0;
+      }
+
+    } catch (err) {
+      console.error("載入帳本失敗", err);
+      ledgerSelect.innerHTML = '<option disabled>無法載入帳本</option>';
+    }
+  }
+
+  // 監聽登入狀態來載入帳本
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      loadUserLedgers(user);
+    } else {
+      ledgerSelect.innerHTML = '<option disabled>請先登入</option>';
+    }
   });
 
-  // === Firestore 寫入 ===
-  const SUBCOL='entries';
-  async function saveEntry(email,rec){
-    await setDoc(doc(db,'expenses',email),{ email,updatedAt:serverTimestamp() },{merge:true});
-    await addDoc(collection(db,'expenses',email,SUBCOL),{
-      ...rec,
-      createdAt:serverTimestamp(),
-      updatedAt:serverTimestamp()
-    });
-  }
 
-  // === 新增 ===
-  async function addRecord(){
-    const email=await waitEmail(2000);
-    if(!email){ alert('請先登入帳號再記帳'); return; }
-
-    const date=`${yearSel.value}-${monthSel.value}-${daySel.value}`;
-    const amount=parseAmount(amtInput.value);
-    if(!Number.isFinite(amount)||amount<=0){ alert('金額需為正數'); return; }
-
-    const categoryId=(catInput.value||'').trim()||'其他';
-    const item=(itemInput.value||'').trim()||'未命名品項';
-    const note=(noteInput.value||'').trim()||'';
-    const type=typeSel.value;
-
-    try{
-      await saveEntry(email,{ type,date,amount,categoryId,item,note });
-      alert(`✅ 已加入${type==='income'?'收入':'支出'}：${item}`);
-      amtInput.value=''; catInput.value=''; itemInput.value=''; noteInput.value='';
-      amtInput.focus();
-    }catch(err){
-      console.error(err);
-      alert('❌ 寫入失敗：'+(err?.message||err));
+  // 3. 儲存按鈕邏輯
+  const btnSubmit = el.querySelector('#btnSubmit');
+  btnSubmit.addEventListener('click', async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      alert('請先登入');
+      return;
     }
-  }
-  addBtn.addEventListener('click', addRecord);
 
-  // === Enter 快速送出 ===
-  const inputsForEnter = [amtInput, catInput, itemInput, noteInput, yearSel, monthSel, daySel, typeSel];
-  function handleEnterToAdd(e){
-    if (e.isComposing) return;  // 輸入法組字中不觸發
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    addRecord();
-  }
-  inputsForEnter.forEach(inp => inp.addEventListener('keydown', handleEnterToAdd));
+    const date = el.querySelector('#txDate').value;
+    const time = el.querySelector('#txTime').value; // 沒用到但可擴充
+    const ledgerId = ledgerSelect.value;
+    const amount = el.querySelector('#txAmount').value;
+    const category = catInput.value;
 
-  // Ctrl+Enter 全域快速送出
-  document.addEventListener('keydown', e=>{
-    if (e.ctrlKey && e.key === 'Enter'){
-      e.preventDefault();
-      addRecord();
+    if (!ledgerId) { alert('請選擇帳本'); return; }
+    if (!amount || Number(amount) <= 0) { alert('請輸入有效金額'); return; }
+    if (!category) { alert('請選擇類別'); return; }
+
+    // 鎖定按鈕避免重複發送
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = '儲存中...';
+
+    try {
+      // ✅ 寫入到新結構：users/{uid}/ledgers/{ledgerId}/entries
+      const entriesRef = collection(db, 'users', user.uid, 'ledgers', ledgerId, 'entries');
+      
+      await addDoc(entriesRef, {
+        type: 'expense',
+        date: date, // YYYY-MM-DD
+        amount: Number(amount),
+        categoryId: category,
+        // note: '', // 原本的品項欄位已移除，這裡留空或移除
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      alert('支出已儲存！');
+      
+      // 清空金額，保留其他選項方便連續記帳
+      el.querySelector('#txAmount').value = '';
+      
+    } catch (e) {
+      console.error('寫入失敗', e);
+      alert('儲存失敗：' + e.message);
+    } finally {
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = '儲存支出';
     }
   });
 
