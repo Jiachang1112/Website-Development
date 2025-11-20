@@ -18,7 +18,7 @@
        ========================================= */
     :root {
       --sidebar-width: 260px;
-      --header-height: 60px;
+      --header-height: 60px; /* 僅用於手機版頂部 */
       --panel-dark: #17202a;
       --border-dark: #2b313a;
     }
@@ -27,7 +27,7 @@
       margin: 0;
       background: #0f1318;
       font-family: system-ui, -apple-system, sans-serif;
-      display: flex;
+      display: flex; /* 讓 body 變成左右佈局 */
       min-height: 100vh;
     }
 
@@ -43,99 +43,222 @@
       left: 0; top: 0; z-index: 50;
       display: flex; flex-direction: column;
       transition: transform 0.3s ease;
-      overflow-y: auto;
+      overflow-y: auto; /* 內容過多時可捲動 */
     }
+
+    /* 側邊欄 Logo 區 */
     .sidebar-header {
-      padding: 20px; display: flex; align-items: center;
+      padding: 20px;
+      display: flex;
+      align-items: center;
       border-bottom: 1px solid var(--border-dark);
     }
     .brand {
-      color: #fff; text-decoration: none; font-weight: 800; font-size: 22px;
-      display: flex; align-items: center; gap: 12px;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-    .brand img { height: 32px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); }
-    .sidebar-nav { padding: 20px 12px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
-    
+    .brand img {
+      height: 32px;
+      filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
+    }
+
+    /* 側邊欄導覽區 */
+    .sidebar-nav {
+      padding: 20px 12px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* 側邊欄按鈕樣式 */
     .nav-btn {
-      background: transparent; border: none; color: #94a3b8;
-      padding: 12px 16px; border-radius: 12px; cursor: pointer;
-      text-align: left; font-size: 15px; font-weight: 500;
-      display: flex; align-items: center; gap: 12px;
-      transition: all 0.2s; text-decoration: none; width: 100%;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 12px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      text-align: left;
+      font-size: 15px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.2s;
+      text-decoration: none;
+      width: 100%;
     }
-    .nav-btn i { font-size: 18px; color: #64748b; transition: color 0.2s; }
-    .nav-btn:hover { background: #1e293b; color: #fff; }
-    .nav-btn:hover i { color: #60a5fa; }
+    .nav-btn i {
+      font-size: 18px;
+      color: #64748b;
+      transition: color 0.2s;
+    }
+    .nav-btn:hover {
+      background: #1e293b;
+      color: #fff;
+    }
+    .nav-btn:hover i {
+      color: #60a5fa; /* 懸停時 Icon 變藍 */
+    }
     
+    /* 特別樣式：Premium 按鈕 */
     .btn-premium-sidebar {
       background: linear-gradient(135deg, #2563eb, #4f46e5);
-      color: #fff !important; margin-bottom: 12px;
+      color: #fff !important;
+      margin-bottom: 12px;
       box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-      justify-content: center; font-weight: 700;
+      justify-content: center;
+      font-weight: 700;
     }
-    .btn-premium-sidebar:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4); }
-    .btn-premium-sidebar i { color: #fff !important; }
+    .btn-premium-sidebar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+    }
+    .btn-premium-sidebar i { color: #fff !important; } /* 修正：強制白色圖示 */
 
-    .btn-stock { border: 1px solid #334155; }
-    .nav-divider { height: 1px; background: var(--border-dark); margin: 8px 0; }
+    /* 特別樣式：股票按鈕 */
+    .btn-stock {
+      border: 1px solid #334155;
+    }
+
+    /* 分隔線 */
+    .nav-divider {
+      height: 1px;
+      background: var(--border-dark);
+      margin: 8px 0;
+    }
     .nav-label {
-      font-size: 12px; color: #475569; font-weight: 700;
-      text-transform: uppercase; padding: 12px 16px 4px; letter-spacing: 0.5px;
+      font-size: 12px;
+      color: #475569;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 12px 16px 4px;
+      letter-spacing: 0.5px;
     }
 
     /* =========================================
        3. 主內容區 (Main Content)
        ========================================= */
     .main-content {
-      margin-left: var(--sidebar-width);
+      margin-left: var(--sidebar-width); /* 留出側邊欄空間 */
       width: calc(100% - var(--sidebar-width));
-      min-height: 100vh; position: relative;
+      min-height: 100vh;
+      position: relative;
     }
+
+    /* 背景漸層 (現在只作用在 main-content) */
     .gradient-wrap {
-      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 20%, #7e22ce 40%, #db2777 60%, #f97316 80%, #fde047 100%);
-      background-size: 300% 300%; animation: gradientShift 10s ease-in-out infinite;
-      min-height: 100vh; padding: 40px 20px 100px; box-sizing: border-box;
+      background: linear-gradient(135deg,
+        #1e3a8a 0%, #2563eb 20%, #7e22ce 40%, #db2777 60%, #f97316 80%, #fde047 100%
+      );
+      background-size: 300% 300%;
+      animation: gradientShift 10s ease-in-out infinite;
+      min-height: 100vh; /* 滿版 */
+      padding: 40px 20px 100px; /* 下方留空給 FAB */
+      box-sizing: border-box;
     }
-    @keyframes gradientShift{ 0%{ background-position: 0% 50%; } 50%{ background-position: 100% 50%; } 100%{ background-position: 0% 50%; } }
+    @keyframes gradientShift{
+      0%{ background-position: 0% 50%; } 50%{ background-position: 100% 50%; } 100%{ background-position: 0% 50%; }
+    }
 
     /* =========================================
        4. 手機版適配 (Mobile)
        ========================================= */
     .mobile-header {
-      display: none; position: fixed; top: 0; left: 0; right: 0; height: var(--header-height);
-      background: rgba(23, 32, 42, 0.95); backdrop-filter: blur(10px);
-      border-bottom: 1px solid var(--border-dark); z-index: 60;
-      align-items: center; justify-content: space-between; padding: 0 16px;
+      display: none; /* 桌機隱藏 */
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-height);
+      background: rgba(23, 32, 42, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-dark);
+      z-index: 60;
+      align-items: center;
+      justify-content: flex-end; /* 修改：漢堡靠右 */
+      padding: 0 16px;
     }
-    .hamburger { width: 40px; height: 40px; background: transparent; border: none; color: #fff; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 40; backdrop-filter: blur(3px); }
+    
+    /* 修改：手機版隱藏 SuperTool 文字 */
+    .mobile-header .brand { display: none; }
+
+    .hamburger {
+      width: 40px; height: 40px;
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* 遮罩 (手機版打開側邊欄時顯示) */
+    .sidebar-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 40;
+      backdrop-filter: blur(3px);
+    }
 
     @media (max-width: 768px) {
       .mobile-header { display: flex; }
-      .sidebar { transform: translateX(-100%); width: 280px; box-shadow: 5px 0 20px rgba(0,0,0,0.5); }
+      
+      /* 手機版側邊欄預設隱藏 (往左推) */
+      .sidebar {
+        transform: translateX(-100%);
+        width: 280px; /* 手機版稍寬 */
+        box-shadow: 5px 0 20px rgba(0,0,0,0.5);
+      }
+      /* 打開狀態 */
       .sidebar.open { transform: translateX(0); }
+      
+      /* 顯示遮罩 */
       .sidebar-overlay.show { display: block; }
-      .main-content { margin-left: 0; width: 100%; padding-top: var(--header-height); }
-      .gradient-wrap { min-height: calc(100vh - var(--header-height)); }
+
+      /* 主內容不留邊距，因為側邊欄是浮動的 */
+      .main-content {
+        margin-left: 0;
+        width: 100%;
+        padding-top: var(--header-height); /* 留出頂部 Header 空間 */
+      }
+      .gradient-wrap {
+        min-height: calc(100vh - var(--header-height));
+      }
     }
 
     /* =========================================
-       5. 卡片與元件樣式
+       5. 卡片與元件樣式 (保留您原本的設計)
        ========================================= */
     .dashboard-card, .gradient-wrap .card.hero, .gradient-wrap .hero-card, .gradient-wrap #hero,
     .gradient-wrap #app > .card:first-of-type, .gradient-wrap main > .card:first-of-type{
       background: linear-gradient(145deg, #0f172a, #1e293b) !important;
-      border: 2px solid transparent; border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1;
+      border: 2px solid transparent;
+      border-image: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6) 1;
       border-radius: 14px; padding: 22px; color: #fff;
       box-shadow: 0 4px 20px rgba(0,0,0,0.45); transition: all .3s ease;
     }
-    .dashboard-card:hover, .gradient-wrap .card.hero:hover{ transform: translateY(-4px); box-shadow: 0 10px 28px rgba(0,0,0,0.55); }
+    .dashboard-card:hover, .gradient-wrap .card.hero:hover{
+      transform: translateY(-4px); box-shadow: 0 10px 28px rgba(0,0,0,0.55);
+    }
     .dashboard-card h1, .gradient-wrap .card.hero h1{
-      background: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background: linear-gradient(90deg, #60a5fa, #a855f7, #f472b6);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       font-size: 1.8rem; font-weight: 800; margin: 0 0 .4rem 0;
     }
-    .gradient-wrap .card{ box-shadow: 0 3px 12px rgba(0,0,0,0.35); transition: transform .25s ease, box-shadow .25s ease; border-radius: 14px; }
-    .gradient-wrap .card:hover{ transform: translateY(-3px); box-shadow: 0 8px 22px rgba(0,0,0,0.45); }
+    .gradient-wrap .card{
+      box-shadow: 0 3px 12px rgba(0,0,0,0.35);
+      transition: transform .25s ease, box-shadow .25s ease;
+      border-radius: 14px;
+    }
+    .gradient-wrap .card:hover{
+      transform: translateY(-3px); box-shadow: 0 8px 22px rgba(0,0,0,0.45);
+    }
 
     /* Modal 樣式 */
     .modal-mask{ position: fixed; inset: 0; background: rgba(0,0,0,.65); display: none; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(4px); }
@@ -144,65 +267,20 @@
     .modal-hd{ padding:16px 20px; background:#f5f7fb; font-weight:700; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; }
     .modal-bd{ padding:20px; background:#fff; }
     .modal-ft{ padding:14px 20px; background:#f5f7fb; border-top:1px solid #e5e7eb; display:flex; gap:10px; justify-content:flex-end; }
+    
+    /* 表單元件 */
     .form-ctl{ width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; margin-top:4px; }
     .btn-primary{ background:#2563eb; color:#fff; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; }
     .btn-line{ background:#fff; border:1px solid #cbd5e1; padding:8px 16px; border-radius:8px; cursor:pointer; }
 
-    /* ===== Pricing Grid (方案表) ===== */
-    /* ✅ (優化) 改用 Flexbox 讓卡片高度一致且並排 */
-    #premiumModal .modal-card { width: min(1000px, 96vw); }
-    .pricing-grid {
-      display: flex; flex-wrap: wrap; gap: 16px; padding: 10px 0;
-      justify-content: center;
-    }
-    .pricing-card {
-      flex: 1; min-width: 260px; max-width: 320px;
-      background: #fff; border-radius: 12px; padding: 24px;
-      border: 1px solid #e2e8f0; text-align: center;
-      display: flex; flex-direction: column;
-      transition: transform .2s;
-    }
-    .pricing-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 2; }
-    .pricing-card.featured {
-      border: 2px solid #3b82f6; background: linear-gradient(to bottom right, #eff6ff, #fff);
-      transform: scale(1.02); z-index: 1;
-      box-shadow: 0 8px 20px rgba(59, 130, 246, 0.15);
-    }
-    .badge-feature {
-      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
-      background: #2563eb; color: #fff; font-size: 12px; padding: 4px 12px; border-radius: 99px; font-weight: bold;
-    }
-    .p-title { font-size: 1.2rem; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
-    .p-price { font-size: 2rem; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
-    .p-price small { font-size: 1rem; color: #64748b; font-weight: 400; }
-    .p-desc { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; min-height: 40px; } /* 確保描述高度一致 */
-    
-    /* ✅ (優化) 功能清單 */
-    .p-features {
-      list-style: none; padding: 0; margin: 0 0 24px 0;
-      text-align: left; font-size: 0.95rem; color: #475569;
-      flex: 1; /* 讓按鈕推到底部 */
-    }
-    .p-features li { margin-bottom: 10px; padding-left: 24px; position: relative; }
-    /* 勾勾 */
-    .p-features li.ok::before {
-      content: "✓"; color: #10b981; position: absolute; left: 0; font-weight: bold; font-size: 1.1em;
-    }
-    /* 叉叉 */
-    .p-features li.no { color: #94a3b8; text-decoration: line-through; }
-    .p-features li.no::before {
-      content: "✕"; color: #cbd5e1; position: absolute; left: 2px; font-weight: bold; font-size: 0.9em;
-    }
-    
-    .btn-pricing {
-      display: block; width: 100%; padding: 12px; border-radius: 8px;
-      font-weight: 600; cursor: pointer; border: none; margin-top: auto;
-    }
-    .btn-pricing.primary { background: linear-gradient(135deg,#2563eb,#60a5fa); color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
-    .btn-pricing.primary:hover { box-shadow: 0 6px 16px rgba(37,99,235,0.4); filter: brightness(1.1); }
+    /* Pricing Grid */
+    .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top:10px; }
+    .pricing-card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; text-align: center; }
+    .pricing-card.featured { border: 2px solid #3b82f6; background: linear-gradient(to bottom right, #eff6ff, #fff); position: relative; }
+    .badge-feature { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #2563eb; color: #fff; font-size: 12px; padding: 4px 12px; border-radius: 99px; font-weight: bold; }
+    .btn-pricing { display: block; width: 100%; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; margin-top:16px; }
+    .btn-pricing.primary { background: linear-gradient(135deg,#2563eb,#60a5fa); color: #fff; }
     .btn-pricing.ghost { background: #e2e8f0; color: #475569; }
-    .btn-pricing.ghost:hover { background: #cbd5e1; }
-
 
     /* Checkout Modal */
     #checkoutModal .modal-card { width: min(900px, 94vw); background: #1e293b; border: 1px solid #334155; color: #fff; }
@@ -213,7 +291,7 @@
     .ck-input { background:#0f172a; border:1px solid #475569; color:#fff; width:100%; padding:10px; border-radius:8px; }
     .btn-pay { width:100%; background: linear-gradient(90deg, #2563eb, #4f46e5); border:none; padding:12px; border-radius:8px; color:#fff; font-weight:700; cursor:pointer; margin-top:20px; }
 
-    /* 彩色卡片 */
+    /* 彩色卡片樣式 */
     .st-colored-card{ border-radius: 16px; padding: 18px; box-shadow: 0 6px 18px rgba(0,0,0,.35); color:#fff; transition: transform .2s; }
     .st-colored-card:hover{ transform: translateY(-4px); }
     .st-g1{ background: linear-gradient(135deg,#2563eb,#60a5fa); }
@@ -229,9 +307,6 @@
 <body>
 
   <header class="mobile-header">
-    <div class="brand">
-      <img src="assets/img/supertool-logo.png" alt="Logo">
-    </div>
     <button class="hamburger" id="mobileMenuBtn">
       <i class="bi bi-list"></i>
     </button>
@@ -243,6 +318,7 @@
     <div class="sidebar-header">
       <a href="#dashboard" class="brand">
         <img src="assets/img/supertool-logo.png" alt="SuperTool">
+        SuperTool
       </a>
     </div>
 
@@ -276,8 +352,7 @@
       <button class="nav-btn" data-route="settings"><i class="bi bi-gear-fill"></i> 設定</button>
       <button class="nav-btn" data-route="backup"><i class="bi bi-cloud-download-fill"></i> 備份與還原</button>
       
-      <div style="flex:1"></div> 
-      <button class="nav-btn" id="btnContact"><i class="bi bi-envelope-fill"></i> 聯絡我們</button>
+      <div style="flex:1"></div> <button class="nav-btn" id="btnContact"><i class="bi bi-envelope-fill"></i> 聯絡我們</button>
     </nav>
   </aside>
 
@@ -318,55 +393,21 @@
         <button onclick="closePremiumModal()" style="border:none;background:none;cursor:pointer;font-size:1.2rem">✕</button>
       </div>
       <div class="modal-bd" style="background:#f8fafc;">
-        <div style="text-align:center; margin-bottom:20px;">
-          <h2 style="margin:0 0 8px 0; color:#1e293b;">選擇您的升級方案</h2>
-          <p style="color:#64748b; margin:0;">解鎖完整功能，讓財務管理更輕鬆。</p>
-        </div>
-        
         <div class="pricing-grid">
           <div class="pricing-card">
             <div class="p-title">免費版</div>
             <div class="p-price">$0</div>
-            <div class="p-desc">適合個人簡單記帳</div>
-            <ul class="p-features">
-              <li class="ok">基本支出/收入記帳</li>
-              <li class="ok">雲端資料同步</li>
-              <li class="ok">簡易圖表分析</li>
-              <li class="no">AI 智慧拍照記帳</li>
-              <li class="no">自訂多帳本功能</li>
-              <li class="no">股票資產追蹤</li>
-            </ul>
             <button class="btn-pricing ghost" onclick="closePremiumModal()">目前方案</button>
           </div>
-          
           <div class="pricing-card featured">
             <div class="badge-feature">最熱門</div>
             <div class="p-title">專業版 PRO</div>
             <div class="p-price">$90<small>/月</small></div>
-            <div class="p-desc">進階分析與自動化</div>
-            <ul class="p-features">
-              <li class="ok"><b>AI 拍照自動記帳 (無限)</b></li>
-              <li class="ok"><b>自訂多帳本與類別</b></li>
-              <li class="ok"><b>股票資產即時追蹤</b></li>
-              <li class="ok">匯出 Excel 報表</li>
-              <li class="ok">移除所有廣告</li>
-              <li class="no">團隊協作權限</li>
-            </ul>
             <button class="btn-pricing primary" onclick="openCheckoutModal('pro')">立即升級</button>
           </div>
-          
           <div class="pricing-card">
             <div class="p-title">企業版</div>
             <div class="p-price">$299<small>/月</small></div>
-            <div class="p-desc">適合家庭或團隊協作</div>
-            <ul class="p-features">
-              <li class="ok">包含所有 PRO 功能</li>
-              <li class="ok"><b>5人 多人共用帳本</b></li>
-              <li class="ok">權限管理設定</li>
-              <li class="ok">專屬客服支援</li>
-              <li class="ok">優先功能體驗</li>
-              <li class="ok">API 串接支援</li>
-            </ul>
             <button class="btn-pricing ghost" onclick="openCheckoutModal('enterprise')">立即升級</button>
           </div>
         </div>
@@ -392,7 +433,7 @@
             <button type="submit" class="btn-pay">確認付款 <span id="ckBtnPrice">$90</span></button>
           </form>
         </div>
-        <div class="summary-side" id="checkoutSummary">
+        <div class="summary-side">
           <div class="plan-box">
             <div class="plan-name" id="ckPlanName">專業版 PRO</div>
             <div class="plan-price" id="ckPlanPrice">$90</div>
@@ -466,6 +507,7 @@ window.addEventListener('load', () => {
   /* ===== Modal 邏輯 ===== */
   function closeModal(id){ document.getElementById(id).classList.remove('show'); }
   document.getElementById('btnContact').addEventListener('click', ()=> {
+    // 手機版點擊選單項目後，通常希望關閉側邊欄
     if(window.innerWidth <= 768) closeMobileMenu();
     document.getElementById('contactModal').classList.add('show');
   });
@@ -522,7 +564,7 @@ window.addEventListener('load', () => {
     });
   };
 
-  /* ===== 手機版側邊欄控制 ===== */
+  /* ===== 手機版側邊欄控制 (Mobile Sidebar) ===== */
   const mobileMenuBtn = document.getElementById('mobileMenuBtn');
   const sidebar = document.getElementById('sidebar');
   const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -539,6 +581,7 @@ window.addEventListener('load', () => {
   mobileMenuBtn.addEventListener('click', openMobileMenu);
   sidebarOverlay.addEventListener('click', closeMobileMenu);
 
+  // 點擊任何側邊欄內的按鈕後，自動關閉側邊欄 (僅手機)
   sidebar.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (window.innerWidth <= 768) {
@@ -549,7 +592,7 @@ window.addEventListener('load', () => {
 
   window.addEventListener('resize', () => {
     if (window.innerWidth > 768) {
-      closeMobileMenu(); 
+      closeMobileMenu(); // 恢復桌機版狀態
     }
   });
 </script>
