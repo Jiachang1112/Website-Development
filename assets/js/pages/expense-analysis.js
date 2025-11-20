@@ -1,5 +1,9 @@
 // assets/js/pages/expense-analysis.js
-import { getAll } from '../db.js';
+// 修改：改用 getEntriesRange 讀取多帳本資料，並整合 auth 監聽
+
+import { getEntriesRange } from '../entries.js'; // ✅ 改用新函式
+import { auth } from '../firebase.js';
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
 // ✅ (美化) 繽紛的調色盤
 const COLOR_PALETTE = [
@@ -14,11 +18,10 @@ const COLOR_PALETTE = [
   '#84cc16', // lime-500
 ];
 
-// ✅ (新增) 拷貝日期小工具
+// ✅ 日期小工具
 function pad2(n) { return String(n).padStart(2, '0'); }
-function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
 
-// ✅ (新增) 填充年份下拉選單
+// ✅ 填充年份下拉選單
 function fillYears(ySel) {
   const frag = document.createDocumentFragment();
   for (let y = 2020; y <= 3000; y++) {
@@ -29,10 +32,10 @@ function fillYears(ySel) {
   ySel.appendChild(frag);
 }
 
-// ✅ (新增) 填充月份下拉選單 (含「不指定」)
+// ✅ 填充月份下拉選單 (含「不指定」)
 function fillMonths(mSel) {
   const o = document.createElement('option');
-  o.value = ''; o.textContent = '不指定月份';
+  o.value = ''; o.textContent = '不指定月份 (整年)';
   mSel.appendChild(o);
   
   const frag = document.createDocumentFragment();
@@ -44,15 +47,19 @@ function fillMonths(mSel) {
   mSel.appendChild(frag);
 }
 
-
 function drawDonut(canvas, rows) {
   const ctx = canvas.getContext('2d');
-  const W = canvas.width = canvas.clientWidth || 300;
+  // RWD: 讓 canvas 寬度跟隨容器
+  const W = canvas.width = canvas.parentElement.clientWidth || 300;
   const H = canvas.height = 300;
+  
   const cx = W / 2, cy = H / 2;
   const r = Math.min(W, H) / 2 - 10;
   const total = rows.reduce((s, d) => s + d.value, 0) || 1;
   let a = -Math.PI / 2;
+
+  // 清空畫布
+  ctx.clearRect(0, 0, W, H);
 
   rows.forEach((d, i) => {
     const ang = d.value / total * Math.PI * 2;
@@ -75,18 +82,19 @@ function drawDonut(canvas, rows) {
   ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = '#cbd5e1'; // ✅ (美化)
   ctx.textAlign = 'center';
-  ctx.font = '700 14px system-ui'; // ✅ (美化)
-  ctx.fillText('總額', cx, cy - 10);
+  ctx.textBaseline = 'middle';
+  ctx.font = '700 14px system-ui'; 
+  ctx.fillText('總額', cx, cy - 12);
   
   ctx.fillStyle = '#f1f5f9'; // ✅ (美化)
-  ctx.font = '700 22px system-ui'; // ✅ (美化)
-  ctx.fillText(total.toFixed(0), cx, cy + 14);
+  ctx.font = '700 22px system-ui'; 
+  ctx.fillText(total.toLocaleString(), cx, cy + 14);
 }
 
 function createLegend(rows) {
   return `<div class="legend" style="margin:10px 0;display:flex;flex-wrap:wrap;gap:8px;">
     ${rows.map((r, i) =>
-      `<span style="display:flex;align-items:center;gap:4px;">
+      `<span style="display:flex;align-items:center;gap:4px; font-size:0.9rem;">
         <span style="width:12px;height:12px;background:${COLOR_PALETTE[i % COLOR_PALETTE.length]};display:inline-block;border-radius:2px;"></span>
         ${r.label}
       </span>`
@@ -100,22 +108,26 @@ export function ExpenseAnalysisPage() {
   const now = new Date();
   const y0 = now.getFullYear(), m0 = now.getMonth() + 1;
 
-  // ✅ (修改) 更新 HTML，使用 <select> 替換 <input type="month">
   el.innerHTML = `
     <h3>記帳｜分析</h3>
-    <div class="row" style="flex-wrap: wrap; gap: 8px;">
-      <label class="small">日期</label>
-      <select id="y" class="form-control" style="min-width:110px"></select>
-      <select id="m" class="form-control" style="min-width:110px"></select>
+    <div class="row" style="flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+      <label class="small" style="display:flex;align-items:center;">日期</label>
+      <select id="y" class="form-control" style="min-width:100px"></select>
+      <select id="m" class="form-control" style="min-width:100px"></select>
       
-      <div style="flex-basis: 100%; height: 0; margin: 4px 0;"></div> <button class="ghost" id="tabOut" aria-pressed="true">支出</button>
-      <button class="ghost" id="tabIn" aria-pressed="false">收入</button>
+      <div style="flex-basis: 100%; height: 0; margin: 0;"></div> <div style="display:flex; gap:8px; width:100%;">
+        <button class="btn btn-primary" id="tabOut" style="flex:1;">支出</button>
+        <button class="btn btn-outline-light" id="tabIn" style="flex:1; border:1px solid #475569;">收入</button>
+      </div>
     </div>
-    <canvas id="chart" style="width:100%;height:260px"></canvas>
-    <div id="tbl"></div>
+    
+    <div style="position:relative; width:100%; max-width:400px; margin:0 auto;">
+       <canvas id="chart" style="width:100%;height:300px"></canvas>
+    </div>
+    
+    <div id="tbl" style="margin-top:20px;"></div>
   `;
 
-  // ✅ (修改) 抓取新的 UI 元素
   const ySel = el.querySelector('#y');
   const mSel = el.querySelector('#m');
   const chart = el.querySelector('#chart');
@@ -123,101 +135,129 @@ export function ExpenseAnalysisPage() {
   const tabOut = el.querySelector('#tabOut');
   const tabIn = el.querySelector('#tabIn');
 
-  let mode = 'out';
+  let mode = 'out'; // 'out' | 'in'
   
-  // ✅ (新增) 初始化日期下拉選單
+  // 初始化選單
   fillYears(ySel);
   fillMonths(mSel);
   ySel.value = String(y0);
   mSel.value = pad2(m0);
 
   async function render() {
-    const [e, i] = await Promise.all([getAll('expenses'), getAll('incomes')]);
-    
-    // ✅ (修改) 根據下拉選單的值來決定過濾邏輯
-    const yearVal = ySel.value;
-    const monthVal = mSel.value; // "不指定" 時會是 ""
-    let timeRangeText = '';
-
-    const list = (mode === 'out' ? e : i).filter(x => {
-      const date = x.date || '';
-      if (monthVal) {
-        // --- 月檢視 ---
-        // monthVal 是 "11"，yearVal 是 "2025"
-        timeRangeText = '本月';
-        return date.slice(0, 7) === `${yearVal}-${monthVal}`; // 比較 "2025-11"
-      } else {
-        // --- 年檢視 ---
-        // monthVal 是 "" (不指定月份)
-        timeRangeText = '本年';
-        return date.slice(0, 4) === yearVal; // 比較 "2025"
-      }
-    });
-
-    if (list.length === 0) {
-      chart.getContext('2d').clearRect(0, 0, chart.width, chart.height);
-      tbl.innerHTML = `<p style="text-align:center;margin-top:1em;">${timeRangeText}無${mode === 'out' ? '支出' : '收入'}資料</p>`;
+    const user = auth.currentUser;
+    if (!user) {
+      tbl.innerHTML = '<p class="small text-center muted">請先登入帳號</p>';
+      // 清空圖表
+      const ctx = chart.getContext('2d');
+      ctx.clearRect(0, 0, chart.width, chart.height);
       return;
     }
 
+    // ✅ 準備查詢參數
+    const yearVal = ySel.value;
+    const monthVal = mSel.value; 
+    let from, to;
+    let timeRangeText = '';
+
+    if (monthVal) {
+      // 月模式
+      timeRangeText = `${yearVal}年${monthVal}月`;
+      from = `${yearVal}-${monthVal}-01`;
+      // 計算該月最後一天
+      const lastDay = new Date(yearVal, Number(monthVal), 0).getDate();
+      to = `${yearVal}-${monthVal}-${pad2(lastDay)}`;
+    } else {
+      // 年模式
+      timeRangeText = `${yearVal}年`;
+      from = `${yearVal}-01-01`;
+      to = `${yearVal}-12-31`;
+    }
+
+    tbl.innerHTML = '<div class="small muted text-center">載入分析中...</div>';
+
+    // ✅ 呼叫新函式抓取所有帳本資料
+    const allEntries = await getEntriesRange(from, to);
+
+    // 過濾 支出/收入
+    const targetType = (mode === 'out' ? 'expense' : 'income');
+    const list = allEntries.filter(r => r.type === targetType);
+
+    if (list.length === 0) {
+      chart.getContext('2d').clearRect(0, 0, chart.width, chart.height);
+      tbl.innerHTML = `<p style="text-align:center;margin-top:2em;" class="muted">${timeRangeText} 無 ${mode === 'out' ? '支出' : '收入'} 資料</p>`;
+      return;
+    }
+
+    // 統計分類
     const by = {};
     list.forEach(x => {
-      const k = x.cat || '其他';
+      const k = x.categoryId || '其他';
       by[k] = (by[k] || 0) + (+x.amount || 0);
     });
 
     const rows = Object.entries(by)
-      .sort((a, b) => b[1] - a[1])
+      .sort((a, b) => b[1] - a[1]) // 金額大到小
       .map(([k, v]) => ({ label: k, value: v }));
 
     const total = rows.reduce((s, d) => s + d.value, 0);
 
+    // 繪圖
     drawDonut(chart, rows);
 
+    // 繪製表格
     tbl.innerHTML = `
       ${createLegend(rows)}
-      <table>
-        <thead>
+      <table style="width:100%; margin-top:10px; font-size:0.95rem;">
+        <thead style="border-bottom:1px solid #374151; color:#94a3b8;">
           <tr>
-            <th>分類</th>
-            <th style="text-align:right">金額</th>
-            <th style="text-align:right">占比</th>
+            <th style="text-align:left; padding:8px;">分類</th>
+            <th style="text-align:right; padding:8px;">金額</th>
+            <th style="text-align:right; padding:8px;">占比</th>
           </tr>
         </thead>
         <tbody>
           ${rows.map(r => `
-            <tr>
-              <td>${r.label}</td>
-              <td style="text-align:right">${r.value.toFixed(0)}</td>
-              <td style="text-align:right">${((r.value / total) * 100).toFixed(1)}%</td>
+            <tr style="border-bottom:1px solid #1f2937;">
+              <td style="padding:8px;">${r.label}</td>
+              <td style="text-align:right; padding:8px;">${Math.round(r.value).toLocaleString()}</td>
+              <td style="text-align:right; padding:8px;">${((r.value / total) * 100).toFixed(1)}%</td>
             </tr>`).join('')}
         </tbody>
-        <tfoot>
-          <tr><td>總額</td><td style="text-align:right">${total.toFixed(0)}</td><td></td></tr>
-          <tr><td>筆數</td><td style="text-align:right">${list.length}</td><td></td></tr>
+        <tfoot style="font-weight:bold; color:#fff; border-top:1px solid #475569;">
+          <tr>
+            <td style="padding:8px;">總計</td>
+            <td style="text-align:right; padding:8px;">${Math.round(total).toLocaleString()}</td>
+            <td></td>
+          </tr>
         </tfoot>
       </table>
     `;
   }
 
-  // ✅ (修改) 綁定新下拉選單的事件
+  // 事件監聽
   ySel.addEventListener('change', render);
   mSel.addEventListener('change', render);
 
-  // (舊有) 支出/收入 切換
   tabOut.addEventListener('click', () => {
     mode = 'out';
-    tabOut.setAttribute('aria-pressed', true);
-    tabIn.setAttribute('aria-pressed', false);
+    tabOut.className = 'btn btn-primary';
+    tabIn.className = 'btn btn-outline-light';
+    tabIn.style.border = '1px solid #475569';
     render();
   });
   tabIn.addEventListener('click', () => {
     mode = 'in';
-    tabOut.setAttribute('aria-pressed', false);
-    tabIn.setAttribute('aria-pressed', true);
+    tabIn.className = 'btn btn-primary';
+    tabIn.style.border = 'none';
+    tabOut.className = 'btn btn-outline-light';
     render();
   });
 
-  render();
+  // ✅ 確保登入後自動載入
+  onAuthStateChanged(auth, (user) => {
+    if(user) render();
+    else tbl.innerHTML = '<p class="small text-center muted">請先登入帳號</p>';
+  });
+
   return el;
 }
