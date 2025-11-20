@@ -1,9 +1,10 @@
-// assets/js/pages/camera-expense.js  (完整可替換版)
-// Firestore: expenses/{email}/entries/{autoId}
+// assets/js/pages/camera-expense.js
+// 修改：拍照記帳自動寫入「預設帳本」
 
 import { auth, db } from '../firebase.js';
-import { collection, addDoc, doc, setDoc, serverTimestamp }
-  from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
+import {
+  collection, addDoc, doc, setDoc, serverTimestamp, query, where, orderBy, getDocs
+} from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
 
 import { ocrImage } from '../ocr.js';
 import { OCR_DEFAULT_LANG, OCR_LANGS } from '../config.js';
@@ -31,7 +32,7 @@ function findVendor(lines){
   return '';
 }
 
-/* 更嚴格的台灣發票金額擷取（加上安全條件，避免整頁報錯） */
+/* 更嚴格的台灣發票金額擷取 */
 function parseTaiwanReceiptV3(raw){
   try{
     const text  = normalizeText(raw);
@@ -44,22 +45,12 @@ function parseTaiwanReceiptV3(raw){
       date = `${dm[1]}-${String(+dm[2]).padStart(2,'0')}-${String(+dm[3]).padStart(2,'0')}`;
     }
 
-    // 應忽略的行
-    const ignoreLine = (L) =>
-      /(末\d{3,4}|授權|授\d+|載具|會員|統編|電話|店號|序號|機|APP|卡|點|稅率|稅額|門市|地址|發票號碼|共通載具|機號|收銀)/.test(L);
-
+    const ignoreLine = (L) => /(末\d{3,4}|授權|授\d+|載具|會員|統編|電話|店號|序號|機|APP|卡|點|稅率|稅額|門市|地址|發票號碼|共通載具|機號|收銀)/.test(L);
     const keyRe = /(發\s*票\s*金\s*額|應\s*付\s*金\s*額|應\s*收\s*金\s*額|總\s*計|合\s*計|小\s*計)/;
     const numRe = /(\d[\d,，\.]{0,10})(?!\d)/g;
 
-    // 先統計每個數字出現次數
     const freq = new Map();
-    function incFreq(n){
-      if (!Number.isFinite(n)) return;
-      const k = String(n);
-      freq.set(k, (freq.get(k)||0)+1);
-    }
-
-    // 候選池：n -> {score,freq}
+    function incFreq(n){ if (Number.isFinite(n)) freq.set(String(n), (freq.get(String(n))||0)+1); }
     const bucket = new Map();
     function push(n, scoreDelta){
       if (!(Number.isFinite(n) && n>0 && n<100000)) return;
@@ -69,54 +60,38 @@ function parseTaiwanReceiptV3(raw){
       bucket.set(k,o);
     }
 
-    // 預掃頻率
-    lines.forEach(L=>{
-      for (const m of L.matchAll(numRe)){
-        const n = parseFloat(cleanNumberToken(m[1]));
-        if (Number.isFinite(n)) incFreq(n);
-      }
-    });
+    lines.forEach(L=>{ for (const m of L.matchAll(numRe)){ incFreq(parseFloat(cleanNumberToken(m[1]))); } });
 
-    // 計分
     for (let i=0;i<lines.length;i++){
       const L = lines[i];
       const next = lines[i+1] || '';
-
-      const isKey     = keyRe.test(L);
+      const isKey = keyRe.test(L);
       const isKeyNext = keyRe.test(next);
-
       const safeLine = !ignoreLine(L);
 
       for (const m of L.matchAll(numRe)){
         const raw = m[1];
-        const n   = parseFloat(cleanNumberToken(raw));
+        const n = parseFloat(cleanNumberToken(raw));
         if (!Number.isFinite(n)) continue;
 
-        const idx0   = m.index ?? 0;
+        const idx0 = m.index ?? 0;
         const around = L.slice(Math.max(0, idx0-2), idx0+raw.length+2);
-
-        // 與英文字母緊鄰（例：TK89405809 的 5809）→ 強降分
         if (/[A-Z][0-9]|[0-9][A-Z]/i.test(around)) { push(n, -8); continue; }
-
-        // 4 碼且沒千分位、又不在關鍵字行 → 視為店號/尾碼
         if (String(Math.trunc(n)).length === 4 && !/,|，/.test(raw) && !(isKey || isKeyNext)) continue;
 
         let s = 0;
-        if (safeLine) s += 1;                         // 基礎分
-        if (/,|，/.test(raw)) s += 3;                 // 有千分位
-        if (/\bTX\b/i.test(L)) s += 1;                // 列上有 TX
-        if (idx0 >= Math.max(0, L.length - 8)) s += 2;// 靠右
-        if (isKey) s += 6;                            // 關鍵字同行
-        if (isKeyNext) s += 3;                        // 關鍵字下一行
-
-        const f = freq.get(String(n)) || 0;           // 次數越多越像總額
+        if (safeLine) s += 1;
+        if (/,|，/.test(raw)) s += 3;
+        if (/\bTX\b/i.test(L)) s += 1;
+        if (idx0 >= Math.max(0, L.length - 8)) s += 2;
+        if (isKey) s += 6;
+        if (isKeyNext) s += 3;
+        const f = freq.get(String(n)) || 0;
         if (f >= 2) s += 4;
         if (f >= 3) s += 2;
-
         push(n, s);
       }
 
-      // 關鍵字下一行也掃
       if (!ignoreLine(next)){
         for (const m of next.matchAll(numRe)){
           const n = parseFloat(cleanNumberToken(m[1]));
@@ -125,31 +100,21 @@ function parseTaiwanReceiptV3(raw){
       }
     }
 
-    // 若無候選，再寬鬆掃一輪
     if (bucket.size === 0){
       for (const L of lines){
         if (ignoreLine(L)) continue;
-        for (const m of L.matchAll(numRe)){
-          const n = parseFloat(cleanNumberToken(m[1]));
-          push(n, 1);
-        }
+        for (const m of L.matchAll(numRe)){ push(parseFloat(cleanNumberToken(m[1])), 1); }
       }
     }
 
-    // 取分數最高 → 次數最多 → 數值較大
     let picked = 0, best = {score:-1, freq:-1};
     for (const [k, v] of bucket.entries()){
       const n = parseFloat(k);
-      if (
-        v.score > best.score ||
-        (v.score === best.score && v.freq > best.freq) ||
-        (v.score === best.score && v.freq === best.freq && n > picked)
-      ){
+      if (v.score > best.score || (v.score === best.score && v.freq > best.freq) || (v.score === best.score && v.freq === best.freq && n > picked)){
         picked = n; best = v;
       }
     }
 
-    // 品項 / 商家
     const itemLine = lines.find(s => /(餐飲|餐點|食品|飲料|便當|豆腐|咖啡|藥|麵|飯|湯)/.test(s));
     let item = itemLine ? itemLine.replace(/\s+TX\b/i,'').slice(0,40) : '';
     const vendor = findVendor(lines);
@@ -162,6 +127,23 @@ function parseTaiwanReceiptV3(raw){
     return { date:'', vendor:'', items:[], total:0 };
   }
 }
+
+/* ✅ 新增：取得預設帳本 Helper */
+async function getDefaultLedger(uid) {
+  try {
+    const q1 = query(collection(db, 'users', uid, 'ledgers'), where('isDefault', '==', true));
+    const snap1 = await getDocs(q1);
+    if (!snap1.empty) return { id: snap1.docs[0].id, name: snap1.docs[0].data().name };
+
+    const q2 = query(collection(db, 'users', uid, 'ledgers'), orderBy('createdAt', 'asc'));
+    const snap2 = await getDocs(q2);
+    if (!snap2.empty) return { id: snap2.docs[0].id, name: snap2.docs[0].data().name };
+  } catch (e) {
+    console.error("找帳本失敗", e);
+  }
+  return null;
+}
+
 
 /* ---------------------------------------
    頁面
@@ -190,7 +172,6 @@ export function CameraExpensePage(){
     </div>
   `;
 
-  // 元素
   const v   = el.querySelector('#v');
   const c   = el.querySelector('#c');
   const img = el.querySelector('#img');
@@ -205,7 +186,6 @@ export function CameraExpensePage(){
 
   let stream = null, dataUrl = null;
 
-  // 語系選單
   const langSel = el.querySelector('#lang');
   (OCR_LANGS || ['chi_tra','eng']).forEach(l=>{
     const o = document.createElement('option');
@@ -214,7 +194,6 @@ export function CameraExpensePage(){
   });
   langSel.value = OCR_DEFAULT_LANG || 'chi_tra';
 
-  // 開相機 / 擷取
   el.querySelector('#openCam').addEventListener('click', async ()=>{
     if (!stream){
       stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } }).catch(()=>null);
@@ -238,12 +217,11 @@ export function CameraExpensePage(){
     }
   });
 
-  // 金額輸入安全清理
   amt.addEventListener('input', () => {
     amt.value = amt.value.replace(/[^\d.,\-]/g, '');
   });
 
-  /* ===== 將 OCR 結果自動帶入（使用 V3 解析器） ===== */
+  /* ===== 將 OCR 結果自動帶入（使用 V3 解析器 + 自動寫入預設帳本） ===== */
   async function applyReceiptText(text){
     try{
       const { date: d, vendor, items, total } = parseTaiwanReceiptV3(text || '');
@@ -260,12 +238,19 @@ export function CameraExpensePage(){
       if (items.length > 1){
         const preview = items.slice(0,7).map(i=>`• ${i.name} ${i.amount}`).join('\n') + (items.length>7?'\n...':'');
         const ok = confirm(`偵測到 ${items.length} 筆品項：\n${preview}\n\n【確定】= 每筆分開記\n【取消】= 全部合併成一筆`);
+        
         if (ok){
+          // ✅ 取得用戶 & 預設帳本
           const user = auth.currentUser;
-          if (!user?.email){ alert('請先登入再儲存'); return; }
+          if (!user){ alert('請先登入再儲存'); return; }
+          
+          const ledger = await getDefaultLedger(user.uid);
+          if (!ledger) { alert('找不到預設帳本'); return; }
+
           const ymd = date.value || new Date().toISOString().slice(0,10);
+          
           for (const it of items){
-            await saveToFirestore(user.email, {
+            await saveToFirestore(user.uid, ledger.id, {
               date: ymd,
               item: it.name || vendor || '收據',
               categoryId: (/餐|飲|食品|便當|豆腐|咖啡|藥/.test(it.name||'')) ? '餐飲' : (cat.value || '其他'),
@@ -273,7 +258,7 @@ export function CameraExpensePage(){
               note: note.value || ''
             });
           }
-          alert('已分開記帳完成');
+          alert(`已分開記帳至 [${ledger.name}]`);
         }else{
           item.value = vendor || (items[0]?.name) || '收據';
           if (!cat.value && /餐|飲|食品|便當|豆腐|咖啡|藥/.test(item.value)) cat.value = '餐飲';
@@ -288,14 +273,12 @@ export function CameraExpensePage(){
     }
   }
 
-  // 本地 OCR
   el.querySelector('#runOCR').addEventListener('click', async ()=>{
     if (!dataUrl){ alert('請先拍照或上傳'); return; }
     const text = await ocrImage(dataUrl, langSel.value).catch(()=> '');
     await applyReceiptText(text);
   });
 
-  // 雲端 OCR
   el.querySelector('#runCloudOCR').addEventListener('click', async ()=>{
     if (!dataUrl){ alert('請先拍照或上傳'); return; }
     if (!cloudReady()){ alert('尚未設定 Supabase'); return; }
@@ -304,22 +287,19 @@ export function CameraExpensePage(){
     await applyReceiptText(text);
   });
 
-  // Firestore 寫入（統一寫到 expenses/{email}/entries）
-  async function saveToFirestore(userEmail, rec){
-    await setDoc(
-      doc(db, 'expenses', userEmail),
-      { email: userEmail, updatedAt: serverTimestamp() },
-      { merge: true }
-    );
-    await addDoc(collection(db, 'expenses', userEmail, 'entries'), {
+  // ✅ 修改：Firestore 寫入 (支援多帳本結構)
+  async function saveToFirestore(uid, ledgerId, rec){
+    await addDoc(collection(db, 'users', uid, 'ledgers', ledgerId, 'entries'), {
       amount: rec.amount,
       categoryId: rec.categoryId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       date: rec.date,
-      item: rec.item,
-      note: rec.note || '',
-      type: 'expense',      // 固定本頁為支出
+      // note: 改為 item + note 結合，或保留欄位
+      // 原本結構是 item, note 分開，這裡相容處理
+      // 但 expenses/entries 結構不同，這裡統一用新結構：
+      note: (rec.item || '') + ' ' + (rec.note || ''), 
+      type: 'expense',
       source: 'camera'
     });
   }
@@ -327,10 +307,11 @@ export function CameraExpensePage(){
   // 存為支出（單筆）
   el.querySelector('#save').addEventListener('click', async ()=>{
     const user = auth.currentUser;
-    if (!user || !user.email){
-      alert('請先登入帳號再記帳');
-      return;
-    }
+    if (!user){ alert('請先登入帳號再記帳'); return; }
+
+    const ledger = await getDefaultLedger(user.uid);
+    if (!ledger) { alert('請先新增帳本'); return; }
+
     const rec = {
       date: date.value || new Date().toISOString().slice(0,10),
       item: item.value || '未命名品項',
@@ -338,15 +319,12 @@ export function CameraExpensePage(){
       amount: parseFloat(String(amt.value || '0').replace(/[,\，]/g, '')),
       note: note.value || ''
     };
-    if (!Number.isFinite(rec.amount) || rec.amount <= 0){
-      alert('金額需為正數');
-      return;
-    }
+
+    if (!Number.isFinite(rec.amount) || rec.amount <= 0){ alert('金額需為正數'); return; }
+
     try{
-      await saveToFirestore(user.email, rec);
-      alert('已儲存支出');
-      // 視需求清空欄位：
-      // amt.value = ''; item.value=''; cat.value=''; note.value='';
+      await saveToFirestore(user.uid, ledger.id, rec);
+      alert(`已儲存支出到 [${ledger.name}]`);
     }catch(e){
       console.error(e);
       alert('寫入失敗：' + (e?.message || e));
