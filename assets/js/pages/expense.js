@@ -1,6 +1,6 @@
 // assets/js/pages/expense.js
 // Firestore: /users/{uid}/ledgers/{ledgerId}/entries/{autoId}
-// 修改：將「品項」欄位改為「帳本」選擇器，支援多帳本寫入
+// 修改：調整欄位順序，將「帳本」移到「金額」左邊
 
 import { auth, db } from '../firebase.js';
 import {
@@ -34,14 +34,14 @@ export function ExpensePage(){
       <select id="month" class="form-control" style="min-width:70px;flex:0 0 auto;"></select>
       <select id="day"   class="form-control" style="min-width:70px;flex:0 0 auto;"></select>
 
+      <select id="ledger" class="form-control" style="min-width:100px;flex:1 1 auto;">
+        <option value="" disabled selected>載入中...</option>
+      </select>
+
       <input id="amt"  type="text" inputmode="decimal" placeholder="金額"
              class="form-control" style="min-width:10px;flex:1 1 auto;"/>
       <input id="cat"  placeholder="分類" class="form-control"
              style="min-width:25px;flex:0 0 auto;"/>
-
-      <select id="ledger" class="form-control" style="min-width:100px;flex:1 1 auto;">
-        <option value="" disabled selected>載入中...</option>
-      </select>
 
       <input id="note" placeholder="備註" class="form-control"
              style="min-width:140px;flex:1 1 auto;"/>
@@ -59,7 +59,7 @@ export function ExpensePage(){
   const daySel   = el.querySelector('#day');
   const amtInput  = el.querySelector('#amt');
   const catInput  = el.querySelector('#cat');
-  const ledgerSel = el.querySelector('#ledger'); // 改為 Ledger
+  const ledgerSel = el.querySelector('#ledger'); // Ledger
   const noteInput = el.querySelector('#note');
   const addBtn    = el.querySelector('#add');
 
@@ -124,7 +124,7 @@ export function ExpensePage(){
     return parseFloat(s);
   };
 
-  // === ✅ (新增) 載入帳本列表 ===
+  // === 載入帳本列表 ===
   async function loadUserLedgers(uid) {
     ledgerSel.innerHTML = '<option value="" disabled>載入中...</option>';
     try {
@@ -183,14 +183,14 @@ export function ExpensePage(){
     const note = (noteInput.value||'').trim()||'';
     const type = typeSel.value;
     
-    // ✅ 取得選中的帳本 ID
+    // 取得選中的帳本 ID
     const ledgerId = ledgerSel.value;
     const ledgerName = ledgerSel.options[ledgerSel.selectedIndex]?.text;
 
     if(!ledgerId) { alert('請選擇帳本'); return; }
 
     try{
-      // ✅ 修改寫入路徑：users/{uid}/ledgers/{ledgerId}/entries
+      // 寫入路徑：users/{uid}/ledgers/{ledgerId}/entries
       await addDoc(collection(db, 'users', user.uid, 'ledgers', ledgerId, 'entries'), {
         type,
         date,
@@ -212,7 +212,7 @@ export function ExpensePage(){
   addBtn.addEventListener('click', addRecord);
 
   // === Enter 快速送出 ===
-  // 將 ledgerSel 加入監聽列表，移除 itemInput
+  // 將 ledgerSel 加入監聽列表
   const inputsForEnter = [amtInput, catInput, ledgerSel, noteInput, yearSel, monthSel, daySel, typeSel];
   function handleEnterToAdd(e){
     if (e.isComposing) return;
