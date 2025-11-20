@@ -2,456 +2,264 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>記帳設定｜SuperTool</title>
   <link rel="icon" type="image/png" href="../assets/img/supertool-favicon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <style>
+    /* =========================================
+       1. 全局與側邊欄佈局 (從 index.html 移植)
+       ========================================= */
+    :root {
+      --sidebar-width: 260px;
+      --header-height: 60px;
+      --panel-dark: #17202a;
+      --border-dark: #2b313a;
+    }
     * { box-sizing: border-box; }
     body {
-      font-family: system-ui, "微軟正黑體", -apple-system, sans-serif;
-      background: linear-gradient(135deg, #1e3a8a, #2563eb, #7e22ce, #db2777, #f97316, #fde047);
-      background-size: 400% 400%;
-      animation: shift 12s ease infinite;
       margin: 0;
+      background: #0f1318;
+      font-family: system-ui, "微軟正黑體", -apple-system, sans-serif;
+      display: flex; /* 左右佈局 */
+      min-height: 100vh;
       color: #fff;
+    }
+
+    /* 側邊欄 Sidebar */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--panel-dark);
+      border-right: 1px solid var(--border-dark);
+      height: 100vh;
+      position: fixed; left: 0; top: 0; z-index: 50;
+      display: flex; flex-direction: column;
+      transition: transform 0.3s ease;
+      overflow-y: auto;
+    }
+    .sidebar-header { padding: 20px; display: flex; align-items: center; border-bottom: 1px solid var(--border-dark); }
+    .brand { color: #fff; text-decoration: none; font-weight: 800; font-size: 22px; display: flex; align-items: center; gap: 12px; }
+    .brand img { height: 32px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); }
+    .sidebar-nav { padding: 20px 12px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    
+    .nav-btn {
+      background: transparent; border: none; color: #94a3b8;
+      padding: 12px 16px; border-radius: 12px; cursor: pointer;
+      text-align: left; font-size: 15px; font-weight: 500;
+      display: flex; align-items: center; gap: 12px;
+      transition: all 0.2s; text-decoration: none; width: 100%;
+    }
+    .nav-btn i { font-size: 18px; color: #64748b; transition: color 0.2s; }
+    .nav-btn:hover, .nav-btn.active { background: #1e293b; color: #fff; }
+    .nav-btn:hover i, .nav-btn.active i { color: #60a5fa; }
+    
+    .btn-premium-sidebar {
+      background: linear-gradient(135deg, #2563eb, #4f46e5);
+      color: #fff !important; margin-bottom: 12px;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      justify-content: center; font-weight: 700;
+    }
+    .btn-premium-sidebar i { color: #fff !important; }
+
+    .nav-divider { height: 1px; background: var(--border-dark); margin: 8px 0; }
+    .nav-label { font-size: 12px; color: #475569; font-weight: 700; text-transform: uppercase; padding: 12px 16px 4px; letter-spacing: 0.5px; }
+
+    /* 主內容區 */
+    .main-content {
+      margin-left: var(--sidebar-width);
+      width: calc(100% - var(--sidebar-width));
       min-height: 100vh;
     }
-    @keyframes shift {
-      0% { background-position: 0 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0 50%; }
-    }
-    
-    /* ====== 與首頁相同的導覽列（桌機一排、手機進漢堡） ====== */
-    .top{
-      background: var(--panel-dark, #17202a);
-      color: #fff;
-      padding: .6rem 1rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border-dark, #2b313a);
-      position: sticky;
-      top: 0;
-      z-index: 30;
-    }
-    .brand{ color: inherit; text-decoration: none; font-weight: 700; font-size: 20px; display:flex; align-items:center; gap:10px; }
-    .brand:hover { opacity: 0.8; }
-    
-    /* Nav 按鈕統一樣式 */
-    .nav .btn-nav, .nav .btn.btn-primary, .nav .btn.btn-outline-light, .nav .btn-nav:hover, .nav .btn.btn-primary:hover, .nav .btn.btn-outline-light:hover {
-      margin-right:.4rem;
-      border:none;
-      background:#1e293b;
-      color:#fff; padding:.4rem .8rem; border-radius:999px; cursor:pointer;
-      text-decoration:none; display:inline-block;
-      transition: background .2s;
-    }
-    .nav .btn-nav:hover{ background:#334155; color:#fff; }
-    
-    /* 特殊按鈕 */
-    .nav .btn.btn-primary { background: #2563eb; }
-    .nav .btn.btn-primary:hover { background: #1d4ed8; }
-    .nav .btn.btn-outline-light { background: transparent; border: 1px solid #4b5563; }
-    .nav .btn.btn-outline-light:hover { background: #334155; }
-    
-    .nav .gap{ display:inline-block; width:10px; }
 
-    /* 手機漢堡 */
-    .hamburger{ display:none; position:relative; width:40px; height:34px; border:1px solid var(--border-dark, #2b313a); border-radius:8px; background:#111722; cursor:pointer; margin-left:8px; }
-    .hamburger span{ display:block; height:4px; margin:5px 7px; background:#fff; border-radius:999px; transition:transform .25s ease, opacity .2s ease; }
-    .hamburger.active span:nth-child(1){ transform:translateY(9px) rotate(45deg); }
-    .hamburger.active span:nth-child(2){ opacity:0; }
-    .hamburger.active span:nth-child(3){ transform:translateY(-9px) rotate(-45deg); }
+    /* 背景漸層 (保留您原本的動畫) */
+    .gradient-wrap{ 
+      background: linear-gradient(135deg, #1e3a8a, #2563eb, #7e22ce, #db2777, #f97316, #fde047); 
+      background-size: 400% 400%; animation: shift 12s ease infinite;
+      min-height: 100vh; padding: 40px 20px; box-sizing: border-box; 
+    }
+    @keyframes shift { 0% { background-position: 0 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
 
-    @media (max-width: 768px){
-      .hamburger{ display:inline-block; }
-      .top .nav{
-        display:none;
-        position:absolute; left:0; right:0; top:100%;
-        background: var(--panel-dark, #17202a);
-        border-top:1px solid var(--border-dark, #2b313a);
-        padding:12px;
-        box-shadow:0 10px 30px rgba(0,0,0,.35);
-      }
-      .top .nav.open{
-        display:grid;
-        grid-template-columns: repeat(3, minmax(0,1fr));
-        gap:8px;
-      }
-      .top .nav.open .gap{ display:none; }
-      .top .nav.open .btn-nav,
-      .top .nav.open .btn.btn-primary,
-      .top .nav.open .btn.btn-outline-light {
-        width:100%;
-        justify-content:center;
-        border-radius:10px;
-        margin-right: 0;
-      }
+    /* 手機版 Header */
+    .mobile-header {
+      display: none; position: fixed; top: 0; left: 0; right: 0; height: var(--header-height);
+      background: rgba(23, 32, 42, 0.95); backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-dark); z-index: 60;
+      align-items: center; justify-content: flex-end; padding: 0 16px;
     }
-    
-    /* Main Container */
-    main {
-      max-width: 1200px;
-      margin: 30px auto;
-      padding: 0 20px 40px;
+    .hamburger { width: 40px; height: 40px; background: transparent; border: none; color: #fff; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 40; backdrop-filter: blur(3px); }
+
+    @media (max-width: 768px) {
+      .mobile-header { display: flex; }
+      .sidebar { transform: translateX(-100%); width: 280px; box-shadow: 5px 0 20px rgba(0,0,0,0.5); }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay.show { display: block; }
+      .main-content { margin-left: 0; width: 100%; padding-top: var(--header-height); }
     }
+
+    /* =========================================
+       2. 頁面專屬樣式 (完全保留)
+       ========================================= */
+    main { max-width: 1000px; margin: 0 auto; }
     
     /* Tabs */
-    .tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-      background: rgba(15, 23, 42, 0.8);
-      padding: 12px;
-      border-radius: 12px;
-      backdrop-filter: blur(10px);
-    }
-    .tabs button {
-      flex: 1;
-      min-width: 120px;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 8px;
-      background: rgba(30, 41, 59, 0.6);
-      color: #cbd5e1;
-      font-weight: 600;
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-    .tabs button:hover {
-      background: rgba(51, 65, 85, 0.8);
-      transform: translateY(-1px);
-    }
-    .tabs button.active {
-      background: #2563eb;
-      color: #fff;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-    }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; background: rgba(15, 23, 42, 0.8); padding: 8px; border-radius: 12px; backdrop-filter: blur(10px); }
+    .tabs button { flex: 1; min-width: 120px; padding: 10px 16px; border: none; border-radius: 8px; background: rgba(30, 41, 59, 0.6); color: #cbd5e1; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+    .tabs button:hover { background: rgba(51, 65, 85, 0.8); transform: translateY(-1px); }
+    .tabs button.active { background: #2563eb; color: #fff; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); }
     
     /* Content Card */
-    .content-card {
-      background: rgba(15, 23, 42, 0.9);
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .content-card h2 {
-      margin: 0 0 20px 0;
-      font-size: 24px;
-      font-weight: 700;
-    }
-    .content-card h3 {
-      font-size: 18px;
-      font-weight: 600;
-    }
+    .content-card { background: rgba(15, 23, 42, 0.9); border-radius: 16px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+    .content-card h2 { margin: 0 0 20px 0; font-size: 24px; font-weight: 700; }
+    .content-card h3 { font-size: 18px; font-weight: 600; }
     
     /* Ledger Grid */
-    .ledger-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 16px;
-    }
-    .ledger-card {
-      background: rgba(30, 41, 59, 0.8);
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-      transition: all 0.2s;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .ledger-card:not(.add):hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-    }
-    .ledger-card .cover {
-      height: 100px;
-      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-    }
-    .ledger-card .body {
-      padding: 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 8px;
-    }
-    .ledger-name {
-      font-size: 16px;
-      font-weight: 600;
-      color: #f1f5f9;
-      word-break: break-word;
-    }
-    .badge-default {
-      background: #10b981;
-      color: white;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .ledger-actions {
-      display: flex;
-      gap: 6px;
-      flex-shrink: 0;
-    }
-    .ledger-actions .btn {
-      background: rgba(37, 99, 235, 0.8);
-      border: none;
-      border-radius: 6px;
-      color: #fff;
-      padding: 6px 10px;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-size: 14px;
-    }
-    .ledger-actions .btn:hover {
-      background: #2563eb;
-      transform: scale(1.05);
-    }
+    .ledger-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+    .ledger-card { background: rgba(30,41,59,0.8); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); transition: all 0.2s; border: 1px solid rgba(255,255,255,0.05); }
+    .ledger-card:not(.add):hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
+    .ledger-card .cover { height: 100px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); }
+    .ledger-card .body { padding: 14px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .ledger-name { font-size: 16px; font-weight: 600; color: #f1f5f9; word-break: break-word; }
+    .badge-default { background: #10b981; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+    .ledger-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .ledger-actions .btn { background: rgba(37, 99, 235, 0.8); border: none; border-radius: 6px; color: #fff; padding: 6px 10px; cursor: pointer; transition: all 0.2s; font-size: 14px; }
+    .ledger-actions .btn:hover { background: #2563eb; transform: scale(1.05); }
     
     /* Add Card */
-    .ledger-card.add {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 180px;
-      border: 2px dashed rgba(148, 163, 184, 0.5);
-      background: rgba(30, 41, 59, 0.3);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .ledger-card.add:hover {
-      background: rgba(30, 41, 59, 0.6);
-      border-color: #3b82f6;
-    }
-    .add-inner {
-      text-align: center;
-      padding: 20px;
-    }
-    .add-inner .big {
-      font-size: 32px;
-      color: #94a3b8;
-      margin-bottom: 12px;
-      font-weight: 300;
-    }
-    .add-inner input {
-      width: 100%;
-      margin-bottom: 10px;
-    }
+    .ledger-card.add { display: flex; align-items: center; justify-content: center; min-height: 180px; border: 2px dashed rgba(148, 163, 184, 0.5); background: rgba(30, 41, 59, 0.3); cursor: pointer; transition: all 0.2s; }
+    .ledger-card.add:hover { background: rgba(30, 41, 59, 0.6); border-color: #3b82f6; }
+    .add-inner { text-align: center; padding: 20px; }
+    .add-inner .big { font-size: 32px; color: #94a3b8; margin-bottom: 12px; font-weight: 300; }
+    .add-inner input { width: 100%; margin-bottom: 10px; }
     
     /* Rename Wrap */
-    .rename-wrap {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      width: 100%;
-    }
-    .rename-wrap input {
-      width: 100%;
-    }
-    .rename-wrap button {
-      padding: 6px 12px;
-      font-size: 13px;
-    }
+    .rename-wrap { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+    .rename-wrap input { width: 100%; }
+    .rename-wrap button { padding: 6px 12px; font-size: 13px; }
     
     /* Forms */
-    input, select, textarea {
-      background: rgba(30, 41, 59, 0.6);
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      border-radius: 8px;
-      padding: 10px 12px;
-      color: #f1f5f9;
-      font-size: 14px;
-      transition: all 0.2s;
-    }
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: #3b82f6;
-      background: rgba(30, 41, 59, 0.8);
-    }
-    input::placeholder {
-      color: #64748b;
-    }
+    input, select, textarea { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 8px; padding: 10px 12px; color: #f1f5f9; font-size: 14px; transition: all 0.2s; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6; background: rgba(30, 41, 59, 0.8); }
+    input::placeholder { color: #64748b; }
     
     /* Buttons */
-    .btn {
-      background: #2563eb;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 10px 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-size: 14px;
-    }
-    .btn:hover {
-      background: #1d4ed8;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-    }
-    .btn:active {
-      transform: translateY(0);
-    }
-    .btn-save {
-      background: #10b981;
-    }
-    .btn-save:hover {
-      background: #059669;
-    }
-    .btn-cancel {
-      background: #64748b;
-    }
-    .btn-cancel:hover {
-      background: #475569;
-    }
+    .btn { background: #2563eb; color: white; border: none; border-radius: 8px; padding: 10px 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 14px; }
+    .btn:hover { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); }
+    .btn:active { transform: translateY(0); }
+    .btn-save { background: #10b981; }
+    .btn-save:hover { background: #059669; }
+    .btn-cancel { background: #64748b; }
+    .btn-cancel:hover { background: #475569; }
     
     /* Utility */
-    .muted {
-      color: #94a3b8;
-      font-size: 14px;
-    }
-    .swipe-hint {
-      font-size: 13px;
-    }
+    .muted { color: #94a3b8; font-size: 14px; }
+    .swipe-hint { font-size: 13px; }
     
-    /* Responsive */
-    @media (max-width: 768px) {
-      main {
-        margin: 20px auto;
-        padding: 0 12px 30px;
-      }
-      .tabs {
-        padding: 8px;
-      }
-      .tabs button {
-        font-size: 13px;
-        padding: 8px 12px;
-        min-width: 100px;
-      }
-      .content-card {
-        padding: 16px;
-      }
-      .ledger-grid {
-        grid-template-columns: 1fr;
-      }
-      .swipe-hint {
-        display: inline;
-      }
-    }
-    @media (min-width: 769px) {
-      .swipe-hint {
-        display: none;
-      }
-    }
+    /* Modal (來自您之前的 css) */
+    .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: none; align-items: center; justify-content: center; z-index: 9999; }
+    .modal-mask.show { display: flex; }
+    .modal-card { background: #fff; color: #111; border-radius: 12px; overflow: hidden; width: min(500px, 90vw); }
+    .modal-hd { padding: 12px 16px; background: #f5f7fb; border-bottom: 1px solid #eee; display:flex; justify-content:space-between; }
+    .modal-bd { padding: 16px; }
+    .form-ctl { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; margin-right: 8px; }
+    .btn-primary { background: #2563eb; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+    .btn-line { background: #fff; border: 1px solid #ddd; color: #333; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
   </style>
 </head>
 <body>
-  
-  <header class="top">
-    <a href="../index.html#dashboard" class="brand">
-      <img src="../assets/img/supertool-logo.png" alt="SuperTool Logo" style="height:36px; vertical-align:middle; margin-right:10px;">
-    </a>
 
-    <button id="menuToggle" class="hamburger" aria-label="開啟選單" aria-controls="mainNav" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
-
-    <nav class="nav" id="mainNav">
-      <a href="../index.html#dashboard" class="btn btn-nav">首頁</a>
-      <a href="../index.html#auth" class="btn btn-nav">帳號</a>
-      <a href="../book.html" class="btn btn-nav">記帳</a>
-      <a href="./accounting-settings.html#ledgers" class="btn btn-nav">我的</a>
-      <a href="../index.html#acct_detail" class="btn btn-nav">明細</a>
-      <a href="../index.html#acct_analysis" class="btn btn-nav">分析</a>
-      <a href="../cart-demo.html" class="btn btn-nav">購物</a>
-      <a href="../index.html#admin" class="btn btn-nav">後台</a>
-      <a href="../index.html#settings" class="btn btn-nav">設定</a>
-      <a href="../index.html#backup" class="btn btn-nav">備份</a>
-      <a href="../stock/stocks.html" class="btn btn-primary">股票</a>
-      <span class="gap"></span>
-      <a href="../index.html#contact" class="btn btn-outline-light" id="goContact">聯絡我們</a>
-    </nav>
+  <header class="mobile-header">
+    <button class="hamburger" id="mobileMenuBtn"><i class="bi bi-list"></i></button>
   </header>
-  
-  <main>
-    <div class="tabs">
-      <button data-tab="ledgers" class="active">📒 管理帳本</button>
-      <button data-tab="budget">💰 管理預算</button>
-      <button data-tab="categories">🏷️ 管理類型</button>
-      <button data-tab="currency">💱 管理貨幣</button>
-      <button data-tab="chat">💬 聊天設定</button>
-      <button data-tab="general">⚙️ 一般設定</button>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../index.html#dashboard" class="brand">
+        <img src="../assets/img/supertool-logo.png" alt="SuperTool">
+        SuperTool
+      </a>
     </div>
-    
-    <div id="app"></div>
-  </main>
+    <nav class="sidebar-nav">
+      <button class="nav-btn btn-premium-sidebar" onclick="location.href='../index.html'">
+        <i class="bi bi-gem"></i> Get Premium
+      </button>
+
+      <div class="nav-label">主選單</div>
+      <a href="../index.html#dashboard" class="nav-btn"><i class="bi bi-grid-fill"></i> 首頁</a>
+      <a href="../index.html#auth" class="nav-btn"><i class="bi bi-person-circle"></i> 帳號</a>
+
+      <div class="nav-divider"></div>
+      <div class="nav-label">財務管理</div>
+      <a href="../book.html" class="nav-btn"><i class="bi bi-journal-plus"></i> 記帳</a>
+      <a href="#ledgers" class="nav-btn active"><i class="bi bi-wallet2"></i> 我的帳本</a>
+      <a href="../index.html#acct_detail" class="nav-btn"><i class="bi bi-list-task"></i> 明細查詢</a>
+      <a href="../index.html#acct_analysis" class="nav-btn"><i class="bi bi-pie-chart-fill"></i> 報表分析</a>
+
+      <div class="nav-divider"></div>
+      <div class="nav-label">工具與商城</div>
+      <a href="../cart-demo.html" class="nav-btn"><i class="bi bi-bag-heart-fill"></i> 購物商城</a>
+      <a href="../stock/stocks.html" class="nav-btn btn-stock"><i class="bi bi-graph-up-arrow"></i> 股票追蹤</a>
+
+      <div class="nav-divider"></div>
+      <div class="nav-label">系統</div>
+      <a href="../index.html#admin" class="nav-btn"><i class="bi bi-shield-lock-fill"></i> 後台管理</a>
+      <a href="../index.html#settings" class="nav-btn"><i class="bi bi-gear-fill"></i> 設定</a>
+      
+      <div style="flex:1"></div>
+      <a href="../index.html#contact" class="nav-btn" id="btnContact"><i class="bi bi-envelope-fill"></i> 聯絡我們</a>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="gradient-wrap">
+      <main>
+        <div class="tabs">
+          <button data-tab="ledgers" class="active">📒 管理帳本</button>
+          <button data-tab="budget">💰 管理預算</button>
+          <button data-tab="categories">🏷️ 管理類型</button>
+          <button data-tab="currency">💱 管理貨幣</button>
+          <button data-tab="chat">💬 聊天設定</button>
+          <button data-tab="general">⚙️ 一般設定</button>
+        </div>
+        <div id="app"></div>
+      </main>
+    </div>
+  </div>
   
   <script type="module">
-    // 處理分頁切換
+    // 分頁切換邏輯
     document.querySelectorAll('.tabs button').forEach(btn => {
       btn.addEventListener('click', () => {
         const tab = btn.dataset.tab;
-        
-        // 更新按鈕狀態
         document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        
-        // 更新 URL hash
         location.hash = '#' + tab;
       });
     });
-    
-    // 監聽 hash 變化，同步按鈕狀態
     window.addEventListener('hashchange', () => {
       const hash = location.hash.replace('#', '') || 'ledgers';
       document.querySelectorAll('.tabs button').forEach(btn => {
-        if (btn.dataset.tab === hash) {
-          btn.classList.add('active');
-        } else {
-          btn.classList.remove('active');
-        }
+        btn.classList.toggle('active', btn.dataset.tab === hash);
       });
     });
   </script>
   
-  <script type="module" src="../assets/js/pages/accounting-settings.js"></script>
+  <script type="module" src="../assets/js/pages/accounting-settings.js?v=9999"></script>
 
   <script>
-    // 手機漢堡選單控制（跟首頁一樣）
-    (function(){
-      const toggle = document.getElementById('menuToggle');
-      const nav = document.getElementById('mainNav');
-      if(!toggle || !nav) return;
-
-      const mq = window.matchMedia('(max-width: 768px)');
-
-      function closeMenu(){
-        nav.classList.remove('open');
-        toggle.classList.remove('active');
-        toggle.setAttribute('aria-expanded','false');
-      }
-
-      toggle.addEventListener('click', ()=>{
-        const opened = nav.classList.toggle('open');
-        toggle.classList.toggle('active', opened);
-        toggle.setAttribute('aria-expanded', opened ? 'true' : 'false');
-      });
-
-      window.addEventListener('resize', ()=>{ if(!mq.matches) closeMenu(); });
-
-      document.addEventListener('click', (e)=>{
-        if (!mq.matches) return;
-        if (e.target === toggle || toggle.contains(e.target)) return;
-        if (!nav.contains(e.target)) closeMenu();
-      });
-    })();
+    // 手機側邊欄 JS
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    function toggleMenu() {
+      sidebar.classList.toggle('open');
+      sidebarOverlay.classList.toggle('show');
+    }
+    if(mobileMenuBtn) {
+      mobileMenuBtn.addEventListener('click', toggleMenu);
+      sidebarOverlay.addEventListener('click', toggleMenu);
+    }
   </script>
 </body>
 </html>
