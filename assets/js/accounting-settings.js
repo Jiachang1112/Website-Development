@@ -6,7 +6,6 @@ import {
   doc, getDoc, setDoc, updateDoc, serverTimestamp,
   collection, addDoc, deleteDoc, query, orderBy, getDocs, where
 } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js';
-import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js';
 
 // ========== 工具函數 ==========
 const $ = (s, r=document) => r.querySelector(s);
@@ -23,12 +22,11 @@ const toast = (msg, type='info') => {
 console.log('🚀 記帳設定系統啟動');
 
 // ========== 狀態管理 ==========
-let UID = null;
+let UID = 'demo-user-12345'; // 固定假 UID，先顯示介面
 let currentLedgerId = null;
 
 // ========== 取得預設帳本 ==========
 async function getDefaultLedger() {
-  if (!UID) return null;
   try {
     // 先找 isDefault = true
     const q1 = query(collection(db, 'users', UID, 'ledgers'), where('isDefault', '==', true));
@@ -47,9 +45,7 @@ async function getDefaultLedger() {
 
 // ========== 1. 管理帳本 ==========
 async function renderLedgers() {
-  const container = $('#app');
-  if(!container) return;
-
+  const container = $('#content');
   container.innerHTML = `
     <div class="settings-card">
       <h3>📒 管理帳本</h3>
@@ -66,7 +62,6 @@ async function renderLedgers() {
 
   // 新增帳本
   $('#btnAddLedger').onclick = async () => {
-    if(!UID) return toast('請先登入', 'error');
     const name = $('#newLedgerName').value.trim();
     if (!name) return toast('請輸入帳本名稱', 'warning');
     
@@ -92,14 +87,8 @@ async function renderLedgers() {
 
 async function loadLedgerList() {
   const list = $('#ledgerList');
-  if(!list) return;
   list.innerHTML = '<div class="loading">正在載入帳本...</div>';
   
-  if(!UID) {
-     list.innerHTML = '<div class="empty">請先登入</div>';
-     return;
-  }
-
   try {
     const q = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt', 'asc'));
     const snap = await getDocs(q);
@@ -130,6 +119,7 @@ async function loadLedgerList() {
     // 設定當前帳本
     if (!currentLedgerId && !snap.empty) {
       currentLedgerId = snap.docs[0].id;
+      console.log('✅ 預設帳本:', currentLedgerId);
     }
   } catch (error) {
     console.error('❌ 載入帳本失敗:', error);
@@ -147,6 +137,7 @@ window.deleteLedger = async (id, isDefault) => {
   
   await deleteDoc(doc(db, 'users', UID, 'ledgers', id));
   
+  // 如果刪的是預設，重新指定第一本為預設
   if (isDefault) {
     const q = query(collection(db, 'users', UID, 'ledgers'), orderBy('createdAt', 'asc'));
     const snap = await getDocs(q);
@@ -162,25 +153,23 @@ window.deleteLedger = async (id, isDefault) => {
   loadLedgerList();
 };
 
-// ========== 2. 管理預算 (已修正字體顏色) ==========
+// ========== 2. 管理預算 ==========
 async function renderBudgets() {
   if (!currentLedgerId) currentLedgerId = await getDefaultLedger();
-  const container = $('#app');
-  
   if (!currentLedgerId) {
-    container.innerHTML = '<div class="settings-card"><div class="empty">請先建立帳本</div></div>';
+    $('#content').innerHTML = '<div class="settings-card"><div class="empty">請先建立帳本</div></div>';
     return;
   }
 
-  // ✅ 修正：input 加上 style="color:#1f2937"
+  const container = $('#content');
   container.innerHTML = `
     <div class="settings-card">
       <h3>💰 管理預算</h3>
       <div class="add-form multi">
-        <input id="budgetName" placeholder="預算名稱" class="form-input" style="color:#1f2937">
-        <input id="budgetAmount" type="number" placeholder="金額" class="form-input" style="color:#1f2937">
-        <input id="budgetStart" type="date" class="form-input" style="color:#1f2937">
-        <input id="budgetEnd" type="date" class="form-input" style="color:#1f2937">
+        <input id="budgetName" placeholder="預算名稱" class="form-input">
+        <input id="budgetAmount" type="number" placeholder="金額" class="form-input">
+        <input id="budgetStart" type="date" class="form-input">
+        <input id="budgetEnd" type="date" class="form-input">
         <button id="btnAddBudget" class="btn btn-primary">新增</button>
       </div>
       <div id="budgetList" class="item-list">載入中...</div>
@@ -222,8 +211,6 @@ async function renderBudgets() {
 
 async function loadBudgetList() {
   const list = $('#budgetList');
-  if(!list) return;
-  
   const q = query(collection(db, 'users', UID, 'ledgers', currentLedgerId, 'budgets'), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
 
@@ -258,17 +245,15 @@ window.deleteBudget = async (id) => {
   loadBudgetList();
 };
 
-// ========== 3. 管理類型 (已修正字體顏色) ==========
+// ========== 3. 管理類型 ==========
 async function renderCategories() {
   if (!currentLedgerId) currentLedgerId = await getDefaultLedger();
-  const container = $('#app');
-  
   if (!currentLedgerId) {
-    container.innerHTML = '<div class="settings-card"><div class="empty">請先建立帳本</div></div>';
+    $('#content').innerHTML = '<div class="settings-card"><div class="empty">請先建立帳本</div></div>';
     return;
   }
 
-  // ✅ 修正：input 加上 style="color:#1f2937"
+  const container = $('#content');
   container.innerHTML = `
     <div class="settings-card">
       <h3>🏷️ 管理類型</h3>
@@ -277,7 +262,7 @@ async function renderCategories() {
         <button class="tab-btn" data-type="income">收入類型</button>
       </div>
       <div class="add-form">
-        <input id="categoryName" placeholder="類型名稱" class="form-input" style="color:#1f2937">
+        <input id="categoryName" placeholder="類型名稱" class="form-input">
         <button id="btnAddCategory" class="btn btn-primary">新增</button>
       </div>
       <div id="categoryList" class="item-list">載入中...</div>
@@ -354,15 +339,15 @@ async function renderCategories() {
   };
 }
 
-// ========== 4. 管理貨幣 (已修正字體顏色) ==========
+// ========== 4. 管理貨幣 ==========
 async function renderCurrency() {
-  const container = $('#app');
+  const container = $('#content');
   container.innerHTML = `
     <div class="settings-card">
       <h3>💱 管理貨幣</h3>
       <div class="add-form multi">
-        <input id="currencyCode" placeholder="幣別代碼 (USD)" class="form-input" maxlength="3" style="color:#1f2937">
-        <input id="currencyRate" type="number" step="0.0001" placeholder="對 TWD 匯率 (例: 0.033)" class="form-input" style="color:#1f2937">
+        <input id="currencyCode" placeholder="幣別代碼 (USD)" class="form-input" maxlength="3">
+        <input id="currencyRate" type="number" step="0.0001" placeholder="對 TWD 匯率 (例: 0.033)" class="form-input">
         <button id="btnAddRate" class="btn btn-primary">新增匯率</button>
       </div>
       <div class="tip">💡 範例：USD 匯率 0.033 表示 1 TWD ≈ 0.033 USD</div>
@@ -400,8 +385,6 @@ async function renderCurrency() {
 
 async function loadRateList() {
   const list = $('#rateList');
-  if (!UID) { list.innerHTML = '<div class="empty">請先登入</div>'; return; }
-
   const userRef = doc(db, 'users', UID);
   const snap = await getDoc(userRef);
   const rates = snap.data()?.settings?.currencies?.rates || {};
@@ -445,13 +428,13 @@ async function loadRateList() {
 
 // ========== 5. 聊天設定 ==========
 async function renderChat() {
-  const container = $('#app');
+  const container = $('#content');
   container.innerHTML = `
     <div class="settings-card">
       <h3>💬 聊天設定</h3>
       <div class="form-group">
         <label>AI 角色</label>
-        <select id="persona" class="form-select" style="color:#1f2937">
+        <select id="persona" class="form-select">
           <option value="minimal">極簡會計師</option>
           <option value="friendly">溫暖助手</option>
           <option value="strict">嚴格教練</option>
@@ -459,7 +442,7 @@ async function renderChat() {
       </div>
       <div class="form-group">
         <label>自訂描述</label>
-        <textarea id="personaCustom" class="form-textarea" rows="3" placeholder="可選填，描述語氣、風格..." style="color:#1f2937"></textarea>
+        <textarea id="personaCustom" class="form-textarea" rows="3" placeholder="可選填，描述語氣、風格..."></textarea>
       </div>
       <div class="form-check">
         <input type="checkbox" id="cmdEnabled">
@@ -469,6 +452,7 @@ async function renderChat() {
     </div>
   `;
 
+  // 載入現有設定
   const userRef = doc(db, 'users', UID);
   const snap = await getDoc(userRef);
   const chat = snap.data()?.settings?.chat || {};
@@ -492,7 +476,7 @@ async function renderChat() {
 
 // ========== 6. 一般設定 ==========
 async function renderGeneral() {
-  const container = $('#app');
+  const container = $('#content');
   container.innerHTML = `
     <div class="settings-card">
       <h3>⚙️ 一般設定</h3>
@@ -505,12 +489,13 @@ async function renderGeneral() {
       </div>
       <div class="form-group">
         <label>提醒時間</label>
-        <input type="time" id="remindTime" class="form-input" value="21:00" style="color:#1f2937">
+        <input type="time" id="remindTime" class="form-input" value="21:00">
       </div>
       <button id="btnSaveGeneral" class="btn btn-primary">儲存設定</button>
     </div>
   `;
 
+  // 載入現有設定
   const userRef = doc(db, 'users', UID);
   const snap = await getDoc(userRef);
   const general = snap.data()?.settings?.general || {};
@@ -555,25 +540,16 @@ function route() {
 // ========== 初始化 ==========
 (async function init() {
   console.log('🚀 記帳設定系統啟動');
+  console.log('📦 使用固定 UID:', UID);
   
-  // 監聽 Auth 狀態
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      UID = user.uid;
-      console.log('✅ UID 已設定:', UID);
-      
-      // 登入後觸發路由渲染
-      if (!location.hash) location.hash = '#ledgers';
-      route();
-    } else {
-      UID = null;
-      const app = $('#app');
-      if (app) app.innerHTML = '<div class="settings-card"><div class="empty">請先登入帳號</div></div>';
-    }
-  });
+  // 初始路由
+  if (!location.hash) {
+    location.hash = '#ledgers';
+  }
+  route();
   
   // 監聽 hash 變化
-  window.addEventListener('hashchange', () => {
-    if (UID) route(); 
-  });
+  window.addEventListener('hashchange', route);
+  
+  console.log('✅ 初始化完成');
 })();
