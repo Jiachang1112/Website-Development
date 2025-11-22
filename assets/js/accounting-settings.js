@@ -153,7 +153,7 @@ window.deleteLedger = async (id, isDefault) => {
   loadLedgerList();
 };
 
-// ========== 2. 管理預算 ==========
+// ========== 2. 管理預算 (已修改：字體加深加粗) ==========
 async function renderBudgets() {
   if (!currentLedgerId) currentLedgerId = await getDefaultLedger();
   if (!currentLedgerId) {
@@ -162,7 +162,37 @@ async function renderBudgets() {
   }
 
   const container = $('#content');
+
+  // 注入樣式：強制輸入框提示字與內容文字變深變粗
+  const customStyles = `
+    <style>
+      /* 輸入框提示字 (Placeholder) */
+      .form-input::placeholder {
+        color: #4b5563 !important;   /* 深灰 */
+        opacity: 1 !important;
+        font-weight: 700 !important; /* 加粗 */
+      }
+      /* 輸入框文字 */
+      .form-input {
+        color: #000000 !important;   /* 純黑 */
+        font-weight: 700 !important; /* 加粗 */
+      }
+      /* 列表標題 */
+      .budget-item-name {
+        color: #000000 !important;
+        font-weight: 800 !important; /* 特粗 */
+        font-size: 1.1rem !important;
+      }
+      /* 列表副標題 */
+      .budget-item-meta {
+        color: #374151 !important;
+        font-weight: 600 !important;
+      }
+    </style>
+  `;
+
   container.innerHTML = `
+    ${customStyles}
     <div class="settings-card">
       <h3>💰 管理預算</h3>
       <div class="add-form multi">
@@ -227,10 +257,11 @@ async function loadBudgetList() {
     
     const item = document.createElement('div');
     item.className = 'list-item';
+    // 加入自訂 class 以套用加深樣式
     item.innerHTML = `
       <div class="item-info">
-        <div class="item-name">${data.name}</div>
-        <div class="item-meta">NT$ ${data.amount?.toLocaleString()} | ${start} ~ ${end}</div>
+        <div class="item-name budget-item-name">${data.name}</div>
+        <div class="item-meta budget-item-meta">NT$ ${data.amount?.toLocaleString()} | ${start} ~ ${end}</div>
       </div>
       <button class="btn-sm btn-danger" onclick="window.deleteBudget('${doc.id}')">刪除</button>
     `;
